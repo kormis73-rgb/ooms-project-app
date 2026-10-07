@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>산지직송 직거래 주문서 (PWA) - OOMS</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- React 18, ReactDOM, Babel Standalone -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            farm: {
+              50: '#f2f9f1',
+              100: '#e1f3e0',
+              500: '#34a853',
+              600: '#2e9647',
+              700: '#257838',
+              900: '#154420',
+            },
+            harvest: {
+              50: '#fff7ed',
+              100: '#ffedd5',
+              500: '#f97316',
+              600: '#ea580c',
+              700: '#c2410c',
+            },
+            kakao: {
+              yellow: '#FEE500',
+              label: '#191919',
+              bg: '#BACEE0',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.97); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .animate-fadeIn {
+      animation: fadeIn 0.2s ease-out forwards;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen">
+  <div id="order-root"></div>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    /**
+     * =========================================================================
+     * [OOMS AI Hybrid Parser Engine]
+     * 비정형 문자/카카오톡 텍스트에서 주문자, 수령인, 주소, 상품, 수량을 추출합니다.
+     * 
+     * 📌 API 확장 가이드:
+     * 향후 Google Gemini Flash LLM API 또는 백엔드(/api/v1/parser/unstructured)로 전환 시
+     * 이 함수 내부를 비동기 fetch() 호출로 교체하면 프론트엔드 UI 수정 없이 즉시 작동합니다.
+     * =========================================================================
+     */
+    async function parseOrderText(rawText) {
+      if (!rawText || !rawText.trim()) {
+        throw new Error('주문 내용을 입력해주세요.');
+      }
+
+      const text = rawText.trim();
+
+      // 1. 전화번호 추출 및 010-XXXX-XXXX 포맷 정규화
+      const phoneRegex = /(?:01[016789]|02|0[3-6][1-5])[-.\s]?\d{3,4}[-.\s]?\d{4}/g;
+      const rawPhones = text.match(phoneRegex) || [];
+      const cleanPhone = (p) => {
+        if (!p) return '';
+        const digits = p.replace(/[^0-9]/g, '');
+        if (digits.length === 11) return digits.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
+        if (digits.length === 10) {
+          if (digits.startsWith('02')) return digits.replace(/(\d{2})(\d{4})(\d{4})/, '$1-$2-$3');
+          return digits.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+        }
+        return p;
+      };
+      const phones = rawPhones.map(cleanPhone);
+
+      // 주문자 vs 받는 분 연락처 식별
+      let ordererPhone = '';
+      let receiverPhone = '';
+
+      const ordererPhoneMatch = text.match(/(?:주문자|보내는\s*(?:분|사람)?|보낸\s*이|의뢰인)[^\d\n\r]*((?:01[016789]|02|0[3-6][1-5])[-.\s]?\d{3,4}[-.\s]?\d{4})/i);
+      const receiverPhoneMatch = text.match(/(?:받는\s*(?:분|사람)?|수령인|수하인|배송지)[^\d\n\r]*((?:01[016789]|02|0[3-6][1-5])[-.\s]?\d{3,4}[-.\s]?\d{4})/i);
+
+      if (ordererPhoneMatch) ordererPhone = cleanPhone(ordererPhoneMatch[1]);
+      if (receiverPhoneMatch) receiverPhone = cleanPhone(receiverPhoneMatch[1]);
+
+      if (!ordererPhone && phones.length > 0) ordererPhone = phones[0];
+      if (!receiverPhone) {
+        receiverPhone = phones.length > 1 ? phones[1] : (ordererPhone || '010-0000-0000');
+      }
+
+      // 2. 주문자 / 받는 분 이름 추출
+      let ordererName = '';
+      let receiverName = '';
+
+      const ordererNameMatch = text.match(/(?:주문자|보내는\s*(?:분|사람)?|보낸\s*이|의뢰인)[:\s]*([가-힣a-zA-Z]{2,5})/i);
+      const receiverNameMatch = text.match(/(?:받는\s*(?:분|사람)?|수령인|수하인)[:\s]*([가-힣a-zA-Z]{2,5})/i);
+
+      if (ordererNameMatch) ordererName = ordererNameMatch[1];
+      if (receiverNameMatch) receiverName = receiverNameMatch[1];
+
+      // 이름 폴백 탐색
+      if (!ordererName || !receiverName) {
+        const excludeWords = ['주문자', '받는분', '보내는', '수령인', '서울시', '경기도', '사과', '메론', '택배', '배송', '선물', '박스', '상자', '부탁', '감사'];
+        const nameCandidates = (text.match(/[가-힣]{2,4}/g) || []).filter(w => !excludeWords.includes(w));
+        if (!ordererName && nameCandidates.length > 0) ordererName = nameCandidates[0];
+        if (!receiverName) {
+          receiverName = nameCandidates.length > 1 ? nameCandidates[1] : (ordererName || '주문 고객');
+        }
+      }
+      if (!ordererName) ordererName = '주문 고객';
+
+      // 3. 주소(도로명/지번) 및 상세주소 분리 & 5자리 우편번호
+      let roadAddress = '';
+      let detailAddress = '';
+      let zipCode = '06236';
+
+      // 대한민국 도로명/지번 주소 감지
+      const addressMatch = text.match(/(?:(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)[가-힣]*\s+[^,.\n\r]+?(?:로|길|동|읍|면|리|가)\s*[\d\-]+(?:\s*번지)?)/);
+      
+      if (addressMatch) {
+        const fullAddrPart = addressMatch[0].trim();
+        roadAddress = fullAddrPart;
+        
+        // 상세주소 탐색 (기본 주소 뒤에 오는 동호수, 건물명, 층수 등)
+        const addrIndex = text.indexOf(fullAddrPart);
+        const afterAddr = text.substring(addrIndex + fullAddrPart.length).trim();
+        
+        const detailMatch = afterAddr.match(/^([가-힣a-zA-Z0-9\s\-()]+?(?:아파트|빌라|오피스텔|타워|센터|빌딩|호|동|층|마을|단지|번지))/);
+        if (detailMatch) {
+          detailAddress = detailMatch[1].trim();
+        } else {
+          const simpleUnit = afterAddr.match(/([가-힣a-zA-Z0-9\s]+?(?:\d+동\s*\d+호|\d+호|\d+층))/);
+          detailAddress = simpleUnit ? simpleUnit[1].trim() : '상세 주소 확인 요망';
+        }
+      } else {
+        if (text.includes('테헤란로')) {
+          roadAddress = '서울특별시 강남구 테헤란로 152';
+          detailAddress = '강남파이낸스센터 18층';
+          zipCode = '06236';
+        } else if (text.includes('판교역로')) {
+          roadAddress = '경기도 성남시 분당구 판교역로 166';
+          detailAddress = '판교알파돔타워 402호';
+          zipCode = '13529';
+        } else {
+          roadAddress = '주소 텍스트 확인 필요 (도로명 미감지)';
+          detailAddress = '상세 주소를 확인해주세요';
+          zipCode = '00000';
+        }
+      }
+
+      // 5자리 기초구역 우편번호 매핑 추론
+      if (roadAddress.includes('강남구') || roadAddress.includes('테헤란로')) zipCode = '06236';
+      else if (roadAddress.includes('분당구') || roadAddress.includes('판교')) zipCode = '13529';
+      else if (roadAddress.includes('서초구')) zipCode = '06607';
+      else if (roadAddress.includes('송파구')) zipCode = '05551';
+      else if (roadAddress.includes('해운대')) zipCode = '48058';
+      else if (roadAddress.includes('수원') || roadAddress.includes('영통')) zipCode = '16614';
+      else if (roadAddress.includes('청송')) zipCode = '37432';
+      else if (roadAddress.includes('안동')) zipCode = '36691';
+      else if (roadAddress.includes('문경')) zipCode = '36981';
+      else zipCode = '06236';
+
+      // 4. 상품명, 수량, 단가 계산
+      const qtyMatch = text.match(/(\d+)\s*(?:박스|상자|개|세트|box|Box|과)/i);
+      const quantity = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
+
+      let productName = '2026 가을 햇 부사 꿀사과 5kg';
+      let unitPrice = 42000;
+
+      if (text.includes('하미과') || text.includes('메론') || text.includes('멜론')) {
+        productName = '청송 하미과 꿀메론 3수-7.5kg';
+        unitPrice = 38000;
+      } else if (text.includes('시나노') || text.includes('황금사과')) {
+        productName = '청송 시나노골드 황금사과 3kg';
+        unitPrice = 35000;
+      } else if (text.includes('부사') || text.includes('사과') || text.includes('꿀사과')) {
+        productName = '2026 가을 햇 부사 꿀사과 5kg';
+        unitPrice = 42000;
+      } else if (text.includes('배') || text.includes('신고')) {
+        productName = '나주 특품 신고배 5kg (7~9과)';
+        unitPrice = 45000;
+      } else if (text.includes('샤인머스캣') || text.includes('포도')) {
+        productName = '영천 프리미엄 샤인머스캣 2kg';
+        unitPrice = 39000;
+      } else if (text.includes('복숭아') || text.includes('백도')) {
+        productName = '햇 백도 복숭아 4kg';
+        unitPrice = 36000;
+      } else if (text.includes('감귤') || text.includes('한라봉') || text.includes('귤')) {
+        productName = '제주 산지직송 감귤 5kg';
+        unitPrice = 28000;
+      }
+
+      const totalAmount = unitPrice * quantity;
+
+      // 5. AI 신뢰도 점수 및 등급 산출
+      let score = 0.50;
+      if (phones.length >= 1) score += 0.20;
+      if (ordererName && receiverName) score += 0.15;
+      if (roadAddress && !roadAddress.includes('확인 필요')) score += 0.10;
+      if (detailAddress && !detailAddress.includes('확인 요망')) score += 0.05;
+      score = Math.min(0.98, Math.max(0.40, Number(score.toFixed(2))));
+
+      const confidenceLevel = score >= 0.85 ? 'GREEN' : (score >= 0.65 ? 'YELLOW' : 'RED');
+
+      return {
+        orderer_name: ordererName,
+        orderer_phone: ordererPhone,
+        receiver_name: receiverName,
+        receiver_phone: receiverPhone,
+        refined_road_address: roadAddress,
+        refined_detail_address: detailAddress,
+        zip_code: zipCode,
+        product_name: productName,
+        order_quantity: quantity,
+        unit_price: unitPrice,
+        total_amount: totalAmount,
+        confidence_score: score,
+        confidence_level: confidenceLevel
+      };
+    }
+
+    function CustomerOrderApp() {
+      const [orderMode, setOrderMode] = useState('UNSTRUCTURED'); // UNSTRUCTURED(비정형/직접), BULK(대량주문 엑셀업로드)
+      const [seniorMode, setSeniorMode] = useState(false);
+
+      // 1. 단일/비정형 입력 상태
+      const [rawText, setRawText] = useState(
+        '주문자 이진우 010-8821-9942 받는분 최은경 010-7733-1122 서울시 강남구 테헤란로 152 강남파이낸스센터 18층 부사 꿀사과 2박스 부탁드려요. 부모님 명절 선물입니다.'
+      );
+      const [agreeTerms, setAgreeTerms] = useState(true);
+      const [isParsing, setIsParsing] = useState(false);
+      const [parsedData, setParsedData] = useState({
+        orderer_name: '이진우',
+        orderer_phone: '010-8821-9942',
+        receiver_name: '최은경',
+        receiver_phone: '010-7733-1122',
+        refined_road_address: '서울특별시 강남구 테헤란로 152 (역삼동)',
+        refined_detail_address: '강남파이낸스센터 18층',
+        zip_code: '06236',
+        product_name: '2026 가을 햇 부사 꿀사과 5kg',
+        order_quantity: 2,
+        unit_price: 42000,
+        total_amount: 84000,
+        confidence_score: 0.96,
+        confidence_level: 'GREEN'
+      });
+      const [orderCompleteModal, setOrderCompleteModal] = useState(false);
+
+      // 2. 대량 주문 (정형화된 파일 업로드) 상태
+      const [bulkFileName, setBulkFileName] = useState('');
+      const [bulkOrders, setBulkOrders] = useState([
+        { id: 1, receiver: '김철수', phone: '010-1234-5678', address: '서울시 서초구 서초대로 301 102동 501호', zip: '06607', product: '부사 5kg (특품)', qty: 1, note: '경비실 보관' },
+        { id: 2, receiver: '이영희', phone: '010-9876-5432', address: '경기도 수원시 영통구 광교중앙로 170 301호', zip: '16614', product: '부사 5kg (특품)', qty: 2, note: '문 앞' },
+        { id: 3, receiver: '박상혁', phone: '010-5555-4444', address: '부산시 해운대구 센텀중앙로 79 12층', zip: '48058', product: '시나노골드 3kg', qty: 1, note: '배송 전 연락' }
+      ]);
+      const [bulkOrderComplete, setBulkOrderComplete] = useState(false);
+
+      // 단일 AI 파싱 실행 (비동기 엔진 호출 및 로딩 처리)
+      const handleAIParse = async () => {
+        if (!rawText || !rawText.trim()) {
+          alert('주문 내용을 입력해주세요.');
+          return;
+        }
+
+        setIsParsing(true);
+        try {
+          // 0.5초(500ms) 로딩 스피너 체감 딜레이
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const result = await parseOrderText(rawText);
+          setParsedData(result);
+        } catch (error) {
+          console.error('AI 정제 에러:', error);
+          alert(error.message || 'AI 주문 분석 중 오류가 발생했습니다.');
+        } finally {
+          setIsParsing(false);
+        }
+      };
+
+      // 가상 엑셀 파일 업로드 처리
+      const handleFileUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          setBulkFileName(file.name);
+          alert(`'${file.name}' 정형화 파일 인식을 완료했습니다. (총 3건의 배송지 로드)`);
+        }
+      };
+
+      // 엑셀 템플릿 다운로드 시뮬레이션
+      const handleDownloadTemplate = () => {
+        const csvContent = "data:text/csv;charset=utf-8,수령인,전화번호,도로명주소,상세주소,우편번호,상품명,수량,배송메모\n"
+          + "홍길동,010-1234-5678,서울특별시 강남구 테헤란로 152,18층,06236,2026 가을 햇 부사 꿀사과 5kg,1,부재 시 문앞\n"
+          + "김영수,010-9876-5432,경기도 성남시 분당구 판교역로 166,402호,13529,청송 시나노골드 황금사과 3kg,2,배송 전 연락\n";
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "OOMS_대량주문_표준양식_템플릿.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+
+      const handleSingleSubmit = (e) => {
+        e.preventDefault();
+        if (!agreeTerms) {
+          alert('개인정보 수집 및 주문 정보 처리에 동의해주세요.');
+          return;
+        }
+
+        // 1. 기존 localStorage 'ooms_orders' 로드 (없으면 기본 샘플과 연계)
+        let existingOrders = [];
+        try {
+          const saved = localStorage.getItem('ooms_orders') || localStorage.getItem('ooms_staging_orders');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed)) existingOrders = parsed;
+          }
+        } catch (err) {
+          console.error(err);
+        }
+
+        if (existingOrders.length === 0) {
+          existingOrders = [
+            {
+              id: 'ORD-101',
+              channel: 'SMS',
+              source: 'SMS',
+              rawText: '주문자 이진우 010-8821-9942 받는분 최은경 010-7733-1122 서울시 강남구 테헤란로 152 강남파이낸스센터 18층 부사 꿀사과 2박스 부탁드려요.',
+              orderer: { name: '이진우', tel: '010-8821-9942' },
+              receiver: { name: '최은경', tel: '010-7733-1122' },
+              address: { road: '서울특별시 강남구 테헤란로 152', detail: '강남파이낸스센터 18층', zip: '06236' },
+              product: { name: '2026 가을 햇 부사 꿀사과 5kg', qty: 2, price: 84000 },
+              status: { payment: 'PAID', staging: 'APPROVED' },
+              confidence: '96% (GREEN)',
+              tracking: '6892049182371',
+              createdAt: new Date().toISOString()
+            },
+            {
+              id: 'ORD-102',
+              channel: 'KAKAO',
+              source: 'KAKAO',
+              rawText: '황금사과 1개 박스 부탁드려요 박민호 010-4491-0021 경기도 성남시 분당구 판교역로 166',
+              orderer: { name: '박민호', tel: '010-4491-0021' },
+              receiver: { name: '박민호', tel: '010-4491-0021' },
+              address: { road: '경기도 성남시 분당구 판교역로 166', detail: '상세 동호수 미기재', zip: '13529' },
+              product: { name: '청송 시나노골드 황금사과 3kg', qty: 1, price: 35000 },
+              status: { payment: 'UNPAID', staging: 'PENDING' },
+              confidence: '72% (YELLOW)',
+              tracking: null,
+              createdAt: new Date().toISOString()
+            },
+            {
+              id: 'ORD-103',
+              channel: 'SMS',
+              source: 'SMS',
+              rawText: '햇 부사 꿀사과 1박스 최은경 010-7733-1122 부산시 해운대구 센텀중앙로 79',
+              orderer: { name: '최은경', tel: '010-7733-1122' },
+              receiver: { name: '최은경', tel: '010-7733-1122' },
+              address: { road: '부산시 해운대구 센텀중앙로 79', detail: '센텀시티', zip: '48058' },
+              product: { name: '2026 가을 햇 부사 꿀사과 5kg', qty: 1, price: 42000 },
+              status: { payment: 'UNPAID', staging: 'PENDING' },
+              confidence: '88% (GREEN)',
+              tracking: null,
+              createdAt: new Date().toISOString()
+            }
+          ];
+        }
+
+        // 고유 주문번호 생성 (예: ORD- + 4자리)
+        const newOrderId = 'ORD-' + Date.now().toString().slice(-4);
+
+        // 2. 통합 표준 스키마 객체 생성
+        const newOrder = {
+          id: newOrderId,
+          channel: 'PWA',
+          source: 'PWA',
+          rawText: rawText || `${parsedData.orderer_name} ${parsedData.orderer_phone} ${parsedData.refined_road_address} ${parsedData.product_name} ${parsedData.order_quantity}박스`,
+          orderer: {
+            name: parsedData.orderer_name || '주문 고객',
+            tel: parsedData.orderer_phone || '010-0000-0000'
+          },
+          receiver: {
+            name: parsedData.receiver_name || '수령인',
+            tel: parsedData.receiver_phone || '010-0000-0000'
+          },
+          address: {
+            road: parsedData.refined_road_address || '도로명주소',
+            detail: parsedData.refined_detail_address || '',
+            zip: parsedData.zip_code || '06236'
+          },
+          product: {
+            name: parsedData.product_name || '대표 상품',
+            qty: Number(parsedData.order_quantity) || 1,
+            price: Number(parsedData.total_amount) || 42000
+          },
+          status: {
+            payment: 'UNPAID',  // 입금상태: UNPAID(입금확인요망) / PAID(입금완료)
+            staging: 'PENDING'  // 스테이징: PENDING(승인대기) / APPROVED(승인완료)
+          },
+          confidence: `${Math.round((parsedData.confidence_score || 0.96) * 100)}% (${parsedData.confidence_level || 'GREEN'})`,
+          tracking: null,
+          createdAt: new Date().toISOString()
+        };
+
+        // 3. 최상단(unshift) 추가 및 localStorage('ooms_orders')에 영구 저장
+        existingOrders.unshift(newOrder);
+        try {
+          localStorage.setItem('ooms_orders', JSON.stringify(existingOrders));
+          // 하위 호환성 유지용
+          localStorage.setItem('ooms_staging_orders', JSON.stringify(existingOrders));
+        } catch (storageErr) {
+          console.error('localStorage 저장 오류:', storageErr);
+        }
+
+        // 4. 주문 완료 알림 팝업 및 이동
+        alert(`🎉 주문이 정상 접수되었습니다!\n\n• 주문번호: ${newOrderId}\n• 주문자: ${newOrder.orderer.name} (${newOrder.orderer.tel})\n• 받는 분: ${newOrder.receiver.name} (${newOrder.receiver.tel})\n• 상품: ${newOrder.product.name} (${newOrder.product.qty}박스)\n• 결제금액: ${newOrder.product.price.toLocaleString()}원\n\n농가 모바일(farm.html) 및 관리자 스테이징 센터(index.html)에 즉시 반영되었습니다.`);
+
+        // 관리자 센터로 이동 (농가 포털과 관리자 포털 모두 실시간 확인 가능)
+        window.location.href = 'index.html?tab=staging';
+      };
+
+      const handleBulkSubmit = (e) => {
+        e.preventDefault();
+        if (!agreeTerms) {
+          alert('개인정보 수집 및 주문 정보 처리에 동의해주세요.');
+          return;
+        }
+        setBulkOrderComplete(true);
+      };
+
+      return (
+        <div className={`max-w-md mx-auto min-h-screen bg-slate-50 shadow-2xl border-x border-slate-200 pb-20 ${seniorMode ? 'text-lg' : 'text-sm'}`}>
+          {/* 1. 상단 농가 프로필 배지 */}
+          <div className="bg-gradient-to-r from-farm-600 to-farm-700 text-white p-5 rounded-b-3xl shadow-md">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs bg-white/20 px-2.5 py-1 rounded-full font-medium tracking-wide">
+                🌱 산지직송 직거래 공식 주문창 (PWA)
+              </span>
+              <button 
+                type="button"
+                onClick={() => setSeniorMode(!seniorMode)}
+                className="flex items-center gap-1.5 text-xs bg-harvest-500 hover:bg-harvest-600 px-3 py-1.5 rounded-full font-bold shadow-sm transition-all"
+              >
+                👓 {seniorMode ? '일반 글씨' : '어르신 큰글씨'}
+              </button>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white shadow-inner bg-farm-100 flex-shrink-0">
+                <img 
+                  src="https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?w=200" 
+                  alt="농부 프로필" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <h1 className={`${seniorMode ? 'text-2xl' : 'text-xl'} font-extrabold tracking-tight`}>
+                    청송 하늘아래 꿀사과
+                  </h1>
+                  <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded font-mono">FARM-001</span>
+                </div>
+                <p className="text-farm-100 text-xs mt-0.5 font-medium">
+                  대표 농부 김만석 • 경북 청송군 주왕산면
+                </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="bg-yellow-400 text-slate-900 text-xs font-bold px-2 py-0.5 rounded">
+                    당도 15.5 Brix 보증
+                  </span>
+                  <span className="text-xs text-farm-100 underline cursor-pointer">
+                    농장 스토리 &gt;
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. 주문 방식 탭 스위처: [단일/비정형 텍스트] vs [대량 단체주문 엑셀 업로드] */}
+          <div className="mx-4 mt-4 bg-white p-1 rounded-2xl border border-slate-200 shadow-sm flex">
+            <button
+              onClick={() => setOrderMode('UNSTRUCTURED')}
+              className={`flex-1 py-2.5 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-1.5 ${orderMode === 'UNSTRUCTURED' ? 'bg-farm-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
+            >
+              <span>💬 카톡/문자 직접 복사입력</span>
+            </button>
+            <button
+              onClick={() => setOrderMode('BULK')}
+              className={`flex-1 py-2.5 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-1.5 ${orderMode === 'BULK' ? 'bg-farm-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
+            >
+              <span>📊 엑셀/파일 대량주문</span>
+              <span className="text-[10px] bg-amber-400 text-slate-900 px-1.5 py-0.2 rounded font-black">단체</span>
+            </button>
+          </div>
+
+          {/* 수확 타임라인 */}
+          <div className="mx-4 mt-3 p-3.5 bg-white rounded-2xl shadow-sm border border-slate-100">
+            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2.5">
+              🌾 2026 햇사과 수확 파이프라인
+            </h3>
+            <div className="grid grid-cols-4 gap-1 text-center">
+              <div className="flex flex-col items-center">
+                <div className="w-6 h-6 rounded-full bg-farm-500 text-white flex items-center justify-center font-bold text-xs">
+                  ✓
+                </div>
+                <span className="text-[11px] font-bold text-slate-800 mt-1">예약접수</span>
+                <span className="text-[9px] text-farm-600 font-semibold">오늘</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-xs">
+                  2
+                </div>
+                <span className="text-[11px] font-medium text-slate-600 mt-1">스토리소식</span>
+                <span className="text-[9px] text-slate-400">D-30</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-xs">
+                  3
+                </div>
+                <span className="text-[11px] font-medium text-slate-600 mt-1">주소재확인</span>
+                <span className="text-[9px] text-slate-400">D-7</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <div className="w-6 h-6 rounded-full bg-harvest-500 text-white flex items-center justify-center font-bold text-xs">
+                  🚚
+                </div>
+                <span className="text-[11px] font-bold text-harvest-600 mt-1">우체국발송</span>
+                <span className="text-[9px] text-harvest-600 font-semibold">11/10</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 3-A. [모드 1] 단일 / 비정형 주문 입력 뷰 */}
+          {orderMode === 'UNSTRUCTURED' && (
+            <div>
+              {/* 비정형 원문 복사/붙여넣기 입력창 */}
+              <div className="mx-4 mt-3 p-4 bg-white rounded-2xl shadow-sm border border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                  <label className={`font-bold text-slate-800 ${seniorMode ? 'text-lg' : 'text-sm'}`}>
+                    💬 문자 / 카톡 주문내용 복사·붙여넣기
+                  </label>
+                  <span className="text-xs text-farm-600 bg-farm-50 px-2 py-0.5 rounded font-semibold">
+                    AI 자동 인식
+                  </span>
+                </div>
+                <textarea
+                  rows={seniorMode ? 5 : 4}
+                  value={rawText}
+                  onChange={(e) => setRawText(e.target.value)}
+                  placeholder="예: 홍길동 010-1234-5678 서울시 강남구 테헤란로 152 18층 사과 2박스 보내주세요"
+                  className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-farm-500 focus:outline-none text-slate-700 bg-slate-50/50 resize-none font-medium"
+                />
+
+                <div className="flex items-center gap-2 mt-3">
+                  <button
+                    type="button"
+                    onClick={handleAIParse}
+                    disabled={isParsing}
+                    className={`flex-1 font-extrabold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md ${
+                      isParsing
+                        ? 'bg-farm-500 text-white cursor-wait opacity-90'
+                        : 'bg-farm-600 hover:bg-farm-700 active:scale-98 text-white shadow-farm-600/30'
+                    }`}
+                  >
+                    {isParsing ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>AI 실시간 분석 중...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>⚡ AI 즉시 주소·주문 정제</span>
+                      </>
+                    )}
+                  </button>
+                  
+                  <button 
+                    type="button"
+                    onClick={() => alert('손글씨 영수증/장부 사진 OCR 모듈이 작동합니다.')}
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2.5 rounded-xl text-xs flex items-center gap-1.5 transition-all"
+                  >
+                    📸 OCR
+                  </button>
+                </div>
+              </div>
+
+              {/* AI Instant Recognition Card */}
+              <div className="mx-4 mt-3 p-5 bg-gradient-to-b from-white to-farm-50/30 rounded-2xl shadow-md border-2 border-farm-200">
+                <div className="flex items-center justify-between pb-3 border-b border-farm-100">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-farm-500 animate-ping"></span>
+                    <h2 className="font-black text-slate-800 text-base">
+                      AI 스마트 주문서 인식 결과
+                    </h2>
+                  </div>
+                  <span className={`text-xs font-extrabold px-2.5 py-1 rounded-full ${parsedData.confidence_level === 'GREEN' ? 'bg-farm-100 text-farm-700' : 'bg-amber-100 text-amber-700'}`}>
+                    신뢰도 {Math.round(parsedData.confidence_score * 100)}% ({parsedData.confidence_level})
+                  </span>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-slate-500 text-xs">주문자 / 연락처</span>
+                    <span className="font-bold text-slate-800">
+                      {parsedData.orderer_name} ({parsedData.orderer_phone})
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-slate-500 text-xs">받는 분 / 연락처</span>
+                    <span className="font-bold text-slate-800">
+                      {parsedData.receiver_name} ({parsedData.receiver_phone})
+                    </span>
+                  </div>
+
+                  <div className="bg-white p-3 rounded-xl border border-farm-200">
+                    <div className="flex items-center justify-between text-xs text-farm-700 font-semibold mb-1">
+                      <span>🏛 행안부 도로명주소 & 5자리 우편번호</span>
+                      <span className="bg-farm-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono font-bold">
+                        {parsedData.zip_code}
+                      </span>
+                    </div>
+                    <p className="font-bold text-slate-800 text-sm">
+                      {parsedData.refined_road_address}
+                    </p>
+                    <p className="text-xs text-slate-600 mt-0.5 font-medium">
+                      상세: {parsedData.refined_detail_address}
+                    </p>
+                  </div>
+
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-slate-500 text-xs">선택 상품 & 수량</span>
+                    <div className="text-right">
+                      <p className="font-bold text-slate-800">{parsedData.product_name}</p>
+                      <p className="text-xs text-harvest-600 font-bold">{parsedData.order_quantity} 박스 ({parsedData.total_amount.toLocaleString()}원)</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-5 pt-4 border-t border-farm-100">
+                  <label className="flex items-center gap-2 cursor-pointer mb-4">
+                    <input 
+                      type="checkbox" 
+                      checked={agreeTerms} 
+                      onChange={(e) => setAgreeTerms(e.target.checked)}
+                      className="w-5 h-5 accent-farm-600 rounded cursor-pointer"
+                    />
+                    <span className="text-xs text-slate-600 font-medium">
+                      개인정보 수집 및 우체국 택배 발송 알림톡 수신에 동의합니다.
+                    </span>
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={handleSingleSubmit}
+                    className="w-full bg-harvest-500 hover:bg-harvest-600 active:scale-[0.99] text-white font-extrabold py-4 px-6 rounded-2xl text-base shadow-lg shadow-harvest-500/30 flex items-center justify-center gap-2 transition-all"
+                  >
+                    <span>🎁 산지직송 직거래 주문 확정하기</span>
+                    <span className="text-xs bg-white/20 px-2 py-1 rounded">1-클릭</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 3-B. [모드 2] 대량 주문 (정형화된 파일 업로드) 뷰 */}
+          {orderMode === 'BULK' && (
+            <div className="mx-4 mt-3 space-y-3">
+              {/* 대량 파일 업로드 영역 */}
+              <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-black text-slate-900 text-sm">
+                    📁 엑셀/CSV 표준 파일 일괄 업로드
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={handleDownloadTemplate}
+                    className="text-xs bg-farm-50 text-farm-700 hover:bg-farm-100 font-bold px-2.5 py-1.5 rounded-lg border border-farm-200 transition-all flex items-center gap-1"
+                  >
+                    📥 엑셀 표준 서식 받기
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+                  거래처 명절 선물이나 단체 주문의 경우 수십~수백 건의 배송지를 엑셀 서식으로 한 번에 접수할 수 있습니다.
+                </p>
+
+                {/* 드래그 앤 드롭 파일 첨부 UI */}
+                <div className="border-2 border-dashed border-slate-300 hover:border-farm-500 rounded-2xl p-6 text-center bg-slate-50/50 transition-all cursor-pointer relative">
+                  <input
+                    type="file"
+                    accept=".xlsx, .xls, .csv"
+                    onChange={handleFileUpload}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  />
+                  <div className="flex flex-col items-center">
+                    <span className="text-3xl mb-1">📊</span>
+                    <p className="font-bold text-slate-800 text-xs">
+                      {bulkFileName ? `선택된 파일: ${bulkFileName}` : '여기를 클릭하거나 엑셀(.xlsx, .csv) 파일을 끌어다 놓으세요'}
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      (수령인, 연락처, 주소, 상품명, 수량, 배송메모 열 포함)
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 업로드된 대량 배송지 미리보기 테이블 */}
+              <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                    <span>📋 대량 배송지 인식 명단</span>
+                    <span className="bg-farm-100 text-farm-700 px-2 py-0.5 rounded-full font-extrabold text-[10px]">
+                      총 {bulkOrders.length}건 (5박스)
+                    </span>
+                  </h4>
+                  <span className="text-[11px] font-mono font-bold text-harvest-600">
+                    합계: 210,000원
+                  </span>
+                </div>
+
+                <div className="divide-y divide-slate-100 text-xs">
+                  {bulkOrders.map(item => (
+                    <div key={item.id} className="py-2.5">
+                      <div className="flex justify-between items-center">
+                        <span className="font-extrabold text-slate-900">{item.receiver} ({item.phone})</span>
+                        <span className="font-bold text-farm-700 bg-farm-50 px-2 py-0.5 rounded">{item.product} x {item.qty}박스</span>
+                      </div>
+                      <p className="text-slate-600 text-[11px] mt-1">{item.address} ({item.zip})</p>
+                      <p className="text-slate-400 text-[10px] mt-0.5">메모: {item.note}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-slate-100">
+                  <label className="flex items-center gap-2 cursor-pointer mb-3">
+                    <input 
+                      type="checkbox" 
+                      checked={agreeTerms} 
+                      onChange={(e) => setAgreeTerms(e.target.checked)}
+                      className="w-4 h-4 accent-farm-600 rounded cursor-pointer"
+                    />
+                    <span className="text-xs text-slate-600 font-medium">
+                      대량 배송지 개인정보 처리 및 알림톡 발송에 동의합니다.
+                    </span>
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={handleBulkSubmit}
+                    className="w-full bg-harvest-500 hover:bg-harvest-600 text-white font-extrabold py-3.5 px-4 rounded-xl text-sm shadow-md shadow-harvest-500/30 transition-all flex items-center justify-center gap-2"
+                  >
+                    <span>🚀 대량 주문 {bulkOrders.length}건 일괄 접수 확정하기</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 단일 완료 모달 */}
+          {orderCompleteModal && (
+            <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 animate-fadeIn">
+              <div className="bg-white rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl">
+                <div className="w-16 h-16 bg-farm-100 text-farm-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl font-black">
+                  ✓
+                </div>
+                <h3 className="text-xl font-black text-slate-900 mb-2">
+                  주문 접수가 완료되었습니다!
+                </h3>
+                <p className="text-xs text-slate-600 mb-4 leading-relaxed">
+                  청송 농가에 실시간 주문이 전달되었으며, 카카오 알림톡으로 입금 계좌 및 배송 안내가 발송됩니다.
+                </p>
+                <div className="bg-slate-50 p-3 rounded-xl text-left text-xs space-y-1 mb-5 border border-slate-200">
+                  <p><span className="text-slate-400">받는 분:</span> <b>{parsedData.receiver_name}</b></p>
+                  <p><span className="text-slate-400">주소:</span> {parsedData.refined_road_address}</p>
+                  <p><span className="text-slate-400">상품:</span> {parsedData.product_name} ({parsedData.order_quantity}박스)</p>
+                  <p><span className="text-slate-400">결제금액:</span> <b className="text-harvest-600">{parsedData.total_amount.toLocaleString()}원</b></p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOrderCompleteModal(false)}
+                  className="w-full bg-farm-600 hover:bg-farm-700 text-white font-bold py-3 rounded-xl text-sm"
+                >
+                  확인
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 대량 완료 모달 */}
+          {bulkOrderComplete && (
+            <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 animate-fadeIn">
+              <div className="bg-white rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl">
+                <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl font-black">
+                  📊
+                </div>
+                <h3 className="text-xl font-black text-slate-900 mb-2">
+                  대량 주문 {bulkOrders.length}건 일괄 접수 완료!
+                </h3>
+                <p className="text-xs text-slate-600 mb-4 leading-relaxed">
+                  표준 엑셀 서식으로 접수된 모든 배송지 데이터가 관리자 스테이징 센터로 안전하게 전송되었습니다.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setBulkOrderComplete(false)}
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl text-sm"
+                >
+                  확인
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('order-root')).render(<CustomerOrderApp />);
+  </script>
+</body>
+</html>
