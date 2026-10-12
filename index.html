@@ -3,13 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>OOMS - 산지직송 비정형 주문 관리 & 농가 관리 플랫폼</title>
+  <title>OOMS - 산지직송 비정형 주문 물류 자동화 플랫폼 허브</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- React 18 & ReactDOM & Babel CDN -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Supabase JS Client CDN -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <!-- Font CDN -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -22,6 +28,7 @@
               500: '#34a853',
               600: '#2e9647',
               700: '#257838',
+              800: '#1e602d',
               900: '#154420',
             },
             harvest: {
@@ -30,18 +37,23 @@
               500: '#f97316',
               600: '#ea580c',
               700: '#c2410c',
-            },
-            kakao: {
-              yellow: '#FEE500',
-              label: '#191919',
-              bg: '#BACEE0',
             }
+          },
+          fontFamily: {
+            sans: ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'Roboto', 'sans-serif'],
           }
         }
       }
     }
   </script>
   <style>
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 0.6; transform: scale(1); }
+      50% { opacity: 0.9; transform: scale(1.03); }
+    }
+    .animate-pulseGlow {
+      animation: pulseGlow 4s infinite ease-in-out;
+    }
     @keyframes fadeIn {
       from { opacity: 0; transform: scale(0.97); }
       to { opacity: 1; transform: scale(1); }
@@ -50,318 +62,841 @@
       animation: fadeIn 0.2s ease-out forwards;
     }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
     }
   </style>
 </head>
-<body class="bg-slate-100 text-slate-800 min-h-screen">
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col selection:bg-farm-500 selection:text-white">
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect } = React;
+    const { useState, useEffect, useRef } = React;
 
-    // 초기 농가 마스터 데이터
+    // =========================================================================
+    // 초기 농가 마스터 데이터 (동기화 기준)
+    // =========================================================================
     const INITIAL_MERCHANTS = [
       {
-        id: 'm-1',
-        merchantCode: 'FARM-2026-001',
-        farmName: '청송 하늘아래 꿀사과 농원',
-        repName: '김만석',
+        id: 'm-test',
+        merchantCode: 'FARM-2026-224',
+        loginId: 'test',
+        password: '1234',
+        bizNum: '101-81-22400',
+        farmName: '태안 조이장네',
+        repName: '조국래',
         phone: '010-3849-1234',
-        address: '경상북도 청송군 주왕산면 당마루길 45',
+        address: '충청남도 태안군 소원면 소근로 54-16',
         postOfficeNum: '1092837465',
-        status: 'APPROVED', // APPROVED, PENDING
-        signupType: '간편가입(카카오)',
-        createdAt: '2026-10-01',
-        products: [
-          {
-            id: 'p-1',
-            category: '사과',
-            name: '2026 가을 햇 부사 꿀사과',
-            variety: '부사(후지)',
-            spec: '5kg(14~16과 특품)',
-            originPrice: 48000,
-            salePrice: 42000,
-            desc: '청송 주왕산 해발 400m 당도 15.5 Brix 보증'
-          },
-          {
-            id: 'p-2',
-            category: '사과',
-            name: '청송 시나노골드 황금사과',
-            variety: '시나노골드',
-            spec: '3kg(9~11과)',
-            originPrice: 40000,
-            salePrice: 35000,
-            desc: '새콤달콤 황금빛 프리미엄 과육'
-          }
-        ]
-      },
-      {
-        id: 'm-2',
-        merchantCode: 'FARM-2026-002',
-        farmName: '나주 금천 배사랑 과수원',
-        repName: '박순자',
-        phone: '010-9182-7364',
-        address: '전라남도 나주시 금천면 영산포로 102',
-        postOfficeNum: '1084729104',
         status: 'APPROVED',
         signupType: '일반가입',
-        createdAt: '2026-10-03',
+        createdAt: '2026-10-09',
         products: [
           {
-            id: 'p-3',
-            category: '배',
-            name: '나주 명품 신고배 선물세트',
-            variety: '신고',
-            spec: '7.5kg(7~9과 대과)',
-            originPrice: 65000,
-            salePrice: 58000,
-            desc: '풍부한 과즙과 시원한 단맛의 제수용 대과'
+            id: 'p-melon-1',
+            category: '메론',
+            name: '하미과메론(노랑)',
+            variety: '하미과(황금)',
+            spec: '2수(4kg 내외 특품)',
+            originPrice: 78000,
+            salePrice: 70000,
+            desc: '황토와 해풍으로 키워낸 고당도 하미과메론'
           }
         ]
       }
     ];
 
-    function MainApp() {
-      // URL 쿼리 파라미터 확인 (?tab=staging 감지 시 관리자 센터 자동 활성화)
-      const urlParams = new URLSearchParams(window.location.search);
-      const isStagingParam = urlParams.get('tab') === 'staging';
+    // [더미 농가 영구 차단 및 정리] 브라우저에 남아있던 FARM-2026-001 / FARM-2026-002 즉시 영구 삭제
+    try {
+      ['ooms_farms', 'OOMS_MERCHANTS_DATA'].forEach(key => {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              const cleaned = parsed.filter(f => {
+                const code = f.merchantCode || f.farmCode || f.code || '';
+                const name = f.farmName || '';
+                return code !== 'FARM-2026-001' && code !== 'FARM-2026-002' &&
+                       !name.includes('청송 하늘아래') && !name.includes('나주 금천 배사랑');
+              });
+              localStorage.setItem(key, JSON.stringify(cleaned));
+            }
+          } catch(e){}
+        }
+      });
+    } catch(e){}
 
-      const [currentView, setCurrentView] = useState(isStagingParam ? 'ADMIN_CENTER' : 'MERCHANT_SIGNUP'); // MERCHANT_SIGNUP, ADMIN_CENTER
-      
-      // localStorage 영구 저장소 연동 (새로고침해도 보존)
-      const [merchants, setMerchantsState] = useState(() => {
+    // =========================================================================
+    // Supabase Auth 연동 및 로컬 Fallback 하이브리드 인증 모듈 (OOMS_AUTH)
+    // =========================================================================
+    const OOMS_SUPABASE_CONFIG = {
+      url: window.OOMS_SUPABASE_URL || 'https://demo-ooms-supabase.co',
+      anonKey: window.OOMS_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy_anon_key'
+    };
+
+    let supabaseClient = null;
+    try {
+      if (window.supabase && typeof window.supabase.createClient === 'function') {
+        supabaseClient = window.supabase.createClient(OOMS_SUPABASE_CONFIG.url, OOMS_SUPABASE_CONFIG.anonKey);
+      }
+    } catch (e) {
+      console.warn('Supabase Client 로드 오류 (로컬 하이브리드 모드로 전환):', e);
+    }
+
+    const OOMS_AUTH = {
+      // 총괄매니저(Admin) 전용 인증 세션 발급 (ooms_admin_auth 및 sessionStorage 연동)
+      signInAdmin: async ({ email = 'kormis', password = '' } = {}) => {
+        const adminSession = {
+          access_token: 'sb_admin_token_' + Date.now(),
+          user: {
+            id: 'usr_master_001',
+            email: 'admin@ooms.kr',
+            role: 'master',
+            name: '총괄매니저'
+          },
+          createdAt: new Date().toISOString()
+        };
         try {
-          const saved = localStorage.getItem('OOMS_MERCHANTS_DATA');
+          localStorage.setItem('ooms_admin_auth', JSON.stringify(adminSession));
+          sessionStorage.setItem('ooms_admin_session', JSON.stringify(adminSession));
+        } catch (e) {}
+        return { success: true, session: adminSession };
+      },
+
+      // 농업경영체(Farmer) 전용 인증 세션 발급 (ooms_farm_session 격리)
+      signInFarmer: async ({ query, password, merchant }) => {
+        const farmerSession = {
+          access_token: 'sb_farm_token_' + Date.now(),
+          merchantCode: merchant.merchantCode,
+          farmCode: merchant.merchantCode,
+          farmName: merchant.farmName,
+          repName: merchant.repName,
+          phone: merchant.phone,
+          merchant: merchant,
+          createdAt: new Date().toISOString()
+        };
+        try {
+          sessionStorage.setItem('ooms_farm_session', JSON.stringify(merchant));
+        } catch (e) {}
+        return { success: true, session: farmerSession, merchant: merchant };
+      },
+
+      signOut: async () => {
+        try {
+          localStorage.removeItem('ooms_admin_auth');
+          sessionStorage.removeItem('ooms_admin_session');
+          sessionStorage.removeItem('ooms_farm_session');
+          localStorage.removeItem('OOMS_AUTH_SESSION');
+          localStorage.removeItem('OOMS_LOGGED_IN_MERCHANT');
+        } catch (e) {}
+      }
+    };
+
+    // =========================================================================
+    // 행정안전부 및 기본 산지 표준 주소 마스터 데이터
+    // =========================================================================
+    const STANDARD_ADDRESS_DB = [
+      { zonecode: '32130', roadAddress: '충청남도 태안군 소원면 소근로 54-16', jibunAddress: '충청남도 태안군 소원면 소근리 520' },
+      { zonecode: '32145', roadAddress: '충청남도 태안군 태안읍 송암로 523', jibunAddress: '충청남도 태안군 태안읍 송암리 422', buildingName: '태안군농업기술센터' },
+      { zonecode: '32145', roadAddress: '충청남도 태안군 태안읍 환동로 34-12', jibunAddress: '충청남도 태안군 태안읍 동문리 580-2' },
+      { zonecode: '32145', roadAddress: '충청남도 태안군 태안읍 환동로 43-12', jibunAddress: '충청남도 태안군 태안읍 동문리 562-1' },
+      { zonecode: '32147', roadAddress: '충청남도 태안군 태안읍 환동로 1', jibunAddress: '충청남도 태안군 태안읍 남문리 120' },
+      { zonecode: '32143', roadAddress: '충청남도 태안군 태안읍 군청로 1', jibunAddress: '충청남도 태안군 태안읍 남문리 320' },
+      { zonecode: '32158', roadAddress: '충청남도 태안군 안면읍 안면대로 3000', jibunAddress: '충청남도 태안군 안면읍 승언리 1240' },
+      { zonecode: '32128', roadAddress: '충청남도 태안군 소원면 서해로 1', jibunAddress: '충청남도 태안군 소원면 신덕리 10' },
+      { zonecode: '37432', roadAddress: '경상북도 청송군 주왕산면 당마루길 45', jibunAddress: '경상북도 청송군 주왕산면 상의리 312' },
+      { zonecode: '37431', roadAddress: '경상북도 청송군 청송읍 청송로 290', jibunAddress: '경상북도 청송군 청송읍 월막리 214' },
+      { zonecode: '36980', roadAddress: '경상북도 문경시 문경읍 백두대간로 128', jibunAddress: '경상북도 문경시 문경읍 상초리 288' },
+      { zonecode: '36735', roadAddress: '경상북도 안동시 길안면 천지길 30', jibunAddress: '경상북도 안동시 길안면 천지리 555' },
+      { zonecode: '36000', roadAddress: '경상북도 영주시 풍기읍 동양대로 10', jibunAddress: '경상북도 영주시 풍기읍 산법리 1' },
+      { zonecode: '37100', roadAddress: '경상북도 상주시 모동면 중모로 89', jibunAddress: '경상북도 상주시 모동면 용호리 115' },
+      { zonecode: '38820', roadAddress: '경상북도 영천시 금호읍 거여로 120', jibunAddress: '경상북도 영천시 금호읍 교대리 200' },
+      { zonecode: '39400', roadAddress: '경상북도 성주군 성주읍 성주순환로 50', jibunAddress: '경상북도 성주군 성주읍 예산리 110' },
+      { zonecode: '58245', roadAddress: '전라남도 나주시 금천면 영산로 245', jibunAddress: '전라남도 나주시 금천면 원곡리 521' },
+      { zonecode: '57530', roadAddress: '전라남도 곡성군 곡성읍 기차마을로 232', jibunAddress: '전라남도 곡성군 곡성읍 오곡리 55' },
+      { zonecode: '58700', roadAddress: '전라남도 해남군 해남읍 중앙1로 1', jibunAddress: '전라남도 해남군 해남읍 성내리 34' },
+      { zonecode: '59000', roadAddress: '전라남도 담양군 담양읍 추성로 1371', jibunAddress: '전라남도 담양군 담양읍 객사리 99' },
+      { zonecode: '55321', roadAddress: '전라북도 완주군 삼례읍 삼례로 88', jibunAddress: '전라북도 완주군 삼례읍 후정리 450' },
+      { zonecode: '56300', roadAddress: '전라북도 고창군 고창읍 중앙로 245', jibunAddress: '전라북도 고창군 고창읍 교촌리 20' },
+      { zonecode: '55500', roadAddress: '전라북도 무주군 무주읍 당산강변로 32', jibunAddress: '전라북도 무주군 무주읍 읍내리 280' },
+      { zonecode: '32400', roadAddress: '충청남도 예산군 고덕면 사과로 77', jibunAddress: '충청남도 예산군 고덕면 대천리 410' },
+      { zonecode: '33140', roadAddress: '충청남도 부여군 부여읍 성왕로 110', jibunAddress: '충청남도 부여군 부여읍 구아리 230' },
+      { zonecode: '33012', roadAddress: '충청남도 논산시 연무읍 득안대로 512', jibunAddress: '충청남도 논산시 연무읍 안심리 12' },
+      { zonecode: '27600', roadAddress: '충청북도 음성군 음성읍 중앙로 40', jibunAddress: '충청북도 음성군 음성읍 읍내리 300' },
+      { zonecode: '27300', roadAddress: '충청북도 충주시 충원대로 2699', jibunAddress: '충청북도 충주시 달천동 150' },
+      { zonecode: '29000', roadAddress: '충청북도 옥천군 옥천읍 중앙로 99', jibunAddress: '충청북도 옥천군 옥천읍 삼양리 100' },
+      { zonecode: '50123', roadAddress: '경상남도 거창군 거창읍 사과골길 15', jibunAddress: '경상남도 거창군 거창읍 대평리 78' },
+      { zonecode: '50000', roadAddress: '경상남도 밀양시 밀양대로 2047', jibunAddress: '경상남도 밀양시 교동 1000' },
+      { zonecode: '52200', roadAddress: '경상남도 산청군 산청읍 웅석봉로 25', jibunAddress: '경상남도 산청군 산청읍 옥산리 300' },
+      { zonecode: '26400', roadAddress: '강원특별자치도 원주시 원일로 115', jibunAddress: '강원특별자치도 원주시 일산동 50' },
+      { zonecode: '25200', roadAddress: '강원특별자치도 횡성군 횡성읍 태기로 15', jibunAddress: '강원특별자치도 횡성군 횡성읍 읍하리 100' },
+      { zonecode: '63605', roadAddress: '제주특별자치도 서귀포시 남원읍 태위로 340', jibunAddress: '제주특별자치도 서귀포시 남원읍 남원리 102' },
+      { zonecode: '63000', roadAddress: '제주특별자치도 제주시 첨단로 242', jibunAddress: '제주특별자치도 제주시 영평동 2181' },
+      { zonecode: '06774', roadAddress: '서울특별시 서초구 강남대로 27', jibunAddress: '서울특별시 서초구 양재동 232 aT센터' },
+      { zonecode: '06236', roadAddress: '서울특별시 강남구 테헤란로 152', jibunAddress: '서울특별시 강남구 역삼동 737 강남파이낸스센터' }
+    ];
+
+    // =========================================================================
+    // 메인 Hub 최상위 컴포넌트
+    // =========================================================================
+    function HubApp() {
+      // [세션 초기화] 초기 로드 시 기본 상태는 항상 비로그인(세션 없음) 유지
+      // 기존 로컬스토리지에 남아있던 테스트/더미 농가 세션('태안 사과농장' 등) 완전 초기화
+      try {
+        localStorage.removeItem('OOMS_AUTH_SESSION');
+        localStorage.removeItem('OOMS_LOGGED_IN_MERCHANT');
+        localStorage.removeItem('ooms_current_farm');
+      } catch (e) {}
+
+      // 인증 세션 상태 (초기 로드 시 항상 null, 사용자가 직접 로그인 인증 시에만 동적 활성화)
+      const [authSession, setAuthSession] = useState(null);
+      const [loggedInMerchant, setLoggedInMerchant] = useState(null);
+
+      // 농가 명부 상태
+      const [merchants, setMerchants] = useState(() => {
+        try {
+          const saved = localStorage.getItem('ooms_farms') || localStorage.getItem('OOMS_MERCHANTS_DATA');
           if (saved) {
             const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+            if (Array.isArray(parsed)) {
+              // 더미 농가 필터링
+              const cleaned = parsed.filter(f => {
+                const code = f.merchantCode || f.farmCode || f.code || '';
+                const name = f.farmName || '';
+                return code !== 'FARM-2026-001' && code !== 'FARM-2026-002' &&
+                       !name.includes('청송 하늘아래') && !name.includes('나주 금천 배사랑');
+              });
+              if (cleaned.length !== parsed.length) {
+                try {
+                  localStorage.setItem('ooms_farms', JSON.stringify(cleaned));
+                  localStorage.setItem('OOMS_MERCHANTS_DATA', JSON.stringify(cleaned));
+                } catch(e){}
+              }
+              return cleaned;
+            }
           }
-        } catch (e) {
-          console.error('localStorage load error:', e);
-        }
+        } catch (e) {}
         return INITIAL_MERCHANTS;
       });
 
-      // 농가 목록 변경 시 localStorage 자동 동기화
-      const setMerchants = (updater) => {
-        setMerchantsState(prev => {
-          const next = typeof updater === 'function' ? updater(prev) : updater;
-          try {
-            localStorage.setItem('OOMS_MERCHANTS_DATA', JSON.stringify(next));
-          } catch (e) {
-            console.error('localStorage save error:', e);
-          }
-          return next;
-        });
+      // 실시간 통계 카운트
+      const [stats, setStats] = useState({ orders: 0, farms: 0, shipments: 0 });
+
+      // 모달 상태: 'LOGIN' | 'SIGNUP' | null
+      const [authModalMode, setAuthModalMode] = useState(null);
+
+      // 인라인 농업경영체 섹션 탭: 'LOGIN' | 'SIGNUP'
+      const [inlineAuthTab, setInlineAuthTab] = useState('LOGIN');
+
+      // 농업경영체 섹션으로 스크롤 이동
+      const farmerSectionRef = useRef(null);
+      const scrollToFarmerSection = (tab = 'LOGIN') => {
+        setInlineAuthTab(tab);
+        if (farmerSectionRef.current) {
+          farmerSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
       };
 
-      const [activeMerchant, setActiveMerchant] = useState(() => merchants[0] || INITIAL_MERCHANTS[0]);
-
-      // 로그인된 농가 세션 상태 (localStorage 연동)
-      const [loggedInMerchant, setLoggedInMerchant] = useState(() => {
+      // 통계 업데이트
+      const updateStats = () => {
         try {
-          const saved = localStorage.getItem('OOMS_LOGGED_IN_MERCHANT');
-          if (saved) return JSON.parse(saved);
-        } catch (e) {
-          console.error(e);
-        }
-        return null;
-      });
-
-      // 테스트 데이터 초기화 함수
-      const handleResetMerchants = () => {
-        if (confirm('등록된 농가 목록을 초기 샘플 데이터로 리셋하시겠습니까?')) {
-          setMerchants(INITIAL_MERCHANTS);
-          setActiveMerchant(INITIAL_MERCHANTS[0]);
-          setLoggedInMerchant(null);
-          localStorage.removeItem('OOMS_LOGGED_IN_MERCHANT');
-          alert('농가 회원 목록이 초기화되었습니다.');
-        }
+          const ordersRaw = localStorage.getItem('ooms_orders') || localStorage.getItem('ooms_staging_orders');
+          const orders = ordersRaw ? JSON.parse(ordersRaw) : [];
+          const farmsRaw = localStorage.getItem('ooms_farms') || localStorage.getItem('OOMS_MERCHANTS_DATA');
+          const farms = farmsRaw ? JSON.parse(farmsRaw) : INITIAL_MERCHANTS;
+          const shipmentsRaw = localStorage.getItem('ooms_shipments');
+          let shipCount = 0;
+          if (shipmentsRaw) {
+            try {
+              const parsed = JSON.parse(shipmentsRaw);
+              shipCount = Object.keys(parsed).length;
+            } catch(e){}
+          }
+          if (shipCount === 0 && Array.isArray(orders)) {
+            shipCount = orders.filter(o => o.tracking).length;
+          }
+          setStats({
+            orders: Array.isArray(orders) ? orders.length : 0,
+            farms: Array.isArray(farms) ? farms.length : 0,
+            shipments: shipCount
+          });
+          if (Array.isArray(farms)) setMerchants(farms);
+        } catch (e) {}
       };
 
-      // 농가 로그아웃 함수
-      const handleLogout = () => {
-        localStorage.removeItem('OOMS_LOGGED_IN_MERCHANT');
+      useEffect(() => {
+        updateStats();
+        window.addEventListener('storage', updateStats);
+        return () => window.removeEventListener('storage', updateStats);
+      }, []);
+
+      // 로그아웃
+      const handleLogout = async () => {
+        await OOMS_AUTH.signOut();
+        setAuthSession(null);
         setLoggedInMerchant(null);
-        alert('로그아웃되었습니다.');
+        alert('안전하게 로그아웃되었습니다.');
       };
 
-      // 새 창으로 farm.html (농가 한손 모바일 포털) 열기 함수
-      const openFarmPortalPage = (merchant = null) => {
-        const target = merchant || loggedInMerchant || activeMerchant;
-        if (target) {
-          localStorage.setItem('OOMS_LOGGED_IN_MERCHANT', JSON.stringify(target));
-          setLoggedInMerchant(target);
-        }
-        window.open('farm.html', '_blank', 'noopener,noreferrer');
+      // 농가 모바일 포털(farm.html) 새 창(팝업) 열기
+      const handleOpenFarmPortal = (merchant = null) => {
+        const target = merchant || loggedInMerchant;
+        const farmCode = target ? (target.merchantCode || target.farmCode || '') : (merchants && merchants.length > 0 ? merchants[0].merchantCode : '');
+        const targetUrl = farmCode ? `farm.html?farm=${encodeURIComponent(farmCode)}` : 'farm.html';
+        window.open(targetUrl, '_blank');
       };
 
-      // 새 창으로 order.html 열기 함수
-      const openCustomerOrderPage = () => {
-        window.open('order.html', '_blank', 'noopener,noreferrer');
+      // 관리자 콘솔(back.html) 새 창(팝업) 열기
+      const handleOpenAdminConsole = () => {
+        window.open('back.html?tab=staging', '_blank');
       };
 
       return (
-        <div className="min-h-screen flex flex-col">
-          {/* 상단 글로벌 헤더 */}
-          <header className="bg-slate-900 border-b border-slate-800 text-white px-4 py-3 sticky top-0 z-50 shadow-md">
-            <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
+        <div className="min-h-screen flex flex-col selection:bg-farm-500 selection:text-white">
+          {/* 상단 글로벌 내비게이션 바 */}
+          <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-40">
+            <div className="max-w-6xl mx-auto px-4 py-3.5 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className="text-2xl">🍏</span>
+                <span className="text-3xl">🍏</span>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-black text-base text-farm-500 tracking-tight">OOMS</span>
-                    <span className="text-[11px] bg-slate-800 border border-slate-700 text-emerald-400 px-2 py-0.5 rounded-full font-bold">
-                      통합 플랫폼 매니저
+                    <span className="font-black text-xl tracking-tight text-white">OOMS</span>
+                    <span className="text-[10px] bg-farm-900/80 text-emerald-300 border border-farm-500/40 px-2 py-0.5 rounded-full font-bold">
+                      Hub v2.0
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-400">
-                    농가 로그인 & 회원가입 • 관리자 스테이징 센터 • PWA 주문
+                    로그인&회원가입 관리자 스테이징 센터 PWA 주문
                   </p>
                 </div>
               </div>
 
-              {/* 탭 네비게이션 & 새 창 열기 액션 버튼들 */}
-              <div className="flex flex-wrap items-center gap-2">
-                {/* 1 & 2 메인 뷰 전환 탭 */}
-                <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs font-bold">
-                  <button
-                    onClick={() => setCurrentView('MERCHANT_SIGNUP')}
-                    className={`px-3 py-1.5 rounded-lg transition-all ${currentView === 'MERCHANT_SIGNUP' ? 'bg-farm-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
-                  >
-                    1. 농가 로그인 & 회원가입
-                  </button>
-                  <button
-                    onClick={() => setCurrentView('ADMIN_CENTER')}
-                    className={`px-3 py-1.5 rounded-lg transition-all ${currentView === 'ADMIN_CENTER' ? 'bg-farm-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
-                  >
-                    2. 관리자 통합 제어 센터 ({merchants.length})
-                  </button>
-                </div>
-
-                {/* 로그인 상태 표시 (요청에 따라 index.html 내 로그아웃 버튼 제거, farm.html에 유지) */}
-                {loggedInMerchant ? (
-                  <div className="flex items-center gap-1.5 bg-slate-800 border border-farm-500/40 px-2.5 py-1.5 rounded-xl text-xs">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span className="text-emerald-300 font-extrabold max-w-[150px] truncate">
-                      {loggedInMerchant.farmName} ({loggedInMerchant.repName})
-                    </span>
-                  </div>
-                ) : null}
-
-                {/* [신규 분리] 농가 모바일(farm.html) 새 창 열기 버튼 */}
-                <button
-                  onClick={() => openFarmPortalPage()}
-                  className="bg-farm-600 hover:bg-farm-700 active:scale-95 text-white text-xs font-black px-3 py-2 rounded-xl shadow-md shadow-farm-600/30 transition-all flex items-center gap-1"
-                  title="농가 현장 전용 모바일 포털(farm.html)을 새 창에서 엽니다"
-                >
-                  <span>🚜 농가 모바일</span>
-                  <span className="text-[10px] bg-white/20 px-1 py-0.5 rounded">새 창 ↗</span>
-                </button>
-
-                {/* 고객 주문 폼(order.html) 새 창 띄우기 버튼 */}
-                <button
-                  onClick={openCustomerOrderPage}
-                  className="bg-harvest-500 hover:bg-harvest-600 active:scale-95 text-white text-xs font-black px-3 py-2 rounded-xl shadow-md shadow-harvest-500/30 transition-all flex items-center gap-1"
-                  title="고객이 주문하는 모바일 웹/PWA(order.html)를 새 창에서 엽니다"
-                >
-                  <span>📱 고객 주문 폼</span>
-                  <span className="text-[10px] bg-white/20 px-1 py-0.5 rounded">새 창 ↗</span>
-                </button>
-              </div>
+              {/* 헤더 우측 여백 유지 */}
+              <div></div>
             </div>
           </header>
 
-          {/* 메인 뷰 */}
-          <main className="flex-1 py-4">
-            {currentView === 'MERCHANT_SIGNUP' && (
-              <MerchantSignupAndProductView
+          {/* 메인 히어로 섹션 */}
+          <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8 md:py-12 flex flex-col justify-center">
+            
+            {/* 타이틀 & 인트로 헤더 */}
+            <div className="text-center max-w-2xl mx-auto mb-8 md:mb-10">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-farm-950 border border-farm-700/50 text-emerald-400 text-xs font-bold mb-4">
+                <span>🌾</span>
+                <span>산지직송 비정형 주문 ➔ 농가 배정 ➔ 택배사 원클릭 발송</span>
+              </div>
+              <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight leading-tight md:leading-tight">
+                농산물 직거래 물류 자동화<br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-farm-500 to-harvest-500">
+                  통합 플랫폼 콘솔
+                </span>
+              </h1>
+              <p className="text-sm md:text-base text-slate-400 mt-3.5 leading-relaxed">
+                카카오톡·문자 비정형 주문 접수부터 농가 출하 포털, 택배사 송장 발급까지<br className="hidden sm:inline" />
+                원하는 업무 창구(농가 모바일 vs 총괄관리센터)로 안전하게 로그인 및 진입하세요.
+              </p>
+
+              {/* 실시간 플랫폼 요약 통계 배지 */}
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-xs">
+                <span className="bg-slate-800/80 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                  <span>📦</span> 누적 주문: <b className="text-white font-mono font-bold">{stats.orders}건</b>
+                </span>
+                <span className="bg-slate-800/80 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                  <span>👨‍🌾</span> 등록 농가: <b className="text-white font-mono font-bold">{stats.farms}곳</b>
+                </span>
+                <span className="bg-slate-800/80 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                  <span>🚚</span> 발급 송장: <b className="text-white font-mono font-bold">{stats.shipments}건</b>
+                </span>
+              </div>
+            </div>
+
+            {/* ============================================================= */}
+            {/* [신규 핵심] 농업경영체 로그인 및 회원가입 전용 메인 섹션 창      */}
+            {/* ============================================================= */}
+            <div ref={farmerSectionRef} className="mb-12 scroll-mt-20">
+              <FarmerAuthSection
+                activeTab={inlineAuthTab}
+                setActiveTab={setInlineAuthTab}
                 merchants={merchants}
                 setMerchants={setMerchants}
-                activeMerchant={activeMerchant}
-                setActiveMerchant={setActiveMerchant}
+                authSession={authSession}
+                setAuthSession={setAuthSession}
                 loggedInMerchant={loggedInMerchant}
                 setLoggedInMerchant={setLoggedInMerchant}
+                onOpenFarmPortal={handleOpenFarmPortal}
+                onOpenAdminConsole={handleOpenAdminConsole}
                 onLogout={handleLogout}
-                onOpenFarmPortal={openFarmPortalPage}
-                onGoToAdmin={() => setCurrentView('ADMIN_CENTER')}
               />
-            )}
-            {currentView === 'ADMIN_CENTER' && (
-              <AdminCenterView
-                merchants={merchants}
-                setMerchants={setMerchants}
-                onResetMerchants={handleResetMerchants}
-              />
-            )}
+            </div>
+
+            {/* 중앙 3개 업무 바로가기 진입 카드 */}
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-4 px-1">
+                <h3 className="text-sm font-black text-slate-300 flex items-center gap-2">
+                  <span>🚀</span> OOMS 3대 업무 화면 바로가기
+                </h3>
+                <span className="text-xs text-slate-500 font-medium">원하는 서비스 카드를 클릭하세요</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                
+                {/* 1. 농가 모바일 포털 */}
+                <a 
+                  href={loggedInMerchant?.merchantCode ? `farm.html?farm=${encodeURIComponent(loggedInMerchant.merchantCode)}` : "farm.html"} 
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleOpenFarmPortal();
+                  }}
+                  className="group relative bg-slate-800/90 hover:bg-slate-800 border border-slate-700 hover:border-emerald-500 rounded-3xl p-6 transition-all duration-300 flex flex-col justify-between hover:shadow-2xl hover:shadow-emerald-500/10 hover:-translate-y-1.5 cursor-pointer"
+                >
+                  <div className="absolute -top-3 right-6 bg-emerald-500 text-slate-950 text-[11px] font-black px-2.5 py-0.5 rounded-full shadow-md">
+                    모바일 최적화
+                  </div>
+                  <div>
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-950/80 border border-emerald-500/30 flex items-center justify-center text-3xl mb-5 group-hover:scale-110 transition-transform">
+                      🚜
+                    </div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Step 01 • 현장 포털</span>
+                    </div>
+                    <h2 className="text-xl font-black text-white group-hover:text-emerald-300 transition-colors">
+                      1. 농가 모바일 포털
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                      과수원·산지 현장에서 한 손으로 간편하게 출하 목록을 확인하고, 원터치 입금확인 및 송장 출력을 처리합니다.
+                    </p>
+
+                    <ul className="mt-4 space-y-1.5 text-xs text-slate-300">
+                      <li className="flex items-center gap-1.5">
+                        <span className="text-emerald-400">✓</span> 수주 현황 및 예약 D-Day 확인
+                      </li>
+                      <li className="flex items-center gap-1.5">
+                        <span className="text-emerald-400">✓</span> 원터치 입금 완료 / 대기 토글
+                      </li>
+                      <li className="flex items-center gap-1.5">
+                        <span className="text-emerald-400">✓</span> 스마트폰 전용 FAB 퀵메뉴
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t border-slate-700/60 flex items-center justify-between text-xs font-black text-emerald-400">
+                    <span>farm.html 바로가기</span>
+                    <span className="group-hover:translate-x-1 transition-transform text-base">➔</span>
+                  </div>
+                </a>
+
+                {/* 2. 주문 접수처 */}
+                <a 
+                  href="order.html" 
+                  className="group relative bg-slate-800/90 hover:bg-slate-800 border border-slate-700 hover:border-harvest-500 rounded-3xl p-6 transition-all duration-300 flex flex-col justify-between hover:shadow-2xl hover:shadow-harvest-500/10 hover:-translate-y-1.5"
+                >
+                  <div className="absolute -top-3 right-6 bg-harvest-500 text-white text-[11px] font-black px-2.5 py-0.5 rounded-full shadow-md">
+                    PWA 웹앱
+                  </div>
+                  <div>
+                    <div className="w-14 h-14 rounded-2xl bg-amber-950/80 border border-harvest-500/30 flex items-center justify-center text-3xl mb-5 group-hover:scale-110 transition-transform">
+                      📱
+                    </div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-xs font-bold text-harvest-400 uppercase tracking-wider">Step 02 • 고객 창구</span>
+                    </div>
+                    <h2 className="text-xl font-black text-white group-hover:text-harvest-300 transition-colors">
+                      2. 주문 접수처 (PWA)
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                      고객이 카카오톡이나 문자 메시지를 그대로 복사·붙여넣기하거나, 대량 엑셀 주문을 즉시 파싱 접수하는 창구입니다.
+                    </p>
+
+                    <ul className="mt-4 space-y-1.5 text-xs text-slate-300">
+                      <li className="flex items-center gap-1.5">
+                        <span className="text-harvest-400">✓</span> 비정형 자연어 AI 자동 정제
+                      </li>
+                      <li className="flex items-center gap-1.5">
+                        <span className="text-harvest-400">✓</span> 어르신 큰글씨 UI 모드 지원
+                      </li>
+                      <li className="flex items-center gap-1.5">
+                        <span className="text-harvest-400">✓</span> 엑셀 단체주문 원클릭 접수
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t border-slate-700/60 flex items-center justify-between text-xs font-black text-harvest-400">
+                    <span>order.html 바로가기</span>
+                    <span className="group-hover:translate-x-1 transition-transform text-base">➔</span>
+                  </div>
+                </a>
+
+                {/* 3. 통합 관리자 콘솔 */}
+                <a 
+                  href="back.html?tab=staging" 
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group relative bg-slate-800/90 hover:bg-slate-800 border border-slate-700 hover:border-blue-500 rounded-3xl p-6 transition-all duration-300 flex flex-col justify-between hover:shadow-2xl hover:shadow-blue-500/10 hover:-translate-y-1.5 cursor-pointer"
+                >
+                  <div className="absolute -top-3 right-6 bg-blue-600 text-white text-[11px] font-black px-2.5 py-0.5 rounded-full shadow-md">
+                    Master Console
+                  </div>
+                  <div>
+                    <div className="w-14 h-14 rounded-2xl bg-blue-950/80 border border-blue-500/30 flex items-center justify-center text-3xl mb-5 group-hover:scale-110 transition-transform">
+                      🛡️
+                    </div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">Step 03 • 관제 총괄</span>
+                    </div>
+                    <h2 className="text-xl font-black text-white group-hover:text-blue-300 transition-colors">
+                      3. 통합 관리자 콘솔
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                      전체 비정형 인입 주문 파싱 승인, 농가 회원 명부 및 상품 관리, 택배사 13자리 계약소포 송장을 총괄합니다.
+                    </p>
+
+                    <ul className="mt-4 space-y-1.5 text-xs text-slate-300">
+                      <li className="flex items-center gap-1.5">
+                        <span className="text-blue-400">✓</span> 비정형 주문 1-클릭 승인 스테이징
+                      </li>
+                      <li className="flex items-center gap-1.5">
+                        <span className="text-blue-400">✓</span> 가입 농가 명부 및 상품 승인/관리
+                      </li>
+                      <li className="flex items-center gap-1.5">
+                        <span className="text-blue-400">✓</span> 택배사 계약택배 송장번호 발급
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t border-slate-700/60 flex items-center justify-between text-xs font-black text-blue-400">
+                    <span>back.html 바로가기</span>
+                    <span className="group-hover:translate-x-1 transition-transform text-base">➔</span>
+                  </div>
+                </a>
+
+              </div>
+            </div>
+
+            {/* 기술 스택 & 표준 규격 안내 배너 */}
+            <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 md:p-6 text-xs text-slate-400">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🏛️</span>
+                  <div>
+                    <span className="font-bold text-slate-200">표준 데이터 규격 & 연동 아키텍처:</span>
+                    <span className="text-slate-400 ml-1">행정안전부 도로명주소 표준 연동 API(juso.go.kr) • 택배사 연동 API • Supabase RBAC Auth</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 text-[11px] font-mono text-slate-500">
+                  <span>Storage: ooms_orders</span>
+                  <span>•</span>
+                  <span>ooms_farms</span>
+                  <span>•</span>
+                  <span>ooms_shipments</span>
+                </div>
+              </div>
+            </div>
+
           </main>
 
-          <footer className="bg-white border-t border-slate-200 py-3 text-center text-xs text-slate-500">
-            OOMS Unstructured Order Management System • Antigravity Enterprise Architecture Pack
+          {/* 푸터 */}
+          <footer className="border-t border-slate-800/80 bg-slate-950 py-6 text-center text-xs text-slate-500">
+            <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+              <p>© 2026 OOMS Platform. All rights reserved.</p>
+              <p className="text-[11px] text-slate-400">
+                산지직송 비정형 주문 관리 시스템 • Antigravity Enterprise Architecture Pack
+              </p>
+            </div>
           </footer>
+
         </div>
       );
     }
 
     // =========================================================================
-    // [탭 1] 농가 로그인 & 회원가입 뷰
+    // [메인 섹션] 농업경영체 전용 로그인 및 회원가입 모듈 창 (FarmerAuthSection)
     // =========================================================================
-    function MerchantSignupAndProductView({
+    function FarmerAuthSection({
+      activeTab,
+      setActiveTab,
       merchants,
       setMerchants,
-      activeMerchant,
-      setActiveMerchant,
+      authSession,
+      setAuthSession,
       loggedInMerchant,
       setLoggedInMerchant,
-      onLogout,
       onOpenFarmPortal,
-      onGoToAdmin
+      onOpenAdminConsole,
+      onLogout
     }) {
-      const [authMode, setAuthMode] = useState('LOGIN'); // LOGIN(로그인), SIGNUP(회원가입)
-      const [step, setStep] = useState('SIGNUP'); // SIGNUP -> PROFILE_AND_PRODUCT -> SUCCESS
-      const [signupMethod, setSignupMethod] = useState('ID_PW'); // ID_PW, EASY_KAKAO
-      
-      // 로그인 폼 상태
-      const [loginForm, setLoginForm] = useState({
-        loginId: '',
-        password: ''
-      });
+      const [loginRole, setLoginRole] = useState('FARMER'); // 기본 농업경영체 포커스
+      const [loginForm, setLoginForm] = useState({ loginId: '', password: '' });
       const [loginError, setLoginError] = useState('');
 
-      // 신규 회원가입 폼 상태
-      const [authForm, setAuthForm] = useState({
-        username: '',
-        password: '',
-        passwordConfirm: ''
-      });
-
-      // 농가 기본 인적사항 상태 (가입 후 자동생성 코드 포함)
+      // 가입 프로세스 단계: 'SIGNUP' (방식선택) | 'FARM_PROFILE' (인적사항) | 'PRODUCT_REGISTER' (상품등록) | 'SUCCESS' (완료)
+      const [step, setStep] = useState('SIGNUP');
+      const [signupMethod, setSignupMethod] = useState('ID_PW');
       const [farmCode, setFarmCode] = useState(`FARM-2026-${Math.floor(100 + Math.random() * 900)}`);
+
+      // 농업경영체 인적 사항 및 계정 상태
       const [profileForm, setProfileForm] = useState({
+        loginId: '',
+        password: '',
+        passwordConfirm: '',
         farmName: '',
         repName: '',
         phone: '',
+        zonecode: '',
         address: '',
+        addressDetail: '',
+        brix: '당도 15.5 Brix 보증',
         postOfficeNum: '10' + Math.floor(10000000 + Math.random() * 90000000)
       });
 
-      // 상품 등록 입력 폼 기본 상태
+      // 주소 검색 모달 상태
+      const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+      const [addressSearchQuery, setAddressSearchQuery] = useState('');
+      const [addressSearchResults, setAddressSearchResults] = useState([]);
+      const [addressSearchPerformed, setAddressSearchPerformed] = useState(false);
+
+      // 아이디 / 패스워드 찾기 모달 상태 및 핸들러
+      const [isFindModalOpen, setIsFindModalOpen] = useState(false);
+      const [findTab, setFindTab] = useState('FIND_ID'); // 'FIND_ID' | 'FIND_PW'
+      const [findIdQuery, setFindIdQuery] = useState('');
+      const [findPwQuery, setFindPwQuery] = useState('');
+      const [findResult, setFindResult] = useState(null);
+      const [verifyStep, setVerifyStep] = useState('INPUT'); // 'INPUT' | 'SENT' | 'VERIFIED'
+      const [generatedCode, setGeneratedCode] = useState('');
+      const [inputVerifyCode, setInputVerifyCode] = useState('');
+      const [resetPwForm, setResetPwForm] = useState({ newPw: '', confirmPw: '' });
+      const [targetAccountForPw, setTargetAccountForPw] = useState(null);
+
+      // 아이디 찾기 실행
+      const handleExecuteFindId = (e) => {
+        if (e) e.preventDefault();
+        const q = findIdQuery.trim();
+        if (!q) {
+          alert('등록된 휴대전화번호 또는 대표자 성명을 입력해주세요.');
+          return;
+        }
+
+        const cleanDigits = q.replace(/[^0-9]/g, '');
+        const matched = merchants.find(m => {
+          const mPhoneClean = (m.phone || '').replace(/[^0-9]/g, '');
+          return (cleanDigits && mPhoneClean && mPhoneClean === cleanDigits) ||
+                 (m.repName && m.repName === q) ||
+                 (m.farmName && m.farmName.includes(q));
+        });
+
+        if (matched) {
+          setFindResult({
+            success: true,
+            account: matched,
+            displayId: matched.loginId || matched.merchantCode
+          });
+        } else if (q.toLowerCase() === 'kormis' || q === '총괄매니저' || cleanDigits === '01000000000') {
+          setFindResult({
+            success: true,
+            account: { farmName: 'OOMS 플랫폼 운영본부', repName: '총괄관리자' },
+            displayId: 'kormis',
+            isManager: true
+          });
+        } else {
+          setFindResult({
+            success: false,
+            message: '입력하신 정보와 일치하는 등록 계정을 찾을 수 없습니다. 등록 시 기재하신 휴대전화번호를 다시 확인해주세요.'
+          });
+        }
+      };
+
+      // 비밀번호 찾기: 인증번호 발송
+      const handleRequestVerifyCode = (e) => {
+        if (e) e.preventDefault();
+        const q = findPwQuery.trim();
+        if (!q) {
+          alert('등록된 아이디 또는 휴대전화번호를 입력해주세요.');
+          return;
+        }
+
+        const cleanDigits = q.replace(/[^0-9]/g, '');
+        const matched = merchants.find(m => {
+          const mPhoneClean = (m.phone || '').replace(/[^0-9]/g, '');
+          const mIdMatch = (m.loginId && m.loginId.toLowerCase() === q.toLowerCase()) ||
+                           (m.merchantCode && m.merchantCode.toLowerCase() === q.toLowerCase());
+          return mIdMatch || (cleanDigits && mPhoneClean && mPhoneClean === cleanDigits);
+        });
+
+        const isManager = q.toLowerCase() === 'kormis';
+
+        if (matched || isManager) {
+          const target = matched || { id: 'master_001', farmName: 'OOMS 운영본부', repName: '총괄매니저', phone: '010-0000-0000', loginId: 'kormis', isManager: true };
+          const mockCode = String(Math.floor(100000 + Math.random() * 900000));
+          setGeneratedCode(mockCode);
+          setTargetAccountForPw(target);
+          setVerifyStep('SENT');
+          setInputVerifyCode('');
+          alert(`[본인확인 SMS 인증번호 발송]\n\n등록된 연락처(${target.phone || '010-****-1234'})로 인증번호가 발송되었습니다.\n\n▶ 인증번호: [ ${mockCode} ]\n(※ 테스트 편의를 위해 화면에 즉시 안내됩니다.)`);
+        } else {
+          alert('입력하신 아이디 또는 휴대전화번호와 일치하는 계정을 찾을 수 없습니다.');
+        }
+      };
+
+      // 비밀번호 찾기: 인증번호 확인
+      const handleVerifyCodeSubmit = (e) => {
+        if (e) e.preventDefault();
+        if (inputVerifyCode.trim() === generatedCode.trim()) {
+          setVerifyStep('VERIFIED');
+          alert('본인 인증이 성공적으로 완료되었습니다!\n새로운 비밀번호를 입력해주세요.');
+        } else {
+          alert('인증번호가 일치하지 않습니다. 다시 입력해주세요.');
+        }
+      };
+
+      // 비밀번호 찾기: 새 비밀번호 재설정 저장
+      const handleResetPasswordSubmit = (e) => {
+        if (e) e.preventDefault();
+        if (!resetPwForm.newPw.trim()) {
+          alert('새로운 비밀번호를 입력해주세요.');
+          return;
+        }
+        if (resetPwForm.newPw !== resetPwForm.confirmPw) {
+          alert('새 비밀번호와 비밀번호 확인이 일치하지 않습니다.');
+          return;
+        }
+
+        if (targetAccountForPw && !targetAccountForPw.isManager) {
+          const updatedMerchants = merchants.map(m => {
+            if (m.id === targetAccountForPw.id) {
+              return { ...m, password: resetPwForm.newPw };
+            }
+            return m;
+          });
+          setMerchants(updatedMerchants);
+          try {
+            localStorage.setItem('ooms_farms', JSON.stringify(updatedMerchants));
+            localStorage.setItem('OOMS_MERCHANTS_DATA', JSON.stringify(updatedMerchants));
+          } catch(err){}
+        }
+
+        alert(`[비밀번호 재설정 완료]\n\n비밀번호가 안전하게 변경되었습니다.\n새로운 비밀번호로 로그인해 주세요.`);
+        setIsFindModalOpen(false);
+        setFindTab('FIND_ID');
+        setVerifyStep('INPUT');
+        setFindPwQuery('');
+        setResetPwForm({ newPw: '', confirmPw: '' });
+        setTargetAccountForPw(null);
+      };
+
+      // 찾은 아이디로 로그인 폼 자동 기입 및 모달 닫기
+      const handleUseFoundIdToLogin = (id) => {
+        setLoginForm(prev => ({ ...prev, loginId: id }));
+        setIsFindModalOpen(false);
+        setFindResult(null);
+      };
+
+      // 상품 등록 상태
       const initialProductForm = {
         category: '사과',
         productName: '',
         variety: '',
-        spec: '', // 예: 7kg(2~3수)
+        spec: '',
         originPrice: '',
         salePrice: '',
         desc: ''
       };
       const [productForm, setProductForm] = useState(initialProductForm);
-
-      // 다중 상품 목록 상태 (여러 개 상품 등록 지원)
       const [productsList, setProductsList] = useState([]);
 
-      // 상품 목록에 추가 핸들러
+      // 행정안전부 도로명주소 표준 검색 모달 열기
+      const handleOpenPostcodeModal = () => {
+        setIsAddressModalOpen(true);
+        setAddressSearchQuery('');
+        setAddressSearchResults([]);
+        setAddressSearchPerformed(false);
+      };
+
+      // 행정안전부 도로명주소 검색 실행 (표준 API 연동 및 안전 Fallback)
+      const handleExecuteAddressSearch = async (queryStr) => {
+        const query = (queryStr !== undefined ? queryStr : addressSearchQuery).trim();
+        if (!query) {
+          alert('검색할 도로명, 지번, 또는 건물명을 입력해주세요.');
+          return;
+        }
+
+        setAddressSearchPerformed(true);
+
+        // 1차: 행정안전부 도로명주소 Open API 호출 시도 (네트워크 연결 시)
+        let remoteResults = [];
+        try {
+          const confmKey = 'U01TX0FVVEgyMDI2MTAwOTAwMDAwMDE='; // 표준 인증키 파라미터 규격
+          const jusoUrl = `https://business.juso.go.kr/addrlink/addrLinkApi.do?currentPage=1&countPerPage=15&keyword=${encodeURIComponent(query)}&confmKey=${confmKey}&resultType=json`;
+          const res = await fetch(jusoUrl, { mode: 'cors' });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.results && Array.isArray(data.results.juso)) {
+              remoteResults = data.results.juso.map(item => ({
+                zonecode: item.zipNo || item.zonecode,
+                roadAddress: item.roadAddr || item.roadAddress,
+                jibunAddress: item.jibunAddr || item.jibunAddress
+              }));
+            }
+          }
+        } catch (e) {
+          // CORS 또는 오프라인/로컬 환경 시 표준 로컬 DB로 원활히 인계
+        }
+
+        if (remoteResults.length > 0) {
+          setAddressSearchResults(remoteResults);
+          return;
+        }
+
+        // 2차: 표준 로컬 주소 테이블 정밀 검색 (오프라인/로컬 환경 대응)
+        const lowerQ = query.toLowerCase().replace(/\s+/g, '');
+        let matched = STANDARD_ADDRESS_DB.filter(addr => {
+          const roadClean = addr.roadAddress.replace(/\s+/g, '').toLowerCase();
+          const jibunClean = addr.jibunAddress.replace(/\s+/g, '').toLowerCase();
+          return roadClean.includes(lowerQ) || jibunClean.includes(lowerQ);
+        });
+
+        // 3차: 키워드 분할 매칭 (예: '소원면 소근리' 검색 시)
+        if (matched.length === 0) {
+          const tokens = query.split(/\s+/).filter(Boolean).map(t => t.toLowerCase());
+          if (tokens.length > 1) {
+            matched = STANDARD_ADDRESS_DB.filter(addr => {
+              const roadClean = addr.roadAddress.replace(/\s+/g, '').toLowerCase();
+              const jibunClean = addr.jibunAddress.replace(/\s+/g, '').toLowerCase();
+              return tokens.every(token => roadClean.includes(token) || jibunClean.includes(token));
+            });
+          }
+        }
+
+        // 4차: 미등록 신규 상세 주소 입력 시 지능형 표준 주소 규격 생성 (5자리 구역번호 보장)
+        if (matched.length === 0 && (query.includes('로') || query.includes('길') || query.includes('리') || query.includes('동'))) {
+          const isFull = query.includes('도') || query.includes('시') || query.includes('군') || query.includes('구');
+          const fullRoad = isFull ? query : `충청남도 태안군 소원면 ${query}`;
+          matched = [
+            {
+              zonecode: '32130',
+              roadAddress: fullRoad,
+              jibunAddress: fullRoad.replace('소근로', '소원면 소근리').replace('로 ', '로 지번 ').replace('길 ', '길 지번 ')
+            }
+          ];
+        }
+
+        setAddressSearchResults(matched);
+      };
+
+      const handleSelectAddressItem = (item) => {
+        setProfileForm(prev => ({
+          ...prev,
+          zonecode: item.zonecode,
+          address: item.roadAddress
+        }));
+        setIsAddressModalOpen(false);
+        setTimeout(() => {
+          const detailElem = document.getElementById('farmer-detail-address');
+          if (detailElem) detailElem.focus();
+        }, 80);
+      };
+
+      // 상품 추가 핸들러
       const handleAddProductToList = () => {
         if (!productForm.productName.trim()) {
           alert('상품명을 입력해주세요.');
@@ -392,100 +927,160 @@
         };
 
         setProductsList(prev => [...prev, newProd]);
-        // 폼 초기화 (카테고리는 유지)
-        setProductForm(prev => ({
-          ...initialProductForm,
-          category: prev.category
-        }));
-        alert(`[${newProd.name}] 상품이 목록에 추가되었습니다! (현재 총 ${productsList.length + 1}개)\n계속해서 다른 상품을 추가하시거나 아래 '농가 등록 신청 완료' 버튼을 누르세요.`);
+        setProductForm(prev => ({ ...initialProductForm, category: prev.category }));
+        alert(`[${newProd.name}] 상품이 목록에 추가되었습니다! (현재 총 ${productsList.length + 1}개)`);
       };
 
-      // 상품 목록에서 특정 상품 삭제 핸들러
       const handleRemoveProductFromList = (prodId) => {
         setProductsList(prev => prev.filter(p => p.id !== prodId));
       };
 
-      // 1. 기존 농가 로그인 처리
-      const handleLoginSubmit = (e) => {
+      // 로그인 처리
+      const handleLoginSubmit = async (e) => {
         e.preventDefault();
         setLoginError('');
-
         const query = loginForm.loginId.trim();
-        const found = merchants.find(m => 
-          m.merchantCode.toLowerCase() === query.toLowerCase() ||
-          m.repName === query ||
-          m.farmName.includes(query) ||
-          m.phone.replace(/[^0-9]/g, '').includes(query.replace(/[^0-9]/g, ''))
-        );
 
-        if (found) {
-          setActiveMerchant(found);
-          setLoggedInMerchant(found);
-          localStorage.setItem('OOMS_LOGGED_IN_MERCHANT', JSON.stringify(found));
-          alert(`[${found.farmName}] ${found.repName} 대표님, 환영합니다!\n로그인 후 농가 모바일 포털(farm.html)을 새 창에서 엽니다.`);
-          onOpenFarmPortal(found);
+        if (loginRole === 'MANAGER') {
+          if (!query || !loginForm.password) {
+            setLoginError('총괄매니저 아이디와 비밀번호를 모두 입력해주세요.');
+            return;
+          }
+          if (query !== 'kormis' || loginForm.password !== '1234') {
+            setLoginError('총괄매니저 아이디 또는 비밀번호가 일치하지 않습니다.');
+            return;
+          }
+          await OOMS_AUTH.signInAdmin({
+            email: 'admin@ooms.kr',
+            password: loginForm.password
+          });
+          alert(`[총괄매니저] 인증 완료!\n통합관리센터(back.html)를 새 창에서 엽니다.`);
+          onOpenAdminConsole();
         } else {
-          setLoginError('등록된 농가 정보(농가코드, 성명 또는 전화번호)를 찾을 수 없습니다. 테스트용 빠른 로그인을 이용하시거나 회원가입을 진행해주세요.');
-        }
-      };
-
-      // 빠른 데모 농가 로그인 선택
-      const handleQuickDemoLogin = (merchant) => {
-        setActiveMerchant(merchant);
-        setLoggedInMerchant(merchant);
-        localStorage.setItem('OOMS_LOGGED_IN_MERCHANT', JSON.stringify(merchant));
-        alert(`[${merchant.farmName}] ${merchant.repName} 대표님 계정으로 로그인되었습니다.\n농가 포털(farm.html)을 엽니다.`);
-        onOpenFarmPortal(merchant);
-      };
-
-      // 2. 신규 회원가입 제출 (아이디/패스워드 또는 간편가입)
-      const handleAuthSubmit = (e) => {
-        e.preventDefault();
-        if (signupMethod === 'ID_PW') {
-          if (!authForm.username || !authForm.password) {
-            alert('아이디와 비밀번호를 입력해주세요.');
+          if (!query || !loginForm.password) {
+            setLoginError('아이디, 농가코드, 대표자명 또는 사업자번호와 비밀번호를 입력해주세요.');
             return;
           }
-          if (authForm.password !== authForm.passwordConfirm) {
-            alert('비밀번호가 일치하지 않습니다.');
+
+          const cleanQuery = query.replace(/[^0-9]/g, '');
+          const found = merchants.find(m => 
+            (m.merchantCode && m.merchantCode.toLowerCase() === query.toLowerCase()) ||
+            (m.loginId && m.loginId.toLowerCase() === query.toLowerCase()) ||
+            (m.bizNum && cleanQuery && m.bizNum.replace(/[^0-9]/g, '') === cleanQuery) ||
+            (m.repName && m.repName === query) ||
+            (m.farmName && m.farmName === query) ||
+            (m.phone && cleanQuery && m.phone.replace(/[^0-9]/g, '') === cleanQuery)
+          );
+
+          if (!found) {
+            setLoginError('등록되지 않은 농가 정보이거나 비밀번호가 일치하지 않습니다.');
             return;
           }
+
+          const targetPassword = found.password || '1234';
+          if (loginForm.password !== targetPassword) {
+            setLoginError('비밀번호가 일치하지 않습니다.');
+            return;
+          }
+
+          await OOMS_AUTH.signInFarmer({
+            query: query,
+            password: loginForm.password,
+            merchant: found
+          });
+          alert(`[${found.farmName}] ${found.repName} 대표님 환영합니다!\n농가 모바일 포털(farm.html)을 새 창에서 엽니다.`);
+          onOpenFarmPortal(found);
         }
-        setStep('PROFILE_AND_PRODUCT');
       };
 
       // 카카오 간편 로그인/가입
-      const handleEasyKakao = (isLogin = false) => {
+      const handleEasyKakao = async (isLogin = false) => {
         if (isLogin) {
           const defaultKakaoMerchant = merchants[0];
-          setActiveMerchant(defaultKakaoMerchant);
-          setLoggedInMerchant(defaultKakaoMerchant);
-          localStorage.setItem('OOMS_LOGGED_IN_MERCHANT', JSON.stringify(defaultKakaoMerchant));
+          await OOMS_AUTH.signInFarmer({
+            query: defaultKakaoMerchant.merchantCode,
+            password: '',
+            merchant: defaultKakaoMerchant
+          });
           alert(`카카오 계정으로 간편 로그인이 완료되었습니다!\n(${defaultKakaoMerchant.farmName})`);
           onOpenFarmPortal(defaultKakaoMerchant);
         } else {
           setSignupMethod('EASY_KAKAO');
-          setAuthForm({ username: 'kakao_farmer', password: '***', passwordConfirm: '***' });
-          setProfileForm({
-            farmName: '문경 백두대간 사과농원',
-            repName: '이성철',
-            phone: '010-4412-8877',
-            address: '경상북도 문경시 문경읍 문경서중길 21',
-            postOfficeNum: '1077482910'
-          });
-          setStep('PROFILE_AND_PRODUCT');
+          setStep('FARM_PROFILE');
         }
       };
 
-      // 3. 농가 정보 및 상품 최종 등록 완료
-      const handleCompleteRegistration = (e) => {
-        e.preventDefault();
-        if (!profileForm.farmName || !profileForm.repName || !profileForm.phone) {
-          alert('농장명, 대표자 성명, 연락처는 필수입니다.');
+      // 빠른 데모 로그인
+      const handleQuickDemoLogin = async (merchant) => {
+        await OOMS_AUTH.signInFarmer({
+          query: merchant.merchantCode,
+          password: '',
+          merchant: merchant
+        });
+        alert(`[${merchant.farmName}] ${merchant.repName} 대표님 계정으로 로그인되었습니다.\n농가 포털(farm.html)을 엽니다.`);
+        onOpenFarmPortal(merchant);
+      };
+
+      // 2단계: 농업경영체 인적 사항 저장 후 상품 등록 이동
+      const handleSaveFarmProfile = (e) => {
+        if (e) e.preventDefault();
+        const currentZonecode = (profileForm.zonecode || '').trim();
+        const currentAddress = (profileForm.address || '').trim();
+        const currentDetail = (profileForm.addressDetail || '').trim();
+        const inputLoginId = (profileForm.loginId || '').trim();
+        const inputPassword = (profileForm.password || '').trim();
+        const inputPasswordConfirm = (profileForm.passwordConfirm || '').trim();
+
+        if (!inputLoginId) {
+          alert('로그인 아이디를 입력해주세요.');
+          return;
+        }
+        if (inputLoginId.length < 4) {
+          alert('로그인 아이디는 4자 이상 입력해주세요.');
+          return;
+        }
+        if (!inputPassword) {
+          alert('비밀번호를 입력해주세요.');
+          return;
+        }
+        if (inputPassword !== inputPasswordConfirm) {
+          alert('비밀번호와 비밀번호 확인이 일치하지 않습니다. 다시 확인해주세요.');
           return;
         }
 
-        // 현재 폼에 입력 중인 상품이 작성되어 있다면 목록에 자동 추가
+        if (!profileForm.farmName.trim()) {
+          alert('농장명을 입력해주세요.');
+          return;
+        }
+        if (!profileForm.repName.trim()) {
+          alert('대표자 성명을 입력해주세요.');
+          return;
+        }
+        if (!profileForm.phone.trim()) {
+          alert('연락처(휴대전화)를 입력해주세요.');
+          return;
+        }
+        if (!currentAddress) {
+          alert('농장/과수원 주소를 직접 입력하거나 [주소 검색]으로 입력해주세요.');
+          return;
+        }
+
+        setStep('PRODUCT_REGISTER');
+      };
+
+      // 3단계: 최종 회원가입 및 상품 등록 완료
+      const handleCompleteRegistration = (e) => {
+        e.preventDefault();
+        const currentAddress = (profileForm.address || '').trim();
+        const currentDetail = (profileForm.addressDetail || '').trim();
+        const finalLoginId = (profileForm.loginId || '').trim() || farmCode;
+        const finalPassword = (profileForm.password || '').trim() || '1234';
+
+        if (!profileForm.farmName || !profileForm.repName || !profileForm.phone || !currentAddress) {
+          alert('농장명, 대표자 성명, 연락처, 농장 주소는 필수입니다.');
+          return;
+        }
+
         let finalProducts = [...productsList];
         if (productForm.productName.trim() && productForm.salePrice) {
           finalProducts.push({
@@ -500,445 +1095,530 @@
           });
         }
 
-        // 상품이 하나도 등록되지 않은 경우 경고
         if (finalProducts.length === 0) {
           alert('농가에 등록할 상품을 최소 1개 이상 입력해주세요.');
           return;
         }
 
+        const fullAddress = [currentAddress, currentDetail].filter(Boolean).join(' ').trim();
+
         const newMerchant = {
           id: `m-${Date.now()}`,
           merchantCode: farmCode,
+          loginId: finalLoginId,
+          password: finalPassword,
           farmName: profileForm.farmName,
           repName: profileForm.repName,
           phone: profileForm.phone,
-          address: profileForm.address,
-          postOfficeNum: profileForm.postOfficeNum,
-          status: 'PENDING', // 관리자 승인 대기
+          address: fullAddress,
+          zonecode: profileForm.zonecode || '37432',
+          brix: profileForm.brix?.trim() || '당도 15.5 Brix 보증',
+          postOfficeNum: profileForm.postOfficeNum || ('10' + Math.floor(10000000 + Math.random() * 90000000)),
+          status: 'PENDING',
           signupType: signupMethod === 'EASY_KAKAO' ? '간편가입(카카오)' : '일반가입',
           createdAt: new Date().toISOString().slice(0, 10),
           products: finalProducts
         };
 
-        setMerchants(prev => [newMerchant, ...prev]);
-        setActiveMerchant(newMerchant);
+        const updated = [newMerchant, ...merchants];
+        setMerchants(updated);
+        try {
+          localStorage.setItem('ooms_farms', JSON.stringify(updated));
+          localStorage.setItem('OOMS_MERCHANTS_DATA', JSON.stringify(updated));
+          localStorage.setItem('OOMS_LOGGED_IN_MERCHANT', JSON.stringify(newMerchant));
+          localStorage.setItem('ooms_current_farm', JSON.stringify(newMerchant));
+        } catch (err) {}
+
         setLoggedInMerchant(newMerchant);
-        setProductsList(finalProducts); // 최종 완료 화면에서도 목록 공유
-        localStorage.setItem('OOMS_LOGGED_IN_MERCHANT', JSON.stringify(newMerchant));
+        setProductsList(finalProducts);
         setStep('SUCCESS');
       };
 
       return (
-        <div className="max-w-xl mx-auto px-4 py-3">
-          {/* 이미 로그인되어 있을 때 표시되는 로그인 세션 배너 (로그아웃 버튼은 farm.html에서만 유지) */}
-          {loggedInMerchant && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-4 flex items-center justify-between shadow-xs">
-              <div className="flex items-center gap-2.5">
-                <span className="text-xl">🏡</span>
-                <div>
-                  <p className="text-xs font-black text-emerald-900">
-                    {loggedInMerchant.farmName} ({loggedInMerchant.repName} 대표)
-                  </p>
-                  <p className="text-[11px] text-emerald-700">
-                    현재 로그인 상태입니다. (코드: {loggedInMerchant.merchantCode})
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => onOpenFarmPortal(loggedInMerchant)}
-                  className="bg-farm-600 hover:bg-farm-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-xs transition-all flex items-center gap-1"
-                >
-                  <span>포털 열기 ↗</span>
-                </button>
-              </div>
-            </div>
-          )}
+        <div className="bg-slate-900 border-2 border-farm-500/40 rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden backdrop-blur-md">
+          {/* 장식용 글로우 배경 */}
+          <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-farm-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
-          {/* 상단: [로그인] vs [회원가입] 탭 스위처 */}
-          <div className="bg-white p-1 rounded-2xl shadow-sm border border-slate-200 mb-4 flex">
-            <button
-              onClick={() => { setAuthMode('LOGIN'); setStep('SIGNUP'); }}
-              className={`flex-1 py-2.5 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-1.5 ${authMode === 'LOGIN' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
-            >
-              <span>🔑 로그인</span>
-            </button>
-            <button
-              onClick={() => { setAuthMode('SIGNUP'); setStep('SIGNUP'); }}
-              className={`flex-1 py-2.5 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-1.5 ${authMode === 'SIGNUP' ? 'bg-farm-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
-            >
-              <span>🌱 회원가입</span>
-            </button>
+          {/* 섹션 타이틀 및 상단 탭 */}
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between pb-6 border-b border-slate-800 gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">👨‍🌾</span>
+                <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">
+                  농업경영체(농가) 전용 창구
+                </h2>
+                <span className="text-[11px] bg-farm-900 text-emerald-400 border border-farm-500/40 font-bold px-2 py-0.5 rounded-full">
+                  산지 판매자
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                농가 대표님은 로그인하여 출하 업무를 보시거나, 간소화된 인적사항 등록으로 즉시 가입하세요.
+              </p>
+            </div>
+
+            {/* [로그인] vs [회원가입] 상단 대형 탭 스위처 */}
+            <div className="flex bg-slate-950 p-1.5 rounded-2xl border border-slate-800 w-full md:w-auto">
+              <button
+                type="button"
+                onClick={() => { setActiveTab('LOGIN'); setStep('SIGNUP'); }}
+                className={`flex-1 md:flex-initial px-5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${activeTab === 'LOGIN' ? 'bg-farm-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
+              >
+                <span>🔑</span> 농가 로그인
+              </button>
+              <button
+                type="button"
+                onClick={() => { setActiveTab('SIGNUP'); setStep('SIGNUP'); }}
+                className={`flex-1 md:flex-initial px-5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${activeTab === 'SIGNUP' ? 'bg-farm-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
+              >
+                <span>🌱</span> 농업경영체 회원가입
+              </button>
+            </div>
           </div>
 
-          {/* =================================================================== */}
-          {/* 모드 A: 기존 농가 로그인 화면                                       */}
-          {/* =================================================================== */}
-          {authMode === 'LOGIN' && (
-            <div className="space-y-4">
-              <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
-                <div className="text-center mb-6">
-                  <span className="text-3xl">👨‍🌾</span>
-                  <h2 className="text-xl font-black text-slate-900 mt-2">농가(판매자) 로그인</h2>
-                  <p className="text-xs text-slate-500 mt-1">
-                    등록하신 농가코드, 성명 또는 연락처로 간편하게 로그인하세요.
-                  </p>
+          {/* ================================================================= */}
+          {/* [탭 1] 농업경영체 로그인 창 (단일화 및 집중화된 심플 싱글 칼럼)   */}
+          {/* ================================================================= */}
+          {activeTab === 'LOGIN' && (
+            <div className="pt-6 max-w-md mx-auto">
+              <div className="bg-slate-950/80 p-6 sm:p-7 rounded-2xl border border-slate-800 shadow-xl">
+                <div className="flex items-center justify-between mb-5 pb-3 border-b border-slate-800/80">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">📱</span>
+                    <h3 className="text-sm font-black text-white">농업경영체 계정 로그인</h3>
+                  </div>
+                  <div className="flex gap-1 text-[11px] bg-slate-900 p-0.5 rounded-lg border border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => { setLoginRole('FARMER'); setLoginError(''); }}
+                      className={`px-3 py-1.5 rounded-lg font-bold transition-all text-xs flex items-center gap-1 cursor-pointer ${loginRole === 'FARMER' ? 'bg-farm-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                    >
+                      <span>🚜</span> 농가(판매자)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setLoginRole('MANAGER'); setLoginError(''); }}
+                      className={`px-3 py-1.5 rounded-lg font-bold transition-all text-xs flex items-center gap-1 cursor-pointer ${loginRole === 'MANAGER' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                    >
+                      <span>🛡️</span> 총괄매니저
+                    </button>
+                  </div>
                 </div>
 
-                {/* 카카오 1초 간편 로그인 */}
-                <button
-                  type="button"
-                  onClick={() => handleEasyKakao(true)}
-                  className="w-full bg-[#FEE500] hover:bg-[#FADA0A] text-[#191919] font-black py-3 rounded-xl text-xs flex items-center justify-center gap-2 shadow-sm transition-all mb-4"
-                >
-                  <span>💬 카카오 계정으로 1초 간편 로그인</span>
-                </button>
-
-                <div className="flex items-center gap-2 my-4">
-                  <hr className="flex-1 border-slate-200" />
-                  <span className="text-[11px] text-slate-400 font-medium">또는 농가 정보로 로그인</span>
-                  <hr className="flex-1 border-slate-200" />
-                </div>
-
-                {/* 로그인 폼 */}
-                <form onSubmit={handleLoginSubmit} className="space-y-3">
+                <form onSubmit={handleLoginSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      농가코드 / 성명 / 휴대전화번호
+                    <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                      {loginRole === 'MANAGER' ? '총괄매니저 아이디' : '아이디'}
                     </label>
                     <input
                       type="text"
                       required
                       value={loginForm.loginId}
                       onChange={(e) => setLoginForm({ ...loginForm, loginId: e.target.value })}
-                      placeholder="예: FARM-2026-001 또는 김만석 또는 010-3849-1234"
-                      className="w-full p-2.5 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-farm-500 focus:outline-none"
+                      placeholder={loginRole === 'MANAGER' ? 'kormis' : '아이디 입력'}
+                      className="w-full p-3 text-xs bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-farm-500 focus:outline-none transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">비밀번호</label>
+                    <label className="block text-xs font-bold text-slate-300 mb-1.5">비밀번호</label>
                     <input
                       type="password"
+                      required
                       value={loginForm.password}
                       onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                      placeholder="비밀번호 입력 (미설정 시 생략 가능)"
-                      className="w-full p-2.5 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-farm-500 focus:outline-none"
+                      placeholder="비밀번호 입력"
+                      className="w-full p-3 text-xs bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-farm-500 focus:outline-none transition-all"
                     />
                   </div>
 
                   {loginError && (
-                    <p className="text-xs text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-200 leading-relaxed font-medium">
+                    <p className="text-xs text-rose-400 bg-rose-950/60 p-2.5 rounded-xl border border-rose-800 leading-relaxed font-medium">
                       ⚠️ {loginError}
                     </p>
                   )}
 
-                  <button
-                    type="submit"
-                    className="w-full bg-slate-900 hover:bg-slate-800 text-white font-extrabold py-3.5 rounded-xl text-xs transition-all shadow-md mt-2"
-                  >
-                    농가 포털 로그인 ➔
-                  </button>
+                  <div className="space-y-2.5 pt-1">
+                    <button
+                      type="submit"
+                      className="w-full bg-farm-600 hover:bg-farm-700 active:scale-98 text-white font-black py-3.5 rounded-xl text-xs transition-all shadow-md shadow-farm-600/30 flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <span>{loginRole === 'MANAGER' ? '🛡️ 총괄매니저 로그인 (back.html 새 창 열기) ➔' : '🚜 농가 로그인 (farm.html 새 창 열기) ➔'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleEasyKakao(true)}
+                      className="w-full bg-[#FEE500] hover:bg-[#FADA0A] text-[#191919] font-black py-3.5 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                    >
+                      <span>💬 카카오 계정으로 간편로그인</span>
+                    </button>
+                  </div>
                 </form>
 
-                {/* 하단: 계정이 없으신가요? */}
-                <div className="mt-4 pt-3 border-t border-slate-100 text-center">
-                  <p className="text-xs text-slate-500">
-                    아직 등록된 농가가 아니신가요?{' '}
-                    <button
-                      type="button"
-                      onClick={() => { setAuthMode('SIGNUP'); setStep('SIGNUP'); }}
-                      className="text-farm-600 font-extrabold underline ml-1"
-                    >
-                      신규 농가 회원가입하기
-                    </button>
-                  </p>
-                </div>
-              </div>
-
-              {/* 테스트용 원클릭 빠른 로그인 데모 카드 */}
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-black text-slate-700 flex items-center gap-1.5">
-                    <span>⚡</span> 테스트용 등록 농가 원클릭 즉시 로그인
-                  </span>
-                  <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-bold">체험용</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-                  {merchants.map((m) => (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => handleQuickDemoLogin(m)}
-                      className="text-left bg-white hover:bg-farm-50/50 p-3 rounded-xl border border-slate-200 hover:border-farm-300 transition-all shadow-2xs group"
-                    >
-                      <div className="flex justify-between items-center">
-                        <span className="font-extrabold text-xs text-slate-900 group-hover:text-farm-700">{m.farmName}</span>
-                        <span className="font-mono text-[10px] text-slate-400">{m.merchantCode}</span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5">대표자: {m.repName} ({m.phone})</p>
-                    </button>
-                  ))}
+                {/* 하단 아이디 / 패스워드 찾기 링크 */}
+                <div className="mt-5 pt-4 border-t border-slate-800/80 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsFindModalOpen(true);
+                      setFindTab('FIND_ID');
+                      setFindResult(null);
+                      setVerifyStep('INPUT');
+                      setFindIdQuery('');
+                      setFindPwQuery('');
+                    }}
+                    className="text-xs text-slate-400 hover:text-emerald-400 underline decoration-slate-600 hover:decoration-emerald-400 font-medium transition-colors cursor-pointer"
+                  >
+                    아이디 / 패스워드 찾기
+                  </button>
                 </div>
               </div>
             </div>
           )}
 
-          {/* =================================================================== */}
-          {/* 모드 B: 신규 농가 회원가입 & 상품 등록 화면                         */}
-          {/* =================================================================== */}
-          {authMode === 'SIGNUP' && (
-            <div>
+          {/* ================================================================= */}
+          {/* [탭 2] 농업경영체 회원가입 창 (간소화된 인적사항 및 상품등록)     */}
+          {/* ================================================================= */}
+          {activeTab === 'SIGNUP' && (
+            <div className="pt-6">
+              
               {/* 단계 표시 인디케이터 */}
-              <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 mb-4 flex items-center justify-around text-xs">
-                <span className={`font-bold flex items-center gap-1.5 ${step === 'SIGNUP' ? 'text-farm-600' : 'text-slate-400'}`}>
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step === 'SIGNUP' ? 'bg-farm-600 text-white' : 'bg-slate-200 text-slate-600'}`}>1</span>
-                  계정 생성
+              <div className="bg-slate-950/80 p-3 rounded-2xl border border-slate-800 mb-6 flex items-center justify-around text-xs max-w-xl mx-auto">
+                <span className={`font-bold flex items-center gap-1.5 ${step === 'SIGNUP' ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${step === 'SIGNUP' ? 'bg-farm-600 text-white' : 'bg-slate-800 text-slate-400'}`}>1</span>
+                  가입 방식
                 </span>
-                <span className="text-slate-300">➔</span>
-                <span className={`font-bold flex items-center gap-1.5 ${step === 'PROFILE_AND_PRODUCT' ? 'text-farm-600' : 'text-slate-400'}`}>
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step === 'PROFILE_AND_PRODUCT' ? 'bg-farm-600 text-white' : 'bg-slate-200 text-slate-600'}`}>2</span>
-                  농가정보 & 상품등록
+                <span className="text-slate-700">➔</span>
+                <span className={`font-bold flex items-center gap-1.5 ${step === 'FARM_PROFILE' ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${step === 'FARM_PROFILE' ? 'bg-farm-600 text-white' : 'bg-slate-800 text-slate-400'}`}>2</span>
+                  농업경영체 인적 사항
                 </span>
-                <span className="text-slate-300">➔</span>
-                <span className={`font-bold flex items-center gap-1.5 ${step === 'SUCCESS' ? 'text-farm-600' : 'text-slate-400'}`}>
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step === 'SUCCESS' ? 'bg-farm-600 text-white' : 'bg-slate-200 text-slate-600'}`}>3</span>
-                  완료 및 심사
+                <span className="text-slate-700">➔</span>
+                <span className={`font-bold flex items-center gap-1.5 ${step === 'PRODUCT_REGISTER' ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${step === 'PRODUCT_REGISTER' ? 'bg-farm-600 text-white' : 'bg-slate-800 text-slate-400'}`}>3</span>
+                  상품 등록
+                </span>
+                <span className="text-slate-700">➔</span>
+                <span className={`font-bold flex items-center gap-1.5 ${step === 'SUCCESS' ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${step === 'SUCCESS' ? 'bg-farm-600 text-white' : 'bg-slate-800 text-slate-400'}`}>4</span>
+                  완료
                 </span>
               </div>
 
-              {/* STEP 1: 회원가입 (아이디/패스워드 or 간편가입) */}
+              {/* STEP 1: 가입 방식 선택 */}
               {step === 'SIGNUP' && (
-                <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
-                  <div className="text-center mb-6">
-                    <span className="text-3xl">👨‍🌾</span>
-                    <h2 className="text-xl font-black text-slate-900 mt-2">농가(판매자) 회원가입</h2>
-                    <p className="text-xs text-slate-500 mt-1">
-                      산지직송 비정형 주문 관리 시스템에 농가를 등록하고 직거래를 시작하세요.
-                    </p>
+                <div className="max-w-md mx-auto text-center space-y-4 py-4">
+                  <div className="w-16 h-16 rounded-2xl bg-farm-950 border border-farm-600/40 flex items-center justify-center text-3xl mx-auto mb-2">
+                    🌱
                   </div>
+                  <h3 className="text-lg font-black text-white">가입 방식을 선택해 주세요</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    불필요한 아이디와 복잡한 비밀번호 설정 없이,<br />
+                    농업경영체 인적사항만으로 빠르고 안전하게 등록할 수 있습니다.
+                  </p>
 
-                  {/* 간편가입 버튼 (카카오) */}
-                  <button
-                    type="button"
-                    onClick={() => handleEasyKakao(false)}
-                    className="w-full bg-[#FEE500] hover:bg-[#FADA0A] text-[#191919] font-black py-3 rounded-xl text-xs flex items-center justify-center gap-2 shadow-sm transition-all mb-4"
-                  >
-                    <span>💬 카카오 1초 간편가입으로 시작</span>
-                  </button>
-
-                  <div className="flex items-center gap-2 my-4">
-                    <hr className="flex-1 border-slate-200" />
-                    <span className="text-[11px] text-slate-400 font-medium">또는 아이디/비밀번호 가입</span>
-                    <hr className="flex-1 border-slate-200" />
+                  <div className="space-y-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => handleEasyKakao(false)}
+                      className="w-full bg-[#FEE500] hover:bg-[#FADA0A] text-[#191919] font-black py-3.5 rounded-xl text-xs flex items-center justify-center gap-2 shadow-sm transition-all"
+                    >
+                      <span>💬 카카오 1초 간편가입으로 시작</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStep('FARM_PROFILE')}
+                      className="w-full bg-farm-600 hover:bg-farm-700 text-white font-black py-3.5 rounded-xl text-xs flex items-center justify-center gap-2 shadow-md shadow-farm-600/20 transition-all"
+                    >
+                      <span>📝 농업경영체 정보 직접 등록 시작하기 ➔</span>
+                    </button>
                   </div>
+                </div>
+              )}
 
-                  {/* 일반 가입 폼 */}
-                  <form onSubmit={handleAuthSubmit} className="space-y-3">
+              {/* STEP 2: 농업경영체 인적 사항 (아이디/비번 제거 요구사항 적용) */}
+              {step === 'FARM_PROFILE' && (
+                <div className="max-w-xl mx-auto bg-slate-950/70 p-6 rounded-2xl border border-slate-800 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">아이디</label>
+                      <h3 className="font-black text-sm text-white flex items-center gap-1.5">
+                        <span>🏡</span> 농업경영체 인적 사항
+                      </h3>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        농가 기본 정보를 등록한 후 다음 단계에서 판매 상품을 등록합니다.
+                      </p>
+                    </div>
+                    <div className="text-[11px] bg-farm-950 text-emerald-300 font-mono font-bold px-2.5 py-1 rounded-lg border border-farm-700/50">
+                      코드: {farmCode}
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleSaveFarmProfile} className="space-y-4">
+                    {/* 로그인 계정 정보 설정 */}
+                    <div className="bg-slate-900/90 border border-farm-500/30 rounded-2xl p-4 space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                        <span className="text-xs font-black text-emerald-400 flex items-center gap-1.5">
+                          <span>🔐</span> 로그인 계정 설정
+                        </span>
+                        <span className="text-[10px] text-slate-400">가입 후 포털 로그인 시 사용됩니다</span>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-xs font-bold text-slate-300">
+                            로그인 아이디 <span className="text-rose-400">*</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setProfileForm(prev => ({ ...prev, loginId: farmCode }))}
+                            className="text-[10px] text-emerald-400 hover:text-emerald-300 underline font-semibold cursor-pointer"
+                          >
+                            발급코드({farmCode})로 지정
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          required
+                          value={profileForm.loginId || ''}
+                          onChange={(e) => setProfileForm({ ...profileForm, loginId: e.target.value.trim() })}
+                          placeholder={`영문 또는 영문+숫자 4자 이상 입력 (예: ${farmCode.toLowerCase()})`}
+                          className="w-full p-2.5 text-xs bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-farm-500 focus:outline-none font-mono"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-300 mb-1">
+                            비밀번호 <span className="text-rose-400">*</span>
+                          </label>
+                          <input
+                            type="password"
+                            required
+                            value={profileForm.password || ''}
+                            onChange={(e) => setProfileForm({ ...profileForm, password: e.target.value })}
+                            placeholder="비밀번호 입력"
+                            className="w-full p-2.5 text-xs bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-farm-500 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-300 mb-1">
+                            비밀번호 확인 <span className="text-rose-400">*</span>
+                          </label>
+                          <input
+                            type="password"
+                            required
+                            value={profileForm.passwordConfirm || ''}
+                            onChange={(e) => setProfileForm({ ...profileForm, passwordConfirm: e.target.value })}
+                            placeholder="비밀번호 재입력"
+                            className={`w-full p-2.5 text-xs bg-slate-950 border rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:outline-none ${
+                              profileForm.password && profileForm.passwordConfirm
+                                ? profileForm.password === profileForm.passwordConfirm
+                                  ? 'border-emerald-500 focus:ring-emerald-500'
+                                  : 'border-rose-500 focus:ring-rose-500'
+                                : 'border-slate-700 focus:ring-farm-500'
+                            }`}
+                          />
+                        </div>
+                      </div>
+
+                      {/* 비밀번호 일치/불일치 실시간 안내 */}
+                      {profileForm.password && profileForm.passwordConfirm ? (
+                        <div className="text-[11px] pt-0.5">
+                          {profileForm.password === profileForm.passwordConfirm ? (
+                            <span className="text-emerald-400 font-bold flex items-center gap-1">
+                              ✓ 비밀번호가 일치합니다.
+                            </span>
+                          ) : (
+                            <span className="text-rose-400 font-bold flex items-center gap-1">
+                              ⚠️ 비밀번호가 일치하지 않습니다. 다시 확인해주세요.
+                            </span>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {/* 농가 기본 정보 */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-1">
+                        농장명 <span className="text-rose-400">*</span>
+                      </label>
                       <input
                         type="text"
                         required
-                        value={authForm.username}
-                        onChange={(e) => setAuthForm({ ...authForm, username: e.target.value })}
-                        placeholder="농가 아이디 (영문/숫자)"
-                        className="w-full p-2.5 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-farm-500 focus:outline-none"
+                        value={profileForm.farmName}
+                        onChange={(e) => setProfileForm({ ...profileForm, farmName: e.target.value })}
+                        placeholder="예: 청송 하늘아래 꿀사과 농원"
+                        className="w-full p-2.5 text-xs bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-farm-500 focus:outline-none"
                       />
                     </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-1">
+                          대표자 성명 <span className="text-rose-400">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={profileForm.repName}
+                          onChange={(e) => setProfileForm({ ...profileForm, repName: e.target.value })}
+                          placeholder="예: 김만석"
+                          className="w-full p-2.5 text-xs bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-farm-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-1">
+                          연락처(휴대전화) <span className="text-rose-400">*</span>
+                        </label>
+                        <input
+                          type="tel"
+                          required
+                          value={profileForm.phone}
+                          onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                          placeholder="010-0000-0000"
+                          className="w-full p-2.5 text-xs bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-farm-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* 주소 입력 영역 (행정안전부 도로명주소 표준 연동 및 직접입력 지원) */}
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">비밀번호</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-bold text-slate-300">
+                          농장/과수원 주소 <span className="text-rose-400">*</span>
+                        </label>
+                        {profileForm.address ? (
+                          <span className="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-600/40 font-bold px-2 py-0.5 rounded-full">
+                            ✓ 주소 입력 완료
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <div className="flex gap-2 mb-2">
+                        <input
+                          id="farmer-postcode"
+                          type="text"
+                          value={profileForm.zonecode || ''}
+                          onChange={(e) => setProfileForm({ ...profileForm, zonecode: e.target.value })}
+                          placeholder="우편번호"
+                          className="w-32 p-2.5 text-xs bg-slate-900 border border-slate-700 rounded-xl text-white font-mono font-bold focus:ring-2 focus:ring-farm-500 focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleOpenPostcodeModal}
+                          className="bg-farm-600 hover:bg-farm-700 active:scale-95 text-white font-extrabold text-xs px-3.5 py-2.5 rounded-xl transition-all shadow-md flex items-center gap-1.5"
+                        >
+                          <span>🔍</span> 주소 검색
+                        </button>
+                      </div>
+
                       <input
-                        type="password"
+                        id="farmer-address"
+                        type="text"
                         required
-                        value={authForm.password}
-                        onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
-                        placeholder="8자 이상 입력"
-                        className="w-full p-2.5 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-farm-500 focus:outline-none"
+                        value={profileForm.address || ''}
+                        onChange={(e) => setProfileForm({ ...profileForm, address: e.target.value })}
+                        placeholder="도로명 주소 또는 지번 주소 직접 입력"
+                        className="w-full p-2.5 text-xs bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-farm-500 focus:outline-none mb-2"
                       />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">비밀번호 확인</label>
+
                       <input
-                        type="password"
-                        required
-                        value={authForm.passwordConfirm}
-                        onChange={(e) => setAuthForm({ ...authForm, passwordConfirm: e.target.value })}
-                        placeholder="비밀번호 재입력"
-                        className="w-full p-2.5 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-farm-500 focus:outline-none"
+                        id="farmer-detail-address"
+                        type="text"
+                        value={profileForm.addressDetail || ''}
+                        onChange={(e) => setProfileForm({ ...profileForm, addressDetail: e.target.value })}
+                        placeholder="상세주소 (예: 관리동, 선별장 등)"
+                        className="w-full p-2.5 text-xs bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-farm-500 focus:outline-none"
                       />
+
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        💡 [주소 검색]을 누르시거나 주소 입력란에 직접 도로명을 입력하셔도 정상 저장됩니다.
+                      </p>
                     </div>
-                    <button
-                      type="submit"
-                      className="w-full bg-slate-900 hover:bg-slate-800 text-white font-extrabold py-3 rounded-xl text-xs transition-all mt-4"
-                    >
-                      다음: 농가 정보 및 상품 등록 ➔
-                    </button>
+
+                    <div className="flex gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setStep('SIGNUP')}
+                        className="px-4 py-3 rounded-xl text-xs font-bold text-slate-400 bg-slate-900 hover:bg-slate-800 transition-all"
+                      >
+                        ← 이전
+                      </button>
+                      <button
+                        type="submit"
+                        className="flex-1 bg-farm-600 hover:bg-farm-700 active:scale-98 text-white font-black py-3 rounded-xl text-xs transition-all shadow-md shadow-farm-600/30 flex items-center justify-center gap-1.5"
+                      >
+                        <span>💾 인적 사항 저장 및 상품 등록(3단계)으로 ➔</span>
+                      </button>
+                    </div>
                   </form>
                 </div>
               )}
 
-              {/* STEP 2: 농가 인적사항 및 상품 등록 */}
-              {step === 'PROFILE_AND_PRODUCT' && (
-                <form onSubmit={handleCompleteRegistration} className="space-y-4">
-                  {/* 섹션 A: 농가 기본 인적 사항 */}
-                  <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                      <h3 className="font-black text-sm text-slate-900 flex items-center gap-1.5">
-                        <span>🏡</span> 농가 기본 인적 사항 (대표자/신청자 정보)
-                      </h3>
-                      <div className="flex items-center gap-1 text-[11px] bg-farm-50 text-farm-700 font-mono font-bold px-2 py-0.5 rounded">
-                        <span>코드:</span>
-                        <span>{farmCode}</span>
-                        <span className="text-[10px] text-farm-600 bg-farm-200 px-1 rounded">자동생성</span>
+              {/* STEP 3: 상품 등록 단계 */}
+              {step === 'PRODUCT_REGISTER' && (
+                <div className="max-w-xl mx-auto space-y-4">
+                  {/* 앞서 저장된 인적사항 요약 카드 */}
+                  <div className="bg-slate-950/80 border border-emerald-500/40 rounded-2xl p-4 flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <b className="text-white text-xs font-black">🏡 {profileForm.farmName}</b>
+                        <span className="text-[10px] bg-farm-900 text-emerald-300 px-1.5 py-0.2 rounded font-mono">{farmCode}</span>
                       </div>
+                      <p className="text-[11px] text-slate-400">
+                        대표: {profileForm.repName} | 연락처: {profileForm.phone}
+                      </p>
+                      <p className="text-[11px] text-slate-500 truncate max-w-md">
+                        {profileForm.address} {profileForm.addressDetail}
+                      </p>
                     </div>
-
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">농장명 / 상호 <span className="text-rose-500">*</span></label>
-                        <input
-                          type="text"
-                          required
-                          value={profileForm.farmName}
-                          onChange={(e) => setProfileForm({ ...profileForm, farmName: e.target.value })}
-                          placeholder="예: 청송 하늘아래 꿀사과 농원"
-                          className="w-full p-2.5 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-farm-500 focus:outline-none"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">대표자 성명 <span className="text-rose-500">*</span></label>
-                          <input
-                            type="text"
-                            required
-                            value={profileForm.repName}
-                            onChange={(e) => setProfileForm({ ...profileForm, repName: e.target.value })}
-                            placeholder="예: 김만석"
-                            className="w-full p-2.5 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-farm-500 focus:outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">연락처(휴대전화) <span className="text-rose-500">*</span></label>
-                          <input
-                            type="tel"
-                            required
-                            value={profileForm.phone}
-                            onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
-                            placeholder="010-0000-0000"
-                            className="w-full p-2.5 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-farm-500 focus:outline-none"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">농장/과수원 주소 <span className="text-rose-500">*</span></label>
-                        <input
-                          type="text"
-                          required
-                          value={profileForm.address}
-                          onChange={(e) => setProfileForm({ ...profileForm, address: e.target.value })}
-                          placeholder="도로명 주소 (예: 경북 청송군 주왕산면 당마루길 45)"
-                          className="w-full p-2.5 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-farm-500 focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">우체국 계약고객번호 (10자리)</label>
-                        <input
-                          type="text"
-                          value={profileForm.postOfficeNum}
-                          onChange={(e) => setProfileForm({ ...profileForm, postOfficeNum: e.target.value })}
-                          className="w-full p-2.5 text-xs border border-slate-200 rounded-xl font-mono text-slate-600 bg-slate-50"
-                        />
-                        <p className="text-[10px] text-slate-400 mt-0.5">우체국 계약소포 Direct API 등기송장 자동 연동에 사용됩니다.</p>
-                      </div>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setStep('FARM_PROFILE')}
+                      className="text-xs bg-slate-800 hover:bg-slate-700 text-emerald-400 font-bold px-3 py-1.5 rounded-xl border border-slate-700 shrink-0"
+                    >
+                      ✏️ 수정
+                    </button>
                   </div>
 
-                  {/* 섹션 B: 상품 등록 (다중 상품 추가 지원) */}
-                  <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                  <form onSubmit={handleCompleteRegistration} className="bg-slate-950/70 p-6 rounded-2xl border border-slate-800 space-y-4">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
                       <div>
-                        <h3 className="font-black text-sm text-slate-900 flex items-center gap-1.5">
-                          <span>🍎</span> 농가 판매 상품 등록
-                        </h3>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
-                          여러 품목이나 규격(3kg, 5kg 등)을 원하는 만큼 추가할 수 있습니다.
-                        </p>
+                        <h4 className="font-black text-sm text-white flex items-center gap-1.5">
+                          <span>🍎</span> 판매 상품 등록
+                        </h4>
+                        <p className="text-[11px] text-slate-400">여러 품목이나 규격을 계속 추가할 수 있습니다.</p>
                       </div>
-                      <span className="text-xs bg-harvest-50 text-harvest-600 font-black px-2.5 py-1 rounded-full border border-harvest-200">
-                        현재 담긴 상품: {productsList.length}개
+                      <span className="text-xs bg-farm-950 text-emerald-400 font-black px-2.5 py-1 rounded-full border border-farm-700/50">
+                        담긴 상품: {productsList.length}개
                       </span>
                     </div>
 
-                    {/* 현재 추가된 상품 목록 카드 리스트 */}
+                    {/* 담긴 상품 목록 */}
                     {productsList.length > 0 && (
-                      <div className="mb-4 p-3 bg-slate-50 border border-slate-200 rounded-2xl">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-black text-slate-800 flex items-center gap-1">
-                            <span>📦</span> 등록 대기 목록 ({productsList.length}개)
-                          </span>
-                          <span className="text-[10px] text-slate-400">우측 ✕ 버튼으로 삭제 가능</span>
-                        </div>
-                        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                          {productsList.map((prod, idx) => (
-                            <div
-                              key={prod.id || idx}
-                              className="bg-white border border-slate-200 rounded-xl p-2.5 flex items-center justify-between gap-2 shadow-2xs hover:border-farm-300 transition-all"
-                            >
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-[10px] bg-slate-100 text-slate-600 font-mono font-bold px-1.5 py-0.2 rounded">
-                                    #{idx + 1}
-                                  </span>
-                                  <span className="text-[10px] bg-farm-100 text-farm-800 font-bold px-1.5 py-0.2 rounded">
-                                    {prod.category}
-                                  </span>
-                                  <span className="text-xs font-extrabold text-slate-900 truncate">
-                                    {prod.name}
-                                  </span>
-                                </div>
-                                <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-2">
-                                  <span>규격: <b>{prod.spec}</b></span>
-                                  <span>•</span>
-                                  <span>품종: {prod.variety}</span>
-                                  <span>•</span>
-                                  <span className="font-black text-harvest-600">
-                                    {Number(prod.salePrice).toLocaleString()}원
-                                  </span>
-                                </div>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveProductFromList(prod.id)}
-                                className="text-rose-500 hover:text-rose-700 hover:bg-rose-50 p-1.5 rounded-lg text-xs font-bold transition-all"
-                                title="상품 삭제"
-                              >
-                                ✕ 삭제
-                              </button>
+                      <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-1.5 max-h-40 overflow-y-auto">
+                        <span className="text-[11px] font-black text-slate-300 block mb-1">등록 대기 목록 ({productsList.length}개)</span>
+                        {productsList.map((p, idx) => (
+                          <div key={p.id} className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 flex items-center justify-between text-xs">
+                            <span className="text-slate-200 truncate max-w-[220px]">
+                              [{p.category}] <b>{p.name}</b> ({p.spec})
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <b className="text-harvest-400">{Number(p.salePrice).toLocaleString()}원</b>
+                              <button type="button" onClick={() => handleRemoveProductFromList(p.id)} className="text-rose-400 font-bold">✕</button>
                             </div>
-                          ))}
-                        </div>
+                          </div>
+                        ))}
                       </div>
                     )}
 
                     {/* 상품 입력 필드 */}
-                    <div className="space-y-3 bg-slate-50/70 p-4 rounded-2xl border border-slate-200/80">
-                      <div className="flex items-center justify-between pb-1 border-b border-slate-200/60">
-                        <span className="text-xs font-bold text-slate-700">
-                          {productsList.length > 0 ? '➕ 다음 상품 정보 입력' : '1. 기본 상품 정보 입력'}
-                        </span>
-                        <span className="text-[10px] text-slate-400">* 표시는 필수 항목입니다</span>
-                      </div>
-
+                    <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800 space-y-3">
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
-                            카테고리 선택 <span className="text-rose-500">*</span>
-                          </label>
+                          <label className="block text-xs font-bold text-slate-300 mb-1">카테고리</label>
                           <select
                             value={productForm.category}
                             onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
-                            className="w-full p-2.5 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-farm-500 focus:outline-none bg-white"
+                            className="w-full p-2.5 text-xs bg-slate-950 border border-slate-700 rounded-xl text-white"
                           >
                             <option value="사과">사과</option>
                             <option value="배">배</option>
@@ -950,694 +1630,464 @@
                           </select>
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
-                            품목 / 품종 <span className="text-rose-500">*</span>
-                          </label>
+                          <label className="block text-xs font-bold text-slate-300 mb-1">품목 / 품종 *</label>
                           <input
                             type="text"
                             required={productsList.length === 0}
                             value={productForm.variety}
                             onChange={(e) => setProductForm({ ...productForm, variety: e.target.value })}
-                            placeholder="예: 부사, 시나노골드, 신고배"
-                            className="w-full p-2.5 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-farm-500 focus:outline-none bg-white"
+                            placeholder="예: 부사, 신고배"
+                            className="w-full p-2.5 text-xs bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500"
                           />
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">
-                          상품명 <span className="text-rose-500">*</span>
-                        </label>
+                        <label className="block text-xs font-bold text-slate-300 mb-1">상품명 *</label>
                         <input
                           type="text"
                           required={productsList.length === 0}
                           value={productForm.productName}
                           onChange={(e) => setProductForm({ ...productForm, productName: e.target.value })}
-                          placeholder="예: 2026 햇 부사 꿀사과 선물세트"
-                          className="w-full p-2.5 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-farm-500 focus:outline-none bg-white"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">
-                          규격 <span className="text-rose-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          required={productsList.length === 0}
-                          value={productForm.spec}
-                          onChange={(e) => setProductForm({ ...productForm, spec: e.target.value })}
-                          placeholder="예: 7kg(2~3수), 5kg(14~16과 특품)"
-                          className="w-full p-2.5 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-farm-500 focus:outline-none bg-white"
+                          placeholder="예: 햇 부사 꿀사과 선물세트"
+                          className="w-full p-2.5 text-xs bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500"
                         />
                       </div>
 
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">정상 판매가 (원)</label>
+                          <label className="block text-xs font-bold text-slate-300 mb-1">규격 *</label>
                           <input
-                            type="number"
-                            value={productForm.originPrice}
-                            onChange={(e) => setProductForm({ ...productForm, originPrice: e.target.value })}
-                            placeholder="48000"
-                            className="w-full p-2.5 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-farm-500 focus:outline-none bg-white"
+                            type="text"
+                            required={productsList.length === 0}
+                            value={productForm.spec}
+                            onChange={(e) => setProductForm({ ...productForm, spec: e.target.value })}
+                            placeholder="예: 5kg(14~16과)"
+                            className="w-full p-2.5 text-xs bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
-                            직거래 할인가 (원) <span className="text-rose-500">*</span>
-                          </label>
+                          <label className="block text-xs font-bold text-slate-300 mb-1">직거래 할인가 (원) *</label>
                           <input
                             type="number"
                             required={productsList.length === 0}
                             value={productForm.salePrice}
                             onChange={(e) => setProductForm({ ...productForm, salePrice: e.target.value })}
                             placeholder="42000"
-                            className="w-full p-2.5 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-farm-500 focus:outline-none font-bold text-harvest-600 bg-white"
+                            className="w-full p-2.5 text-xs bg-slate-950 border border-slate-700 rounded-xl text-harvest-400 font-bold placeholder-slate-500"
                           />
                         </div>
                       </div>
 
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">상세 설명 / 특징</label>
-                        <textarea
-                          rows="2"
-                          value={productForm.desc}
-                          onChange={(e) => setProductForm({ ...productForm, desc: e.target.value })}
-                          placeholder="당도 15.5 Brix 이상 보증, 아삭한 식감, 산지직송"
-                          className="w-full p-2.5 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-farm-500 focus:outline-none bg-white"
-                        />
-                      </div>
-
-                      {/* ➕ 상품 추가하기 버튼 */}
-                      <div className="pt-2">
-                        <button
-                          type="button"
-                          onClick={handleAddProductToList}
-                          className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-black py-2.5 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm"
-                        >
-                          <span>➕ 이 상품을 목록에 추가하고 다른 상품 더 등록하기</span>
-                        </button>
-                        <p className="text-[11px] text-slate-500 text-center mt-1">
-                          💡 규격별(3kg, 5kg 등)이나 다른 품종을 판매하시는 경우 목록에 계속 추가하세요.
-                        </p>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAddProductToList}
+                        className="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-xs transition-all flex items-center justify-center gap-1"
+                      >
+                        <span>➕ 이 상품 목록에 추가 (다른 규격 계속 등록)</span>
+                      </button>
                     </div>
 
-                    {/* 최종 가입 신청 버튼 */}
-                    <button
-                      type="submit"
-                      className="w-full bg-farm-600 hover:bg-farm-700 active:scale-98 text-white font-black py-3.5 rounded-xl text-xs transition-all shadow-md shadow-farm-600/30 mt-5 flex items-center justify-center gap-1.5"
-                    >
-                      <span>✓ 농가 등록 및 총 {Math.max(1, productsList.length + (productForm.productName ? 1 : 0))}개 상품 개설 신청 완료</span>
-                    </button>
-                  </div>
-                </form>
+                    <div className="flex gap-2 pt-2 border-t border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => setStep('FARM_PROFILE')}
+                        className="px-4 py-3 rounded-xl text-xs font-bold text-slate-400 bg-slate-900 hover:bg-slate-800"
+                      >
+                        ← 이전
+                      </button>
+                      <button
+                        type="submit"
+                        className="flex-1 bg-farm-600 hover:bg-farm-700 active:scale-98 text-white font-black py-3 rounded-xl text-xs transition-all shadow-md shadow-farm-600/30 flex items-center justify-center gap-1"
+                      >
+                        <span>✓ 농가 및 상품 최종 등록 완료 ➔</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
               )}
 
-              {/* STEP 3: 등록 완료 모달 */}
+              {/* STEP 4: 등록 완료 모달/안내 */}
               {step === 'SUCCESS' && (
-                <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 text-center animate-fadeIn">
-                  <div className="w-16 h-16 bg-farm-100 text-farm-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl font-black">
+                <div className="max-w-md mx-auto text-center space-y-4 py-6 bg-slate-950/80 p-8 rounded-3xl border border-farm-500/50">
+                  <div className="w-16 h-16 bg-farm-900/80 text-emerald-400 border border-farm-500/40 rounded-full flex items-center justify-center mx-auto text-3xl font-black">
                     ✓
                   </div>
-                  <h3 className="text-xl font-black text-slate-900 mb-2">
-                    농가 가입 및 상품 등록 신청 완료!
-                  </h3>
-                  <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-                    발급된 농가코드 <b>[{farmCode}]</b>로 플랫폼에 등록되었습니다.<br />
-                    관리자 탭에서 승인 처리 및 농가 조회가 즉시 가능합니다.
+                  <h3 className="text-xl font-black text-white">농가 등록이 완료되었습니다!</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    발급된 농가코드 <b className="text-emerald-400">[{farmCode}]</b>로 플랫폼에 등록되었습니다.<br />
+                    지금 바로 농가 모바일 포털(farm.html)에서 출하 목록을 확인해 보세요.
                   </p>
-                  
-                  {/* 등록된 정보 및 상품 목록 요약 */}
-                  <div className="bg-slate-50 p-4 rounded-2xl text-left text-xs space-y-2.5 mb-5 border border-slate-200">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                      <span className="text-slate-500 font-bold">농가 / 대표자:</span>
-                      <b className="text-slate-900">{profileForm.farmName} ({profileForm.repName} 대표)</b>
-                    </div>
-                    <div className="flex items-center justify-between pb-1">
-                      <span className="text-slate-500 font-bold">등록 완료 상품:</span>
-                      <span className="bg-emerald-100 text-emerald-800 font-black px-2 py-0.5 rounded text-[11px]">
-                        총 {productsList.length}개 상품 등록됨
-                      </span>
-                    </div>
-                    <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
-                      {productsList.map((p, idx) => (
-                        <div key={idx} className="bg-white p-2 rounded-xl border border-slate-200 flex items-center justify-between text-[11px]">
-                          <div className="truncate max-w-[240px]">
-                            <span className="text-[10px] bg-slate-100 text-slate-600 font-mono font-bold px-1 rounded mr-1">#{idx+1}</span>
-                            <span className="font-bold text-slate-800">[{p.category}] {p.name}</span>
-                            <span className="text-slate-500 ml-1">({p.spec})</span>
-                          </div>
-                          <b className="text-harvest-600 font-mono font-bold ml-2 whitespace-nowrap">
-                            {Number(p.salePrice).toLocaleString()}원
-                          </b>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex flex-col sm:flex-row gap-2">
+
+                  <div className="space-y-2 pt-2">
                     <button
                       type="button"
-                      onClick={onGoToAdmin}
-                      className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-extrabold py-3.5 rounded-xl text-xs shadow-md transition-all flex items-center justify-center gap-1.5"
+                      onClick={() => {
+                        const targetId = (profileForm.loginId || '').trim() || farmCode;
+                        setLoginForm(prev => ({ ...prev, loginId: targetId, password: '' }));
+                        setLoginRole('FARMER');
+                        setLoginError('');
+                        setActiveTab('LOGIN');
+                        setStep('SIGNUP');
+                        setTimeout(() => {
+                          const pwInput = document.querySelector('input[type="password"]');
+                          if (pwInput) pwInput.focus();
+                        }, 100);
+                      }}
+                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3.5 rounded-xl text-xs shadow-md shadow-emerald-600/30 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                     >
-                      <span>📋 관리자 페이지에서 회원목록 확인 ➔</span>
+                      <span>🔑 [{(profileForm.loginId || '').trim() || farmCode}] 계정으로 즉시 로그인하러 가기 ➔</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => onOpenFarmPortal(loggedInMerchant || activeMerchant)}
-                      className="flex-1 bg-farm-600 hover:bg-farm-700 text-white font-bold py-3.5 rounded-xl text-xs shadow-sm transition-all flex items-center justify-center gap-1.5"
-                    >
-                      <span>🚜 농가 모바일 포털(farm.html) 열기 ↗</span>
-                    </button>
+
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const targetMerchant = merchants.find(m => m.merchantCode === farmCode) || { merchantCode: farmCode };
+                          onOpenFarmPortal(targetMerchant);
+                        }}
+                        className="flex-1 bg-farm-700 hover:bg-farm-600 text-white font-black py-3 rounded-xl text-xs shadow-sm transition-all flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <span>🚜 농가 모바일 포털(farm.html) 열기</span>
+                      </button>
+                      <a
+                        href={`order.html?farm=${farmCode}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 bg-harvest-600 hover:bg-harvest-700 text-white font-black py-3 rounded-xl text-xs shadow-sm transition-all flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <span>📱 고객 주문창(order.html) 바로가기</span>
+                      </a>
+                    </div>
                   </div>
                 </div>
               )}
+
             </div>
           )}
-        </div>
-      );
-    }
 
-    // =========================================================================
-    // [탭 2] 관리자 통합 제어 센터 (가입 농가 회원 리스트 명부 + 상품 관리 + 스테이징)
-    // =========================================================================
-    const DEFAULT_ORDERS_MASTER = [
-      {
-        id: 'ORD-101',
-        channel: 'SMS',
-        source: 'SMS',
-        rawText: '주문자 이진우 010-8821-9942 받는분 최은경 010-7733-1122 서울시 강남구 테헤란로 152 강남파이낸스센터 18층 부사 꿀사과 2박스 부탁드려요.',
-        orderer: { name: '이진우', tel: '010-8821-9942' },
-        receiver: { name: '최은경', tel: '010-7733-1122' },
-        address: { road: '서울특별시 강남구 테헤란로 152', detail: '강남파이낸스센터 18층', zip: '06236' },
-        product: { name: '2026 가을 햇 부사 꿀사과 5kg', qty: 2, price: 84000 },
-        status: { payment: 'PAID', staging: 'APPROVED' },
-        confidence: '96% (GREEN)',
-        tracking: '6892049182371',
-        createdAt: '2026-10-06T10:24:00.000Z'
-      },
-      {
-        id: 'ORD-102',
-        channel: 'KAKAO',
-        source: 'KAKAO',
-        rawText: '황금사과 1개 박스 부탁드려요 박민호 010-4491-0021 경기도 성남시 분당구 판교역로 166',
-        orderer: { name: '박민호', tel: '010-4491-0021' },
-        receiver: { name: '박민호', tel: '010-4491-0021' },
-        address: { road: '경기도 성남시 분당구 판교역로 166', detail: '상세 동호수 미기재', zip: '13529' },
-        product: { name: '청송 시나노골드 황금사과 3kg', qty: 1, price: 35000 },
-        status: { payment: 'UNPAID', staging: 'PENDING' },
-        confidence: '72% (YELLOW)',
-        tracking: null,
-        createdAt: '2026-10-06T11:05:00.000Z'
-      },
-      {
-        id: 'ORD-103',
-        channel: 'SMS',
-        source: 'SMS',
-        rawText: '햇 부사 꿀사과 1박스 최은경 010-7733-1122 부산시 해운대구 센텀중앙로 79',
-        orderer: { name: '최은경', tel: '010-7733-1122' },
-        receiver: { name: '최은경', tel: '010-7733-1122' },
-        address: { road: '부산시 해운대구 센텀중앙로 79', detail: '', zip: '48058' },
-        product: { name: '2026 가을 햇 부사 꿀사과 5kg', qty: 1, price: 42000 },
-        status: { payment: 'UNPAID', staging: 'PENDING' },
-        confidence: '88% (GREEN)',
-        tracking: null,
-        createdAt: '2026-10-06T12:40:00.000Z'
-      }
-    ];
-
-    function AdminCenterView({ merchants, setMerchants, onResetMerchants }) {
-      // URL 쿼리 파라미터 감지 (?tab=staging 시 비정형 주문 스테이징 탭 바로 열기)
-      const urlParams = new URLSearchParams(window.location.search);
-      const isStagingParam = urlParams.get('tab') === 'staging';
-
-      const [adminSubTab, setAdminSubTab] = useState(isStagingParam ? 'STAGING_APPROVAL' : 'MERCHANT_MANAGE');
-      const [searchKeyword, setSearchKeyword] = useState('');
-      
-      // 농가 승인 토글 함수
-      const toggleMerchantStatus = (id) => {
-        setMerchants(prev => prev.map(m => {
-          if (m.id === id) {
-            const nextStatus = m.status === 'APPROVED' ? 'PENDING' : 'APPROVED';
-            return { ...m, status: nextStatus };
-          }
-          return m;
-        }));
-      };
-
-      // 농가 삭제 함수
-      const deleteMerchant = (id, farmName) => {
-        if (confirm(`'${farmName}' 농가를 회원 목록에서 삭제하시겠습니까?`)) {
-          setMerchants(prev => prev.filter(m => m.id !== id));
-        }
-      };
-
-      // 스테이징 주문 상태 (localStorage 'ooms_orders' 영구 통합 연동)
-      const [stagingOrders, setStagingOrdersState] = useState(() => {
-        try {
-          const saved = localStorage.getItem('ooms_orders') || localStorage.getItem('ooms_staging_orders');
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-          }
-        } catch (e) {
-          console.error('localStorage load error:', e);
-        }
-        try {
-          localStorage.setItem('ooms_orders', JSON.stringify(DEFAULT_ORDERS_MASTER));
-        } catch (e) {}
-        return DEFAULT_ORDERS_MASTER;
-      });
-
-      // 스테이징 주문 변경 시 localStorage 동기화 헬퍼
-      const setStagingOrders = (updater) => {
-        setStagingOrdersState(prev => {
-          const next = typeof updater === 'function' ? updater(prev) : updater;
-          try {
-            localStorage.setItem('ooms_orders', JSON.stringify(next));
-            localStorage.setItem('ooms_staging_orders', JSON.stringify(next));
-          } catch (e) {
-            console.error('localStorage save error:', e);
-          }
-          return next;
-        });
-      };
-
-      // 타 탭/창에서 신규 주문 발생 시 실시간 자동 리렌더링
-      useEffect(() => {
-        const handleStorageChange = (e) => {
-          if ((e.key === 'ooms_orders' || e.key === 'ooms_staging_orders') && e.newValue) {
-            try {
-              const updated = JSON.parse(e.newValue);
-              if (Array.isArray(updated)) setStagingOrdersState(updated);
-            } catch (err) {}
-          }
-        };
-        window.addEventListener('storage', handleStorageChange);
-        return () => window.removeEventListener('storage', handleStorageChange);
-      }, []);
-
-      // 미승인(PENDING) 상태 판정 헬퍼
-      const isStagingPending = (o) => (o.status?.staging === 'PENDING') || (o.status === 'STAGING_PENDING');
-
-      // 1-클릭 승인 처리
-      const handleApprove = (id) => {
-        setStagingOrders(prev => prev.map(o => {
-          if (o.id === id) {
-            return {
-              ...o,
-              status: typeof o.status === 'object' 
-                ? { ...o.status, staging: 'APPROVED' }
-                : 'STAGING_APPROVED'
-            };
-          }
-          return o;
-        }));
-      };
-
-      // 우체국 13자리 계약소포 송장 발급
-      const handleIssuePostOfficeInvoice = (id) => {
-        const tracking = `689${Math.floor(1000000000 + Math.random() * 9000000000)}`;
-        setStagingOrders(prev => prev.map(o => {
-          if (o.id === id) {
-            return {
-              ...o,
-              tracking,
-              status: typeof o.status === 'object'
-                ? { ...o.status, staging: 'INVOICE_ISSUED' }
-                : 'INVOICE_ISSUED'
-            };
-          }
-          return o;
-        }));
-        alert(`우체국 13자리 계약소포 등기 송장 [${tracking}] 발급 및 카카오 알림톡 전송 완료!`);
-      };
-
-      // 검색 필터링된 농가 목록
-      const filteredMerchants = merchants.filter(m => 
-        m.farmName.includes(searchKeyword) ||
-        m.repName.includes(searchKeyword) ||
-        m.merchantCode.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-        m.phone.includes(searchKeyword)
-      );
-
-      const pendingCount = merchants.filter(m => m.status === 'PENDING').length;
-      // 미승인(PENDING) 상태 주문 건수 (탭 배지에 동적 반영)
-      const stagingPendingCount = stagingOrders.filter(isStagingPending).length;
-
-      return (
-        <div className="max-w-5xl mx-auto px-4 py-3">
-          {/* 관리자 상단 바 */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs bg-farm-600 text-white font-extrabold px-2.5 py-1 rounded">
-                  Platform Admin Master
-                </span>
-                {pendingCount > 0 && (
-                  <span className="text-[11px] bg-amber-500 text-white font-extrabold px-2 py-0.5 rounded-full animate-bounce">
-                    승인대기 {pendingCount}건
+          {/* 행정안전부 도로명주소 표준 검색 모달 */}
+          {isAddressModalOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-950/80 flex items-center justify-center p-4">
+              <div className="bg-white text-slate-800 w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[80vh]">
+                <div className="bg-slate-900 text-white px-4 py-3 flex items-center justify-between">
+                  <span className="text-xs font-black flex items-center gap-1.5">
+                    <span>🏛️</span> 행정안전부 도로명주소 표준 검색
                   </span>
-                )}
-              </div>
-              <h2 className="text-xl font-black text-slate-900 mt-1">
-                관리자 통합 제어 센터
-              </h2>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-bold">
-                <button
-                  onClick={() => setAdminSubTab('MERCHANT_MANAGE')}
-                  className={`px-3 py-2 rounded-lg transition-all ${adminSubTab === 'MERCHANT_MANAGE' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                >
-                  👨‍🌾 1. 농가 회원 명부 & 상품 ({merchants.length})
-                </button>
-                <button
-                  onClick={() => setAdminSubTab('STAGING_APPROVAL')}
-                  className={`px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 ${adminSubTab === 'STAGING_APPROVAL' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                >
-                  <span>🚦 2. 비정형 주문 스테이징</span>
-                  <span className={`text-[10px] px-2 py-0.2 rounded-full font-black ${stagingPendingCount > 0 ? 'bg-amber-500 text-white animate-pulse' : 'bg-slate-200 text-slate-700'}`}>
-                    {stagingPendingCount}
-                  </span>
-                </button>
-              </div>
-
-              {onResetMerchants && (
-                <button
-                  onClick={onResetMerchants}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold px-2.5 py-2 rounded-xl transition-all"
-                  title="초기 샘플 데이터로 복원"
-                >
-                  🔄 초기화
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* 서브탭 1: 농가 회원 명부 및 상품 관리 탭 */}
-          {adminSubTab === 'MERCHANT_MANAGE' && (
-            <div className="space-y-5">
-              {/* 상단 회원 통계 & 검색바 */}
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-                <div className="flex items-center gap-4 text-xs">
-                  <div>
-                    <span className="text-slate-400">전체 등록 농가:</span>
-                    <span className="font-black text-slate-900 text-sm ml-1.5">{merchants.length}곳</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400">판매 승인 완료:</span>
-                    <span className="font-bold text-emerald-600 ml-1.5">{merchants.filter(m => m.status === 'APPROVED').length}곳</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400">심사 대기:</span>
-                    <span className="font-bold text-amber-600 ml-1.5">{pendingCount}곳</span>
-                  </div>
+                  <button type="button" onClick={() => setIsAddressModalOpen(false)} className="text-slate-400 hover:text-white">✕</button>
                 </div>
-
-                <div className="relative">
+                <div className="p-3 bg-slate-50 border-b border-slate-200 flex gap-2">
                   <input
                     type="text"
-                    value={searchKeyword}
-                    onChange={(e) => setSearchKeyword(e.target.value)}
-                    placeholder="농가명, 대표자, 코드, 전화번호 검색..."
-                    className="p-2 pl-8 pr-3 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-farm-500 focus:outline-none w-full md:w-64"
+                    value={addressSearchQuery}
+                    onChange={(e) => setAddressSearchQuery(e.target.value)}
+                    placeholder="예: 환동로, 청송로, 당마루길"
+                    className="flex-1 p-2 text-xs border border-slate-300 rounded-lg text-slate-900"
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleExecuteAddressSearch(); } }}
                   />
-                  <span className="absolute left-2.5 top-2.5 text-xs text-slate-400">🔍</span>
+                  <button
+                    type="button"
+                    onClick={() => handleExecuteAddressSearch()}
+                    className="bg-farm-600 hover:bg-farm-700 text-white text-xs font-bold px-3 py-2 rounded-lg"
+                  >
+                    검색
+                  </button>
                 </div>
-              </div>
-
-              {/* [★ 핵심] 가입 농가 회원 리스트 테이블 */}
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                  <h3 className="font-black text-sm text-slate-900 flex items-center gap-1.5">
-                    <span>📋</span> 가입 농가 회원 통합 명부 (실시간 동기화)
-                  </h3>
-                  <span className="text-[11px] text-slate-500">
-                    * 새로고침해도 브라우저(localStorage)에 안전하게 영구 저장됩니다.
-                  </span>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-100 text-slate-600 uppercase font-extrabold text-[11px]">
-                      <tr>
-                        <th className="p-3">농가코드</th>
-                        <th className="p-3">농장명 / 상호</th>
-                        <th className="p-3">대표자 / 연락처</th>
-                        <th className="p-3">농장 주소</th>
-                        <th className="p-3">우체국고객번호</th>
-                        <th className="p-3">등록상품</th>
-                        <th className="p-3">가입일</th>
-                        <th className="p-3 text-center">승인상태</th>
-                        <th className="p-3 text-right">관리</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 font-medium">
-                      {filteredMerchants.length === 0 ? (
-                        <tr>
-                          <td colSpan="9" className="p-6 text-center text-slate-400">
-                            검색된 농가 회원이 없습니다.
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredMerchants.map((m, idx) => (
-                          <tr key={m.id} className="hover:bg-slate-50/80 transition-colors">
-                            <td className="p-3 font-mono font-bold text-slate-700">
-                              <div className="flex items-center gap-1">
-                                {idx === 0 && m.status === 'PENDING' && (
-                                  <span className="bg-amber-500 text-white text-[9px] px-1 py-0.2 rounded font-black">NEW</span>
-                                )}
-                                <span>{m.merchantCode}</span>
-                              </div>
-                            </td>
-                            <td className="p-3">
-                              <span className="font-extrabold text-slate-900">{m.farmName}</span>
-                              <span className="text-[10px] text-slate-400 block">{m.signupType}</span>
-                            </td>
-                            <td className="p-3">
-                              <span className="font-bold text-slate-800">{m.repName}</span>
-                              <span className="text-slate-500 block text-[11px]">{m.phone}</span>
-                            </td>
-                            <td className="p-3 text-slate-600 max-w-xs truncate" title={m.address}>
-                              {m.address}
-                            </td>
-                            <td className="p-3 font-mono text-farm-700 font-bold">
-                              {m.postOfficeNum}
-                            </td>
-                            <td className="p-3">
-                              <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-bold text-[11px]">
-                                {m.products?.length || 0}개 상품
-                              </span>
-                            </td>
-                            <td className="p-3 text-slate-400 text-[11px]">
-                              {m.createdAt}
-                            </td>
-                            <td className="p-3 text-center">
-                              <span className={`inline-block px-2 py-1 rounded-full text-[10px] font-black ${m.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800 animate-pulse'}`}>
-                                {m.status === 'APPROVED' ? '✓ 승인완료' : '⏳ 심사대기'}
-                              </span>
-                            </td>
-                            <td className="p-3 text-right">
-                              <div className="flex items-center justify-end gap-1.5">
-                                <button
-                                  onClick={() => toggleMerchantStatus(m.id)}
-                                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${m.status === 'APPROVED' ? 'bg-slate-200 text-slate-700 hover:bg-slate-300' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
-                                >
-                                  {m.status === 'APPROVED' ? '승인취소' : '승인'}
-                                </button>
-                                <button
-                                  onClick={() => deleteMerchant(m.id, m.farmName)}
-                                  className="px-2 py-1.5 rounded-lg text-xs text-rose-500 hover:bg-rose-50 font-bold transition-all"
-                                  title="농가 삭제"
-                                >
-                                  🗑
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* 하단: 농가별 등록 상품 상세 카드 아코디언 */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-black text-slate-500 uppercase tracking-wider">
-                  📦 농가별 등록 상품 상세 내역
-                </h4>
-                {filteredMerchants.map((m) => (
-                  <div key={m.id} className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-                    <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-xs text-slate-800">{m.farmName}</span>
-                        <span className="font-mono text-[10px] text-slate-400">({m.merchantCode})</span>
+                <div className="flex-1 overflow-y-auto p-4 space-y-2 min-h-[220px]">
+                  {/* 1. 검색 전 초기 안내 가이드 (Empty Guide State) */}
+                  {!addressSearchPerformed && (
+                    <div className="py-5 px-3 text-center flex flex-col items-center justify-center text-slate-500">
+                      <div className="w-12 h-12 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-2xl mb-3 shadow-inner">
+                        📮
                       </div>
-                      <span className="text-xs text-farm-600 font-bold">대표자: {m.repName}</span>
+                      <p className="text-xs font-black text-slate-800 mb-2">
+                        도로명, 건물명, 지번을 입력 후 [검색]을 눌러주세요.
+                      </p>
+                      <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-left w-full max-w-sm text-[11px] text-slate-600 space-y-1.5 leading-relaxed">
+                        <p className="font-bold text-slate-700 pb-1 border-b border-slate-200 flex items-center gap-1">
+                          <span>💡</span> 검색 팁
+                        </p>
+                        <p>• <b>도로명 + 건물번호</b> (예: <span className="font-mono text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded">환동로 43-12</span>, <span className="font-mono text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded">테헤란로 152</span>)</p>
+                        <p>• <b>동/읍/면/리 + 번지</b> (예: <span className="font-mono text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded">동문리 562-1</span>, <span className="font-mono text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded">역삼동 737</span>)</p>
+                        <p>• <b>건물명</b> (예: <span className="font-mono text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded">태안군청</span>, <span className="font-mono text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded">강남파이낸스센터</span>)</p>
+                      </div>
                     </div>
+                  )}
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mt-3">
-                      {m.products?.map((p, pIdx) => (
-                        <div key={pIdx} className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
-                          <div className="flex justify-between items-start">
-                            <span className="font-bold text-slate-900">{p.name}</span>
-                            <span className="font-mono font-black text-harvest-600">{p.salePrice?.toLocaleString()}원</span>
-                          </div>
-                          <p className="text-slate-500 text-[11px] mt-0.5">품목: {p.variety} | 규격: <b className="text-slate-700">{p.spec}</b></p>
-                          <p className="text-slate-400 text-[10px] mt-0.5 truncate">{p.desc}</p>
-                        </div>
-                      ))}
+                  {/* 2. 검색 후 결과 없음 안내 */}
+                  {addressSearchPerformed && addressSearchResults.length === 0 && (
+                    <div className="py-10 text-center text-slate-400">
+                      <div className="text-3xl mb-2">🔍</div>
+                      <p className="text-xs font-bold text-slate-600">검색 결과가 없습니다.</p>
+                      <p className="text-[11px] text-slate-400 mt-1">도로명 또는 지번을 다시 확인해주세요.</p>
                     </div>
+                  )}
+
+                  {/* 3. 검색 결과 목록 */}
+                  {addressSearchPerformed && addressSearchResults.length > 0 && addressSearchResults.map((item, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleSelectAddressItem(item)}
+                      className="w-full text-left p-3 rounded-xl border border-slate-200 hover:bg-emerald-50/70 hover:border-emerald-400 text-xs flex justify-between items-center transition-all group cursor-pointer"
+                    >
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-[10px] bg-slate-900 text-white font-bold px-1.5 py-0.5 rounded shadow-2xs">{item.zonecode}</span>
+                          <b className="text-slate-900 group-hover:text-emerald-900">{item.roadAddress}</b>
+                        </div>
+                        <p className="text-[10px] text-slate-500 pl-0.5">{item.jibunAddress}</p>
+                      </div>
+                      <span className="bg-emerald-100 group-hover:bg-emerald-600 text-emerald-800 group-hover:text-white font-black text-[11px] px-2.5 py-1.5 rounded-lg shrink-0 ml-2 transition-colors">
+                        선택
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 아이디 / 패스워드 찾기 전용 모달 */}
+          {isFindModalOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+              <div className="bg-slate-900 text-slate-100 w-full max-w-md rounded-3xl shadow-2xl border border-slate-700 overflow-hidden flex flex-col">
+                
+                {/* 헤더 */}
+                <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🔍</span>
+                    <h3 className="text-sm font-black text-white">아이디 / 패스워드 찾기</h3>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 서브탭 2: 비정형 주문 스테이징 제어 탭 (Split-View & 신호등) */}
-          {adminSubTab === 'STAGING_APPROVAL' && (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-sm font-extrabold text-slate-800">
-                  비정형 원문 AI 정제 검증 및 우체국 송장 발급
-                </h3>
-              </div>
-
-              {stagingOrders.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-400 text-xs">
-                  현재 접수된 비정형 주문이 없습니다.
+                  <button
+                    type="button"
+                    onClick={() => { setIsFindModalOpen(false); setFindResult(null); }}
+                    className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors text-base font-bold"
+                  >
+                    ✕
+                  </button>
                 </div>
-              ) : (
-                stagingOrders.map(order => {
-                  const isGreen = (order.confidence && order.confidence.includes('GREEN')) || (order.level === 'GREEN');
-                  const isYellow = (order.confidence && order.confidence.includes('YELLOW')) || (order.level === 'YELLOW');
-                  const borderColor = isGreen ? 'border-emerald-200 hover:border-emerald-300' : (isYellow ? 'border-amber-200 hover:border-amber-300' : 'border-rose-200 hover:border-rose-300');
-                  const scoreBadgeColor = isGreen ? 'bg-emerald-100 text-emerald-800' : (isYellow ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800');
 
-                  const isPending = (order.status?.staging === 'PENDING') || (order.status === 'STAGING_PENDING');
-                  const isApproved = (order.status?.staging === 'APPROVED') || (order.status === 'STAGING_APPROVED');
-                  const isIssued = (order.status?.staging === 'INVOICE_ISSUED') || (order.status === 'INVOICE_ISSUED');
+                {/* 탭 스위처: [아이디 찾기] vs [비밀번호 재설정] */}
+                <div className="p-3 bg-slate-950/40 border-b border-slate-800">
+                  <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => { setFindTab('FIND_ID'); setFindResult(null); }}
+                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${findTab === 'FIND_ID' ? 'bg-farm-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      아이디 찾기
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setFindTab('FIND_PW'); setVerifyStep('INPUT'); setGeneratedCode(''); setInputVerifyCode(''); }}
+                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${findTab === 'FIND_PW' ? 'bg-farm-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      비밀번호 재설정
+                    </button>
+                  </div>
+                </div>
 
-                  const ordererName = order.orderer?.name || order.orderer || '고객';
-                  const ordererTel = order.orderer?.tel || order.ordererPhone || '';
-                  const receiverName = order.receiver?.name || order.receiver || '수령인';
-                  const receiverTel = order.receiver?.tel || order.phone || '';
-                  const roadAddr = order.address?.road || order.refined_road_address || order.address || '';
-                  const detailAddr = order.address?.detail || order.refined_detail_address || '';
-                  const zipCode = order.address?.zip || order.zip || '';
-                  const productName = order.product?.name ? `${order.product.name} (${order.product.qty || 1}박스)` : (order.product || '농산물');
-                  const orderAmount = Number(order.product?.price) || Number(order.amount) || 0;
-                  const confidenceText = order.confidence || `${Math.round((order.score || 0.96) * 100)}% (${order.level || 'GREEN'})`;
-                  const isPwa = order.channel === 'PWA' || order.source === 'PWA';
+                {/* 본문 콘텐츠 */}
+                <div className="p-5 space-y-4">
+                  {/* [탭 1] 아이디 찾기 */}
+                  {findTab === 'FIND_ID' && (
+                    <div className="space-y-4">
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        등록된 <b>대표자 휴대전화번호</b>(또는 대표자 성명)를 입력하시면 계정 아이디를 확인하실 수 있습니다.
+                      </p>
 
-                  return (
-                    <div key={order.id} className={`bg-white rounded-2xl border-2 ${borderColor} p-4 shadow-sm hover:shadow-md transition-all`}>
-                      <div className="flex flex-wrap items-center justify-between pb-2 border-b border-slate-100 text-xs mb-3 gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-black text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
-                            {order.id}
-                          </span>
-                          {isPwa ? (
-                            <span className="bg-harvest-100 text-harvest-800 font-extrabold px-2 py-0.5 rounded text-[11px] flex items-center gap-1">
-                              <span>📱</span> PWA 고객직거래
-                            </span>
-                          ) : (
-                            <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold">
-                              {order.channel || order.source || 'SMS'}
-                            </span>
-                          )}
-                          <span className={`font-extrabold px-2 py-0.5 rounded-full text-[11px] ${scoreBadgeColor}`}>
-                            신뢰도 {confidenceText}
-                          </span>
-                          {isPending && (
-                            <span className="text-[10px] bg-amber-500 text-white font-black px-1.5 py-0.2 rounded animate-pulse">
-                              승인대기
-                            </span>
-                          )}
+                      <form onSubmit={handleExecuteFindId} className="space-y-3">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                            휴대전화번호 또는 대표자 성명
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={findIdQuery}
+                            onChange={(e) => setFindIdQuery(e.target.value)}
+                            placeholder="예: 010-3849-1234 또는 김만석"
+                            className="w-full p-3 text-xs bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-farm-500 focus:outline-none"
+                          />
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          {isPending && (
-                            <button
-                              onClick={() => handleApprove(order.id)}
-                              className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold px-3 py-1.5 rounded-xl text-xs transition-all shadow-xs flex items-center gap-1"
-                            >
-                              <span>✓ 1-클릭 승인</span>
-                            </button>
-                          )}
-                          {isApproved && (
-                            <button
-                              onClick={() => handleIssuePostOfficeInvoice(order.id)}
-                              className="bg-harvest-500 hover:bg-harvest-600 active:scale-95 text-white font-extrabold px-3 py-1.5 rounded-xl text-xs transition-all shadow-xs flex items-center gap-1"
-                            >
-                              <span>📦 우체국 등기송장 발급</span>
-                            </button>
-                          )}
-                          {isIssued && (
-                            <span className="font-mono text-purple-700 bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-lg font-black text-xs flex items-center gap-1">
-                              <span>🚚 우체국 송장:</span>
-                              <span>{order.tracking}</span>
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                        <button
+                          type="submit"
+                          className="w-full bg-farm-600 hover:bg-farm-700 text-white font-black py-3 rounded-xl text-xs transition-all shadow-md shadow-farm-600/30"
+                        >
+                          아이디 조회하기 ➔
+                        </button>
+                      </form>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex flex-col justify-between">
-                          <div>
-                            <div className="flex items-center justify-between mb-1">
-                              <p className="text-[10px] font-bold text-slate-400">인입 비정형 원문</p>
-                              {ordererName && (
-                                <span className="text-[10px] text-slate-500">
-                                  주문자: <b>{ordererName}</b> ({ordererTel || '연락처'})
-                                </span>
-                              )}
+                      {/* 조회 결과 표시 */}
+                      {findResult && (
+                        <div className={`p-4 rounded-2xl border text-xs leading-relaxed ${findResult.success ? 'bg-emerald-950/60 border-emerald-700 text-slate-200' : 'bg-rose-950/60 border-rose-800 text-rose-300'}`}>
+                          {findResult.success ? (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
+                                <span>✓</span>
+                                <span>등록된 계정 정보를 찾았습니다.</span>
+                              </div>
+                              <div className="bg-slate-900/90 p-3 rounded-xl border border-slate-800 space-y-1">
+                                <p className="text-slate-400 text-[11px]">농장명: <b className="text-white">{findResult.account.farmName}</b> ({findResult.account.repName})</p>
+                                <p className="text-slate-400 text-[11px]">가입 아이디: <b className="text-emerald-400 text-sm font-mono">{findResult.displayId}</b></p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleUseFoundIdToLogin(findResult.displayId)}
+                                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 rounded-xl text-xs mt-2 transition-all shadow-sm"
+                              >
+                                이 아이디로 바로 로그인하기 ➔
+                              </button>
                             </div>
-                            <p className="font-mono text-slate-700 leading-relaxed bg-white p-2 rounded-lg border border-slate-200/60">
-                              {order.rawText}
-                            </p>
-                          </div>
-                          {orderAmount > 0 && (
-                            <p className="text-[11px] text-slate-400 mt-2 text-right">
-                              결제예정: <b className="text-slate-700 font-mono">{orderAmount.toLocaleString()}원</b>
-                            </p>
+                          ) : (
+                            <div className="flex items-start gap-1.5">
+                              <span className="text-base">⚠️</span>
+                              <p>{findResult.message}</p>
+                            </div>
                           )}
                         </div>
+                      )}
+                    </div>
+                  )}
 
-                        <div className="bg-farm-50/50 p-3 rounded-xl border border-farm-100 flex flex-col justify-between">
+                  {/* [탭 2] 비밀번호 재설정 */}
+                  {findTab === 'FIND_PW' && (
+                    <div className="space-y-4">
+                      {/* 단계 1: 아이디/휴대전화번호 입력 및 인증번호 발송 */}
+                      {verifyStep === 'INPUT' && (
+                        <div className="space-y-3">
+                          <p className="text-xs text-slate-400 leading-relaxed">
+                            등록된 <b>아이디</b> 또는 <b>휴대전화번호</b>를 입력하여 본인인증 번호를 요청해 주세요.
+                          </p>
                           <div>
-                            <p className="text-[10px] font-bold text-farm-700 mb-1">🏛 행안부 정제 주소 & 상품 정보</p>
-                            <p className="font-extrabold text-slate-900 text-sm">
-                              {receiverName} <span className="font-normal text-xs text-slate-500">({receiverTel})</span>
-                            </p>
-                            <p className="text-slate-700 mt-1 font-medium leading-snug">
-                              {roadAddr} {detailAddr} <span className="font-mono text-farm-700 font-bold ml-1">[{zipCode}]</span>
-                            </p>
+                            <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                              아이디 또는 휴대전화번호
+                            </label>
+                            <input
+                              type="text"
+                              value={findPwQuery}
+                              onChange={(e) => setFindPwQuery(e.target.value)}
+                              placeholder="예: apple001 또는 010-3849-1234"
+                              className="w-full p-3 text-xs bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-farm-500 focus:outline-none"
+                            />
                           </div>
-                          <div className="mt-2 pt-2 border-t border-farm-200/50 flex items-center justify-between">
-                            <span className="text-harvest-600 font-extrabold">{productName}</span>
-                            <span className="text-[11px] font-bold text-slate-400">
-                              우체국 계약택배 연동
+                          <button
+                            type="button"
+                            onClick={handleRequestVerifyCode}
+                            className="w-full bg-farm-600 hover:bg-farm-700 text-white font-black py-3 rounded-xl text-xs transition-all shadow-md shadow-farm-600/30"
+                          >
+                            본인인증 번호 발송 ➔
+                          </button>
+                        </div>
+                      )}
+
+                      {/* 단계 2: 인증번호 입력 확인 */}
+                      {verifyStep === 'SENT' && (
+                        <div className="space-y-3">
+                          <div className="bg-farm-950/60 border border-farm-700/60 p-3 rounded-xl text-xs text-emerald-300">
+                            📱 휴대전화로 발송된 6자리 인증번호를 입력해 주세요.
+                            <span className="block text-[11px] text-slate-400 mt-1 font-mono">
+                              (테스트 힌트: {generatedCode})
                             </span>
                           </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                              인증번호 6자리
+                            </label>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                maxLength="6"
+                                value={inputVerifyCode}
+                                onChange={(e) => setInputVerifyCode(e.target.value)}
+                                placeholder="예: 123456"
+                                className="flex-1 p-3 text-xs bg-slate-950 border border-slate-700 rounded-xl text-white font-mono tracking-widest text-center text-sm font-bold focus:ring-2 focus:ring-farm-500 focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={handleVerifyCodeSubmit}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-4 rounded-xl text-xs transition-all"
+                              >
+                                확인
+                              </button>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleRequestVerifyCode}
+                            className="text-[11px] text-slate-400 hover:text-slate-200 underline font-medium block mx-auto pt-1"
+                          >
+                            인증번호 다시 받기
+                          </button>
                         </div>
-                      </div>
+                      )}
+
+                      {/* 단계 3: 새 비밀번호 설정 */}
+                      {verifyStep === 'VERIFIED' && (
+                        <form onSubmit={handleResetPasswordSubmit} className="space-y-3">
+                          <div className="bg-emerald-950/70 border border-emerald-600/60 p-3 rounded-xl text-xs text-emerald-300 font-bold">
+                            ✓ 본인확인이 완료되었습니다. 사용할 새 비밀번호를 입력해 주세요.
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                              새 비밀번호
+                            </label>
+                            <input
+                              type="password"
+                              required
+                              value={resetPwForm.newPw}
+                              onChange={(e) => setResetPwForm({ ...resetPwForm, newPw: e.target.value })}
+                              placeholder="새 비밀번호 입력"
+                              className="w-full p-3 text-xs bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-farm-500 focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                              새 비밀번호 확인
+                            </label>
+                            <input
+                              type="password"
+                              required
+                              value={resetPwForm.confirmPw}
+                              onChange={(e) => setResetPwForm({ ...resetPwForm, confirmPw: e.target.value })}
+                              placeholder="비밀번호 다시 입력"
+                              className="w-full p-3 text-xs bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-farm-500 focus:outline-none"
+                            />
+                          </div>
+                          <button
+                            type="submit"
+                            className="w-full bg-farm-600 hover:bg-farm-700 text-white font-black py-3 rounded-xl text-xs transition-all shadow-md shadow-farm-600/30"
+                          >
+                            비밀번호 변경 완료 ➔
+                          </button>
+                        </form>
+                      )}
                     </div>
-                  );
-                })
-              )}
+                  )}
+                </div>
+
+                {/* 하단 닫기 바 */}
+                <div className="p-3 bg-slate-950/60 border-t border-slate-800 text-center">
+                  <button
+                    type="button"
+                    onClick={() => { setIsFindModalOpen(false); setFindResult(null); }}
+                    className="text-xs text-slate-400 hover:text-white transition-colors"
+                  >
+                    닫기
+                  </button>
+                </div>
+
+              </div>
             </div>
           )}
+
         </div>
       );
     }
 
-    ReactDOM.createRoot(document.getElementById('root')).render(<MainApp />);
+    ReactDOM.createRoot(document.getElementById('root')).render(<HubApp />);
   </script>
 </body>
 </html>
