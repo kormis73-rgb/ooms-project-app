@@ -12,6 +12,11 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <!-- SheetJS (xlsx) CDN -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Daum Postcode API CDN -->
+  <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+  <!-- Tesseract.js (한글+영문 OCR) & PDF.js (PDF 텍스트 추출) -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -84,14 +89,16 @@
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
 
-    // 농가 마스터 기본 데이터 (더미 농가 삭제)
+    // 농가 마스터 기본 데이터 (김혜진 대표 / 태안 사과농장 표준 규격)
     const DEFAULT_MERCHANTS = [
       {
         id: 'm-test',
         merchantCode: 'FARM-2026-224',
+        farmCode: 'FARM-2026-224',
+        code: 'FARM-2026-224',
         loginId: 'test',
-        farmName: '태안 조이장네',
-        repName: '조국래',
+        farmName: '태안 사과농장',
+        repName: '김혜진',
         phone: '010-3849-1234',
         address: '충청남도 태안군 소원면 소근로 54-16',
         postOfficeNum: '1092837465',
@@ -99,11 +106,21 @@
         brix: '당도 16.5 Brix 보증',
         products: [
           {
+            id: 'p-apple-1',
+            category: '사과',
+            name: '맛있는 꿀사과 10kg',
+            variety: '후지(부사)',
+            spec: '10kg(28~32과 특품)',
+            originPrice: 65000,
+            salePrice: 55000,
+            desc: '태안 해풍과 황토에서 자란 아삭하고 달콤한 특품 꿀사과'
+          },
+          {
             id: 'p-melon-1',
             category: '메론',
-            name: '하미과메론(노랑)',
+            name: '정품 하미과 4.5kg',
             variety: '하미과(황금)',
-            spec: '2수(4kg 내외 특품)',
+            spec: '2수(4.5kg 내외 특품)',
             originPrice: 78000,
             salePrice: 70000,
             desc: '황토와 해풍으로 키워낸 고당도 하미과메론'
@@ -179,137 +196,205 @@
      * =========================================================================
      * [OOMS AI Hybrid Parser Engine]
      * 비정형 문자/카카오톡 텍스트에서 주문자, 수령인, 주소, 상품, 수량을 추출합니다.
+     * - 메타 헤더(양식 라벨) 인명 오인식 원천 차단 (블랙리스트 및 2~4자 순수한글 검증)
+     * - 다중 배송지 및 줄단위 표(Table) 형식 감지 시 N건 독립 주문 객체 자동 분할
      * =========================================================================
      */
-    async function parseOrderText(rawText, farmProducts = [], selectedProduct = null) {
-      if (!rawText || !rawText.trim()) {
-        throw new Error('주문 내용을 입력해주세요.');
+    const META_HEADER_BLACKLIST = new Set([
+      '순서', '번호', '순번', '연번', '넘버', '목록', '라인', '인덱스', '구분', '항목',
+      '보내는사람', '보내는사람은', '보내는분', '보낸사람', '보낸이', '발송인', '송하인', '주문자', '주문자는', '주문인', '의뢰인',
+      '받는사람', '받는사람은', '받는분', '받는분은', '수령인', '수하인', '배송지', '수취인', '성명', '고객명',
+      '전화번호', '핸드폰', '휴대폰', '연락처', '전화', '연락', '폰번호', '휴대전화', '대표번호', '유선전화',
+      '주소', '도로명', '도로명주소', '지번', '지번주소', '상세주소', '우편번호', '배송주소', '기본주소', '주소지',
+      '상품', '상품명', '품목', '품목명', '품종', '과일', '농산물', '제품', '옵션', '품명', '규격',
+      '수량', '단위', '박스', '상자', '세트', '키로', '개수', '수량단위', '단가', '금액', '합계', '가격',
+      '비고', '비고사항', '메모', '배송메모', '요청사항', '배송요청', '특이사항', '주의사항', '전달사항', '요청',
+      '사람', '사람은', '사람이', '입니다', '입니당', '으로', '로',
+      '확인', '필요', '요망', '고객', '주문', '택배', '배송', '선물'
+    ]);
+
+    function isValidKoreanName(name) {
+      if (!name || typeof name !== 'string') return false;
+      const clean = name.trim().replace(/^(?:주문자|받는분|받는사람|수령인|보내는분|보낸사람|보내는사람)[:\s]*/, '').replace(/(?:입니다|입니당|님|앞|고객)$/, '').trim();
+      if (clean.length < 2 || clean.length > 4) return false;
+      if (!/^[가-힣]+$/.test(clean)) return false;
+      if (META_HEADER_BLACKLIST.has(clean)) return false;
+      for (const bl of META_HEADER_BLACKLIST) {
+        if (clean === bl || (clean.length >= 3 && (clean.startsWith(bl) || clean.endsWith(bl)))) {
+          return false;
+        }
       }
+      const excludeTerms = ['사과', '꿀사과', '부사', '홍로', '아오리', '신고배', '신고', '하미과', '메론', '멜론', '샤인', '포도', '복숭아', '백도', '황도', '감귤', '한라봉', '수박', '딸기', '태안', '서울', '강남', '청송', '나주', '영천', '안동', '문경', '경기', '성남', '분당'];
+      if (excludeTerms.includes(clean)) return false;
+      return true;
+    }
 
-      const text = rawText.trim();
+    const cleanPhone = (p) => {
+      if (!p) return '';
+      const digits = p.replace(/[^0-9]/g, '');
+      if (digits.length === 11) return digits.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
+      if (digits.length === 10) {
+        if (digits.startsWith('02')) return digits.replace(/(\d{2})(\d{4})(\d{4})/, '$1-$2-$3');
+        return digits.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+      }
+      return p;
+    };
 
-      // 1. 전화번호 추출 및 010-XXXX-XXXX 포맷 정규화
+    function isHeaderLine(line) {
+      if (!line || !line.trim()) return false;
+      const trimmed = line.trim();
+      if (/(?:01[016789]|02|0[3-6][1-5])[-.\s]?\d{3,4}[-.\s]?\d{4}/.test(trimmed)) return false;
+      if (/(?:로|길)\s*\d+/.test(trimmed)) return false;
+      const headerWords = ['순서', '순번', '번호', '보내는사람', '보내는분', '보낸사람', '받는사람', '받는분', '수령인', '전화번호', '연락처', '휴대폰', '주소', '도로명', '상세주소', '비고', '수량', '상품명', '품목', '메모'];
+      let count = 0;
+      for (const hw of headerWords) {
+        if (trimmed.includes(hw)) count++;
+      }
+      return count >= 2;
+    }
+
+    function parseSingleOrderChunk(chunkText, farmProducts = [], selectedProduct = null, defaultSender = null) {
+      const text = (chunkText || '').trim();
+      if (!text) return null;
+
+      // 1. 전화번호 추출
       const phoneRegex = /(?:01[016789]|02|0[3-6][1-5])[-.\s]?\d{3,4}[-.\s]?\d{4}/g;
       const rawPhones = text.match(phoneRegex) || [];
-      const cleanPhone = (p) => {
-        if (!p) return '';
-        const digits = p.replace(/[^0-9]/g, '');
-        if (digits.length === 11) return digits.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
-        if (digits.length === 10) {
-          if (digits.startsWith('02')) return digits.replace(/(\d{2})(\d{4})(\d{4})/, '$1-$2-$3');
-          return digits.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
-        }
-        return p;
-      };
       const phones = rawPhones.map(cleanPhone);
 
-      // 주문자 vs 받는 분 연락처 식별
       let ordererPhone = '';
       let receiverPhone = '';
 
-      const ordererPhoneMatch = text.match(/(?:주문자|보내는\s*(?:분|사람)?|보낸\s*이|의뢰인)[^\d\n\r]*((?:01[016789]|02|0[3-6][1-5])[-.\s]?\d{3,4}[-.\s]?\d{4})/i);
-      const receiverPhoneMatch = text.match(/(?:받는\s*(?:분|사람)?|수령인|수하인|배송지)[^\d\n\r]*((?:01[016789]|02|0[3-6][1-5])[-.\s]?\d{3,4}[-.\s]?\d{4})/i);
+      const ordererPhoneMatch = text.match(/(?:주문자|보내는\s*(?:분|사람)?|보낸\s*이|의뢰인|발송인)[^\d\n\r]*((?:01[016789]|02|0[3-6][1-5])[-.\s]?\d{3,4}[-.\s]?\d{4})/i);
+      const receiverPhoneMatch = text.match(/(?:받는\s*(?:분|사람)?|수령인|수하인|배송지|수취인)[^\d\n\r]*((?:01[016789]|02|0[3-6][1-5])[-.\s]?\d{3,4}[-.\s]?\d{4})/i);
 
       if (ordererPhoneMatch) ordererPhone = cleanPhone(ordererPhoneMatch[1]);
       if (receiverPhoneMatch) receiverPhone = cleanPhone(receiverPhoneMatch[1]);
+
+      // 표/구분자 컬럼 분석 (/, |, \t, 또는 콤마)
+      const isTabular = /[\/\|\t]/.test(text) || (text.includes(',') && text.split(',').length >= 3);
+      let cols = [];
+      if (isTabular) {
+        if (/[\/\|\t]/.test(text)) {
+          cols = text.split(/\s*[\/\|\t]\s*/).map(c => c.trim()).filter(Boolean);
+        } else {
+          cols = text.split(/\s*,\s*/).map(c => c.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+        }
+      }
+
+      // 2. 인명 추출 (블랙리스트 검증 기반)
+      let ordererName = defaultSender?.name || '';
+      let receiverName = '';
+
+      if (defaultSender?.phone && !ordererPhone) {
+        ordererPhone = defaultSender.phone;
+      }
+
+      // A) 컬럼 구조일 경우 매핑
+      if (cols.length >= 3) {
+        let dataCols = [...cols];
+        if (/^\d{1,3}$/.test(dataCols[0])) {
+          dataCols.shift(); // 순번 컬럼 제거
+        }
+        const nameCols = dataCols.filter(c => isValidKoreanName(c));
+        if (nameCols.length >= 2) {
+          ordererName = nameCols[0];
+          receiverName = nameCols[1];
+        } else if (nameCols.length === 1) {
+          receiverName = nameCols[0];
+        }
+      }
+
+      // B) 정규식 기반 인명 추출
+      if (!receiverName) {
+        const receiverRegexList = [
+          /(?:받는\s*(?:사람|분|이)?|수령인|수하인|배송지|수취인)(?:는|은|가|이|성함은|명은)?[:\s]+([가-힣]{2,4})(?=\s*(?:입니다|입니당|님|앞|전화|연락처|폰|핸드폰|010|\d|[,\.!\?]|$))/i,
+          /(?:받는\s*(?:사람|분|이)?|수령인|수하인|배송지|수취인)(?:는|은|가|이|성함은|명은)?[:\s]+([가-힣]{2,4})/i
+        ];
+        for (const reg of receiverRegexList) {
+          const m = text.match(reg);
+          if (m && m[1] && isValidKoreanName(m[1])) {
+            receiverName = m[1].trim();
+            break;
+          }
+        }
+      }
+
+      if (!ordererName) {
+        const ordererRegexList = [
+          /(?:주문자|보내는\s*(?:분|사람)?|보낸\s*이|의뢰인|발송인)(?:는|은|가|이|성함은|명은)?[:\s]+([가-힣]{2,4})(?=\s*(?:입니다|입니당|님|앞|전화|연락처|폰|핸드폰|010|\d|[,\.!\?]|$))/i,
+          /(?:주문자|보내는\s*(?:분|사람)?|보낸\s*이|의뢰인|발송인)(?:는|은|가|이|성함은|명은)?[:\s]+([가-힣]{2,4})/i
+        ];
+        for (const reg of ordererRegexList) {
+          const m = text.match(reg);
+          if (m && m[1] && isValidKoreanName(m[1])) {
+            ordererName = m[1].trim();
+            break;
+          }
+        }
+      }
+
+      // C) 폴백: 순수 한글 2~4자 중 블랙리스트 필터링 통과 후보군 탐색
+      if (!receiverName || !ordererName) {
+        const rawKoreanWords = text.match(/[가-힣]{2,4}/g) || [];
+        const validCandidates = rawKoreanWords.filter(isValidKoreanName);
+
+        if (!receiverName && validCandidates.length > 0) {
+          receiverName = validCandidates[0];
+          if (!ordererName && validCandidates.length > 1) {
+            ordererName = validCandidates[1];
+          }
+        }
+      }
+
+      if (!ordererName) ordererName = defaultSender?.name || '주문 고객';
+      if (!receiverName) receiverName = ordererName || '주문 고객';
 
       if (!ordererPhone && phones.length > 0) ordererPhone = phones[0];
       if (!receiverPhone) {
         receiverPhone = phones.length > 1 ? phones[1] : (ordererPhone || '010-0000-0000');
       }
 
-      // 2. 주문자 / 받는 분 이름 추출
-      let ordererName = '';
-      let receiverName = '';
-
-      // 조사 및 수식어 완전 필터링 정규식
-      // 1) 주문자: "주문자는 조국래 입니다", "주문자: 조국래", "보내는분 조국래"
-      const ordererRegexList = [
-        /(?:주문자|보내는\s*(?:분|사람)?|보낸\s*이|의뢰인)(?:는|은|가|이|성함은|명은)?[:\s]+([가-힣]{2,4})(?=\s*(?:입니다|입니당|님|앞|전화|연락처|폰|핸드폰|010|\d|[,\.!\?]|$))/i,
-        /(?:주문자|보내는\s*(?:분|사람)?|보낸\s*이|의뢰인)(?:는|은|가|이|성함은|명은)?[:\s]+([가-힣]{2,4})/i
-      ];
-      for (const reg of ordererRegexList) {
-        const m = text.match(reg);
-        if (m && m[1]) {
-          const cand = m[1].replace(/(?:입니다|사람은|사람|님|앞)$/, '').trim();
-          if (cand && !['사람', '사람은', '주문자', '보내는', '수령인'].includes(cand)) {
-            ordererName = cand;
-            break;
-          }
-        }
-      }
-
-      // 2) 받는 분: "받는사람은 김혜진", "받는분: 김혜진", "수령인 김혜진"
-      const receiverRegexList = [
-        /(?:받는\s*(?:사람|분|이)?|수령인|수하인|배송지)(?:는|은|가|이|성함은|명은)?[:\s]+([가-힣]{2,4})(?=\s*(?:입니다|입니당|님|앞|전화|연락처|폰|핸드폰|010|\d|[,\.!\?]|$))/i,
-        /(?:받는\s*(?:사람|분|이)?|수령인|수하인|배송지)(?:는|은|가|이|성함은|명은)?[:\s]+([가-힣]{2,4})/i
-      ];
-      for (const reg of receiverRegexList) {
-        const m = text.match(reg);
-        if (m && m[1]) {
-          const cand = m[1].replace(/(?:입니다|사람은|사람|님|앞)$/, '').trim();
-          if (cand && !['사람', '사람은', '주문자', '보내는', '수령인'].includes(cand)) {
-            receiverName = cand;
-            break;
-          }
-        }
-      }
-
-      // 이름 폴백 탐색
-      if (!ordererName || !receiverName) {
-        const excludeWords = [
-          '주문자', '주문자는', '받는사람', '받는사람은', '받는분', '받는분은', '보내는', '보내는분', '수령인', 
-          '사람은', '사람이', '사람', '입니다', '입니당', '으로', '로',
-          '서울시', '경기도', '충남', '태안군', '태안읍', '사과', '메론', '택배', '배송', '선물', 
-          '박스', '상자', '부탁', '감사', '보내'
-        ];
-        const nameCandidates = (text.match(/[가-힣]{2,4}/g) || []).filter(w => !excludeWords.includes(w) && !excludeWords.some(ew => w.startsWith(ew)));
-        if (!ordererName && nameCandidates.length > 0) ordererName = nameCandidates[0];
-        if (!receiverName) {
-          receiverName = nameCandidates.length > 1 ? nameCandidates[1] : (ordererName || '주문 고객');
-        }
-      }
-      if (!ordererName) ordererName = '주문 고객';
-
       // 3. 주소(도로명/지번) 및 상세주소 분리 & 5자리 우편번호
       let roadAddress = '';
       let detailAddress = '';
       let zipCode = '06236';
 
-      // 대한민국 도로명/지번 주소 감지
-      // (1) 시/도 명시 패턴: 서울시 강남구 테헤란로 152
       const fullSidoPattern = /(?:(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충청|충북|충남|전라|전북|전남|경상|경북|경남|제주)[가-힣]*\s+[^,.\n\r]+?(?:로|길|동|읍|면|리|가)\s*[\d\-]+(?:\s*번지)?)/;
-      // (2) 시/도 생략 패턴: 태안군 태안읍 송암로 523
       const relaxedRoadPattern = /(?:[가-힣]+(?:시|군|구)\s+(?:[가-힣]+(?:읍|면|동)\s+)?(?:[가-힣0-9]+(?:로|길))\s*[\d\-]+(?:\s*번지)?)/;
+      const fallbackRoadPattern = /(?:[가-힣0-9]+(?:로|길)\s*[\d\-]+(?:\s*번지)?)/;
 
-      const addressMatch = text.match(fullSidoPattern) || text.match(relaxedRoadPattern);
+      let addressMatch = text.match(fullSidoPattern) || text.match(relaxedRoadPattern);
+      if (!addressMatch && cols.length >= 3) {
+        const addrCol = cols.find(c => /(?:로|길)\s*\d+|태안|서울|강남|분당|부산|대구|수원|안동|청송|나주|제주/.test(c));
+        if (addrCol) {
+          addressMatch = addrCol.match(fullSidoPattern) || addrCol.match(relaxedRoadPattern) || addrCol.match(fallbackRoadPattern);
+          if (!addressMatch && addrCol.length >= 5) {
+            addressMatch = [addrCol];
+          }
+        }
+      }
+      if (!addressMatch) {
+        addressMatch = text.match(fallbackRoadPattern);
+      }
 
       if (addressMatch) {
-        const fullAddrPart = addressMatch[0].trim();
-        roadAddress = fullAddrPart;
+        roadAddress = addressMatch[0].trim();
 
-        // 표준 주소 DB에서 시/도 보정 시도 (예: 태안군 태안읍 -> 충청남도 태안군 ...)
         if (!/(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충청|충북|충남|전라|전북|전남|경상|경북|경남|제주)/.test(roadAddress)) {
           const matchedDb = STANDARD_ADDRESS_DB.find(db => 
             db.roadAddress.includes(roadAddress) || roadAddress.includes(db.roadAddress.split(' ')[1] || '---')
           );
           if (matchedDb && matchedDb.roadAddress.includes(roadAddress)) {
             roadAddress = matchedDb.roadAddress;
-          } else if (roadAddress.startsWith('태안')) {
-            // 태안 지역 친화적 보정
-            // 도로명 기본 유지 또는 접두어 지원
           }
         }
-        
-        // 상세주소 탐색: 도로명/지번 주소 바로 뒤의 텍스트 분석
+
         const addrIndex = text.indexOf(addressMatch[0]);
         let afterAddr = text.substring(addrIndex + addressMatch[0].length).trim();
-        
-        // 앞쪽 불필요한 구분 기호(, - / : ; [ ( 등) 정제
-        afterAddr = afterAddr.replace(/^[,.\-/:;~#\[\(]+\s*/, '');
+        afterAddr = afterAddr.replace(/^[,.\-/:;~#\[\(|/]+\s*/, '');
 
         if (afterAddr) {
-          // 상품명, 수량, 주문/배송 요청어, 필드명 등 비(非)주소 영역의 시작 위치 탐색
           const stopWordsPattern = /(?:\n|\r|(?:\s|^)(?:으로\s*(?:보내|배송|부탁)?|로\s*보내|사과|꿀사과|부사|홍로|시나노|아오리|배|신고배|신고|메론|멜론|하미과|포도|샤인머스[캣켓]|복숭아|백도|황도|감귤|귤|한라봉|천혜향|레드향|자두|참외|수박|딸기|토마토|곶감|단감|밤|대추|고구마|감자|과일|농산물|선물세트|\d+\s*(?:박스|상자|개|세트|box|Box|과|kg|kilo|키로|근|포|말)|(?:한|두|세|네|다섯)\s*(?:박스|상자|개|세트)|보내\s*(?:주세요|줘|주십시오|드립니다|요)?|보내줘|주세요|부탁\s*(?:드립니다|해요|드려요|요)?|배송\s*(?:메모|요청|부탁|전|시|지)?|택배|주문\s*(?:합니다|건|서|내용)?|문\s*앞|경비실|소화전|택배함|무인택배|부재\s*시|직접\s*수령|입금|송금|결제|연락\s*(?:주세요|바랍니다)?|전화\s*(?:주세요|바랍니다)?|주문자|보내는|받는\s*(?:사람|분)|수령인|수하인|전화번호|핸드폰))/i;
           
           let candidate = '';
@@ -317,19 +402,16 @@
           if (stopMatch && stopMatch.index !== undefined) {
             candidate = afterAddr.substring(0, stopMatch.index).trim();
           } else {
-            // 별도 정지어가 없으면 개행이나 쉼표 이전 첫 어절/구문 사용
-            const firstLine = afterAddr.split(/[\n\r]/)[0].trim();
+            const firstLine = afterAddr.split(/[\n\r\/|]/)[0].trim();
             candidate = firstLine;
           }
 
-          // 후행 배송어 및 조사 정제: "1층 으로 보내주세요" -> "1층"
           candidate = candidate
             .replace(/(?:으로|로)?\s*(?:보내주세요|보내줘|배송부탁|주세요|부탁드립니다|부탁해요).*$/i, '')
             .replace(/^[,.\-/:;(\[{<"']+|[,.\-/:;)\]}>"']+$/g, '')
             .trim();
 
-          // 유의미한 상세주소 바인딩
-          if (candidate.length > 0) {
+          if (candidate.length > 0 && !candidate.includes('박스') && !candidate.includes('전화번호')) {
             detailAddress = candidate;
           } else {
             detailAddress = '상세 주소 없음';
@@ -350,6 +432,10 @@
           roadAddress = '경기도 성남시 분당구 판교역로 166';
           detailAddress = '판교알파돔타워 402호';
           zipCode = '13529';
+        } else if (text.includes('강남대로')) {
+          roadAddress = '서울특별시 서초구 강남대로 27';
+          detailAddress = 'aT센터 3층';
+          zipCode = '06774';
         } else {
           roadAddress = '주소 텍스트 확인 필요 (도로명 미감지)';
           detailAddress = '상세 주소를 확인해주세요';
@@ -357,11 +443,10 @@
         }
       }
 
-      // 5자리 기초구역 우편번호 매핑 추론
       if (roadAddress.includes('태안')) zipCode = '32145';
       else if (roadAddress.includes('강남구') || roadAddress.includes('테헤란로')) zipCode = '06236';
       else if (roadAddress.includes('분당구') || roadAddress.includes('판교')) zipCode = '13529';
-      else if (roadAddress.includes('서초구')) zipCode = '06607';
+      else if (roadAddress.includes('서초구') || roadAddress.includes('강남대로')) zipCode = '06607';
       else if (roadAddress.includes('송파구')) zipCode = '05551';
       else if (roadAddress.includes('해운대')) zipCode = '48058';
       else if (roadAddress.includes('수원') || roadAddress.includes('영통')) zipCode = '16614';
@@ -371,16 +456,15 @@
       else if (roadAddress.includes('나주')) zipCode = '58257';
       else if (roadAddress.includes('영천')) zipCode = '38883';
       else if (roadAddress.includes('제주')) zipCode = '63000';
-      else zipCode = '06236';
+      else if (zipCode === '00000') zipCode = '06236';
 
-      // 4. 상품명, 수량, 단가 계산 (등록된 농가 상품 우선 매칭)
-      const qtyMatch = text.match(/(\d+)\s*(?:박스|상자|개|세트|box|Box|과)/i);
+      // 4. 상품명 및 수량
+      const qtyMatch = text.match(/(\d+)\s*(?:박스|상자|개|세트|box|Box|과|kg)/i);
       const quantity = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
 
       let productName = '';
       let unitPrice = 0;
 
-      // 해당 농가의 실제 등록 상품 중에서 매칭 시도
       if (Array.isArray(farmProducts) && farmProducts.length > 0) {
         const matchedFarmProd = farmProducts.find(p => 
           (p.name && text.includes(p.name)) ||
@@ -391,7 +475,6 @@
           productName = `${matchedFarmProd.name} ${matchedFarmProd.spec || ''}`.trim();
           unitPrice = Number(matchedFarmProd.salePrice) || Number(matchedFarmProd.price) || 40000;
         } else {
-          // 텍스트에 특정 과일 품목이 명시된 경우 우선 반영 (등록 농가 품목과 다를 때)
           if (text.includes('사과') || text.includes('꿀사과') || text.includes('부사')) {
             productName = '맛있는 꿀사과 10kg(20~25개)';
             unitPrice = 45000;
@@ -412,11 +495,9 @@
         unitPrice = Number(selectedProduct.salePrice) || Number(selectedProduct.price) || 40000;
       }
 
-      // 농가 상품이 없거나 미지정일 때의 fallback 매핑
       if (!productName) {
         productName = '맛있는 꿀사과 10kg(20~25개)';
         unitPrice = 45000;
-
         if (text.includes('하미과') || text.includes('메론') || text.includes('멜론')) {
           productName = '청송 하미과 꿀메론 3수-7.5kg';
           unitPrice = 38000;
@@ -446,7 +527,7 @@
       // 5. AI 신뢰도 점수 및 등급 산출
       let score = 0.50;
       if (phones.length >= 1) score += 0.20;
-      if (ordererName && receiverName) score += 0.15;
+      if (isValidKoreanName(ordererName) && isValidKoreanName(receiverName)) score += 0.15;
       if (roadAddress && !roadAddress.includes('확인 필요')) score += 0.10;
       if (detailAddress && !detailAddress.includes('확인 요망')) score += 0.05;
       score = Math.min(0.98, Math.max(0.40, Number(score.toFixed(2))));
@@ -466,7 +547,74 @@
         unit_price: unitPrice,
         total_amount: totalAmount,
         confidence_score: score,
-        confidence_level: confidenceLevel
+        confidence_level: confidenceLevel,
+        raw_chunk: text
+      };
+    }
+
+    async function parseOrderText(rawText, farmProducts = [], selectedProduct = null) {
+      if (!rawText || !rawText.trim()) {
+        throw new Error('주문 내용을 입력해주세요.');
+      }
+
+      const text = rawText.trim();
+
+      // 전체 텍스트에서 공통 주문자(보내는분) 추출
+      let commonSender = null;
+      const headerSenderMatch = text.match(/(?:보내는\s*(?:분|사람)?|주문자|발송인)[:\s]+([가-힣]{2,4})/i);
+      if (headerSenderMatch && isValidKoreanName(headerSenderMatch[1])) {
+        const senderPhoneMatch = text.match(/(?:보내는\s*(?:분|사람)?|주문자|발송인)[^\d\n\r]*((?:01[016789]|02|0[3-6][1-5])[-.\s]?\d{3,4}[-.\s]?\d{4})/i);
+        commonSender = {
+          name: headerSenderMatch[1].trim(),
+          phone: senderPhoneMatch ? cleanPhone(senderPhoneMatch[1]) : ''
+        };
+      }
+
+      // 줄단위 분할 및 헤더 행(라벨) 필터링
+      const rawLines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const dataLines = rawLines.filter(line => !isHeaderLine(line));
+
+      // 각 줄이 주문 데이터(전화번호 또는 도로명/주소 키워드 포함)인지 확인
+      const linesWithOrderInfo = dataLines.filter(l => {
+        const hasPhone = /(?:01[016789]|02|0[3-6][1-5])[-.\s]?\d{3,4}[-.\s]?\d{4}/.test(l);
+        const hasRoad = /(?:로|길|동|읍|면|리|가)\s*[\d\-]+|(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충청|충북|충남|전라|전북|전남|경상|경북|경남|제주)/.test(l);
+        return hasPhone || hasRoad;
+      });
+
+      let orderChunks = [];
+      if (linesWithOrderInfo.length >= 2) {
+        orderChunks = linesWithOrderInfo;
+      } else {
+        const blocks = text.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean);
+        if (blocks.length >= 2) {
+          orderChunks = blocks.filter(b => !isHeaderLine(b));
+        }
+      }
+
+      let parsedOrders = [];
+      if (orderChunks.length > 1) {
+        for (const chunk of orderChunks) {
+          const parsed = parseSingleOrderChunk(chunk, farmProducts, selectedProduct, commonSender);
+          if (parsed && (parsed.refined_road_address !== '주소 텍스트 확인 필요 (도로명 미감지)' || parsed.receiver_name !== '주문 고객' || parsed.receiver_phone !== '010-0000-0000')) {
+            parsedOrders.push(parsed);
+          }
+        }
+      }
+
+      // 유효 분할 건수가 1건 이하일 경우 전체 텍스트 단일 파싱 폴백
+      if (parsedOrders.length <= 1) {
+        const single = parseSingleOrderChunk(text, farmProducts, selectedProduct, commonSender);
+        parsedOrders = [single];
+      }
+
+      const primary = parsedOrders[0];
+      const isMultiple = parsedOrders.length > 1;
+
+      return {
+        ...primary,
+        multiple_orders: parsedOrders,
+        is_multiple: isMultiple,
+        total_order_count: parsedOrders.length
       };
     }
 
@@ -475,21 +623,110 @@
       const [orderMode, setOrderMode] = useState('NORMAL');
       const [seniorMode, setSeniorMode] = useState(false);
 
-      // [신규] [📝 일반주문] 폼 상태
+      // [신규] [📝 일반주문] 폼 상태 및 이전 주문 정보(lastOrderCustomerInfo) 자동 프리필
+      const [autoFillNotice, setAutoFillNotice] = useState(() => {
+        try {
+          const raw = localStorage.getItem('lastOrderCustomerInfo');
+          if (raw) {
+            const p = JSON.parse(raw);
+            return !!(p && (p.name || p.senderName || p.phone || p.senderPhone));
+          }
+          const lastOrd = localStorage.getItem('ooms_last_order');
+          if (lastOrd) {
+            const p = JSON.parse(lastOrd);
+            return !!(p && (p.customerName || p.customerPhone));
+          }
+        } catch (e) {}
+        return false;
+      });
+
       const [sameAsSender, setSameAsSender] = useState(false);
-      const [normalSender, setNormalSender] = useState({ name: '', phone: '' });
-      const [normalReceiver, setNormalReceiver] = useState({
-        name: '',
-        phone: '',
-        zip: '',
-        roadAddress: '',
-        detailAddress: '',
-        deliveryMemo: '문 앞 보관',
-        customMemo: ''
+      const [normalSender, setNormalSender] = useState(() => {
+        try {
+          const raw = localStorage.getItem('lastOrderCustomerInfo');
+          if (raw) {
+            const p = JSON.parse(raw);
+            if (p && (p.name || p.senderName || p.phone || p.senderPhone)) {
+              return {
+                name: p.name || p.senderName || '',
+                phone: p.phone || p.senderPhone || ''
+              };
+            }
+          }
+          const lastOrd = localStorage.getItem('ooms_last_order');
+          if (lastOrd) {
+            const p = JSON.parse(lastOrd);
+            if (p && (p.customerName || p.customerPhone)) {
+              return {
+                name: p.customerName || p.senderName || '',
+                phone: p.customerPhone || p.senderPhone || ''
+              };
+            }
+          }
+        } catch (e) {}
+        return { name: '', phone: '' };
+      });
+
+      const [normalReceiver, setNormalReceiver] = useState(() => {
+        try {
+          const raw = localStorage.getItem('lastOrderCustomerInfo');
+          if (raw) {
+            const p = JSON.parse(raw);
+            if (p) {
+              return {
+                name: p.receiverName || p.name || p.senderName || '',
+                phone: p.receiverPhone || p.phone || p.senderPhone || '',
+                zip: p.zip || '',
+                roadAddress: p.roadAddress || p.address || '',
+                detailAddress: p.detailAddress || '',
+                deliveryMemo: p.deliveryMemo || '문 앞 보관',
+                customMemo: p.customMemo || ''
+              };
+            }
+          }
+          const lastOrd = localStorage.getItem('ooms_last_order');
+          if (lastOrd) {
+            const p = JSON.parse(lastOrd);
+            const savedOrders = JSON.parse(localStorage.getItem('ooms_orders') || '[]');
+            const matched = savedOrders.find(o => (o.orderId === p.orderId || o.id === p.orderId));
+            if (matched) {
+              return {
+                name: matched.receiverName || matched.receiver?.name || p.customerName || '',
+                phone: matched.receiverPhone || matched.receiver?.tel || p.customerPhone || '',
+                zip: matched.postcode || matched.zip || '',
+                roadAddress: matched.address?.road || (typeof matched.address === 'string' ? matched.address : '') || '',
+                detailAddress: matched.detailAddress || matched.address?.detail || '',
+                deliveryMemo: matched.memo || '문 앞 보관',
+                customMemo: ''
+              };
+            }
+          }
+        } catch (e) {}
+        return {
+          name: '',
+          phone: '',
+          zip: '',
+          roadAddress: '',
+          detailAddress: '',
+          deliveryMemo: '문 앞 보관',
+          customMemo: ''
+        };
       });
       const [normalSelectedProduct, setNormalSelectedProduct] = useState(null);
       const [normalQuantity, setNormalQuantity] = useState(1);
       const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
+
+      // [정식/사전예약 연동] 작기 정식 데이터 상태 (localStorage 'ooms_plantings' 영구 연동)
+      const [plantings, setPlantings] = useState(() => {
+        try {
+          const saved = localStorage.getItem('ooms_plantings');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed)) return parsed;
+          }
+        } catch (e) {}
+        return [];
+      });
 
       // 도로명주소 표준 검색 모달 상태
       const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
@@ -527,6 +764,8 @@
             const cleanP = farmParam.trim().toLowerCase();
             const matched = allFarms.find(f => 
               (f.merchantCode && f.merchantCode.toLowerCase() === cleanP) ||
+              (f.farmCode && f.farmCode.toLowerCase() === cleanP) ||
+              (f.code && f.code.toLowerCase() === cleanP) ||
               (f.id && f.id.toLowerCase() === cleanP) ||
               (f.loginId && f.loginId.toLowerCase() === cleanP) ||
               (f.farmName && f.farmName.toLowerCase().includes(cleanP))
@@ -535,50 +774,16 @@
 
             const defaultMatched = DEFAULT_MERCHANTS.find(f => 
               (f.merchantCode && f.merchantCode.toLowerCase() === cleanP) ||
+              (f.farmCode && f.farmCode.toLowerCase() === cleanP) ||
+              (f.code && f.code.toLowerCase() === cleanP) ||
               (f.id && f.id.toLowerCase() === cleanP) ||
               (f.loginId && f.loginId.toLowerCase() === cleanP) ||
               (f.farmName && f.farmName.toLowerCase().includes(cleanP))
             );
             if (defaultMatched) return defaultMatched;
-
-            const currentFarmRaw = localStorage.getItem('ooms_current_farm');
-            if (currentFarmRaw) {
-              const parsedCurrent = JSON.parse(currentFarmRaw);
-              if (parsedCurrent && (
-                parsedCurrent.merchantCode?.toLowerCase() === farmParam.toLowerCase() ||
-                parsedCurrent.id?.toLowerCase() === farmParam.toLowerCase()
-              )) {
-                return parsedCurrent;
-              }
-            }
-
-            const loggedInRaw = localStorage.getItem('OOMS_LOGGED_IN_MERCHANT');
-            if (loggedInRaw) {
-              const parsedLoggedIn = JSON.parse(loggedInRaw);
-              if (parsedLoggedIn && (
-                parsedLoggedIn.merchantCode?.toLowerCase() === farmParam.toLowerCase() ||
-                parsedLoggedIn.id?.toLowerCase() === farmParam.toLowerCase()
-              )) {
-                return parsedLoggedIn;
-              }
-            }
           }
 
-          // 2) 현재 등록/선택된 활성 농가 세션 (ooms_current_farm)
-          const currentFarmRaw = localStorage.getItem('ooms_current_farm');
-          if (currentFarmRaw) {
-            const parsed = JSON.parse(currentFarmRaw);
-            if (parsed && (parsed.farmName || parsed.merchantCode)) return parsed;
-          }
-
-          // 3) OOMS_LOGGED_IN_MERCHANT
-          const loggedInRaw = localStorage.getItem('OOMS_LOGGED_IN_MERCHANT');
-          if (loggedInRaw) {
-            const parsed = JSON.parse(loggedInRaw);
-            if (parsed && (parsed.farmName || parsed.merchantCode)) return parsed;
-          }
-
-          // 4) 등록된 농가 목록 중 첫 번째 농가
+          // 2) URL 파라미터가 없으면 고객 공개 기본 농가 반환 (로그인된 농가 세션과 철저히 격리)
           if (allFarms.length > 0) return allFarms[0];
         } catch (err) {
           console.error('농가 정보 로드 오류:', err);
@@ -610,6 +815,20 @@
       const [isParsing, setIsParsing] = useState(false);
       const [parsedData, setParsedData] = useState(null); // 초기에는 결과 카드 미노출
       const [orderCompleteModal, setOrderCompleteModal] = useState({ isOpen: false, orderId: null, order: null });
+      // 주문 접수 완료 확인 영수증 상태 (화면 영구 유지 및 재확인 UX)
+      const [completedOrder, setCompletedOrder] = useState(null);
+
+      // OCR 파일 업로드 및 진행률, 토스트 상태
+      const [isOcrProcessing, setIsOcrProcessing] = useState(false);
+      const [ocrProgressText, setOcrProgressText] = useState('');
+      const [toastMessage, setToastMessage] = useState('');
+
+      useEffect(() => {
+        if (toastMessage) {
+          const timer = setTimeout(() => setToastMessage(''), 4000);
+          return () => clearTimeout(timer);
+        }
+      }, [toastMessage]);
 
       // 2. 대량 주문 (정형화된 파일 업로드) 상태 (초기 빈 배열로 초기화)
       const [bulkFileName, setBulkFileName] = useState('');
@@ -822,6 +1041,15 @@
               }
             } catch (err) {}
           }
+          if (!e.key || e.key === 'ooms_plantings') {
+            try {
+              const savedPlt = localStorage.getItem('ooms_plantings');
+              if (savedPlt) {
+                const parsed = JSON.parse(savedPlt);
+                if (Array.isArray(parsed)) setPlantings(parsed);
+              }
+            } catch (err) {}
+          }
         };
         window.addEventListener('storage', handleSync);
         return () => window.removeEventListener('storage', handleSync);
@@ -969,11 +1197,150 @@
           await new Promise(resolve => setTimeout(resolve, 500));
           const result = await parseOrderText(rawText, farmProfile?.products || [], selectedProduct);
           setParsedData(result);
+
+          if (result && result.is_multiple && result.multiple_orders && result.multiple_orders.length > 1) {
+            alert(`💡 총 ${result.multiple_orders.length}건의 배송지가 감지되어 ${result.multiple_orders.length}건의 개별 주문으로 자동 분할 정제되었습니다.\n\n화면 폼에는 1번째 주문 정보가 표시되며, [주문 확정] 시 ${result.multiple_orders.length}건이 개별 주문 번호로 자동 저장됩니다.`);
+            setToastMessage(`💡 총 ${result.multiple_orders.length}건의 배송지가 감지되어 ${result.multiple_orders.length}건의 개별 주문으로 자동 분할 정제되었습니다.`);
+          }
         } catch (error) {
           console.error('AI 정제 에러:', error);
           alert(error.message || 'AI 주문 분석 중 오류가 발생했습니다.');
         } finally {
           setIsParsing(false);
+        }
+      };
+
+      // 이미지/PDF 파일 업로드 기반 한글 OCR 텍스트 추출 및 AI 자동 정제 트리거
+      const handleOcrFileSelect = async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+
+        setIsOcrProcessing(true);
+        setOcrProgressText('파일 분석 준비...');
+
+        try {
+          let extractedText = '';
+
+          // 1. PDF 문서 처리
+          if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+            setOcrProgressText('PDF 문서 로딩 중...');
+            const arrayBuffer = await file.arrayBuffer();
+
+            if (typeof window.pdfjsLib === 'undefined') {
+              throw new Error('PDF 판독 엔진(PDF.js) 라이브러리를 불러오지 못했습니다. 네트워크 상태를 확인해주세요.');
+            }
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+            const loadingTask = window.pdfjsLib.getDocument({ data: arrayBuffer });
+            const pdfDoc = await loadingTask.promise;
+            const numPages = pdfDoc.numPages;
+            let fullPdfText = '';
+
+            for (let i = 1; i <= numPages; i++) {
+              setOcrProgressText(`PDF ${i}/${numPages}페이지 분석...`);
+              const page = await pdfDoc.getPage(i);
+              const textContent = await page.getTextContent();
+              const pageText = textContent.items.map(item => item.str).join(' ');
+              fullPdfText += pageText + '\n';
+            }
+
+            // 스캔형 PDF (텍스트 레이어가 비어있는 경우) 캔버스 렌더링 후 Tesseract OCR 적용
+            if (fullPdfText.replace(/\s+/g, '').length < 10) {
+              setOcrProgressText('스캔형 PDF: 이미지 변환 및 OCR 준비...');
+              const page = await pdfDoc.getPage(1);
+              const viewport = page.getViewport({ scale: 2.0 });
+              const canvas = document.createElement('canvas');
+              const context = canvas.getContext('2d');
+              canvas.height = viewport.height;
+              canvas.width = viewport.width;
+
+              await page.render({ canvasContext: context, viewport: viewport }).promise;
+              const imgBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+
+              if (typeof Tesseract === 'undefined') {
+                throw new Error('OCR 판독 엔진(Tesseract.js) 라이브러리를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+              }
+              setOcrProgressText('글자 인식 중... (0%)');
+              const { data: { text } } = await Tesseract.recognize(imgBlob, 'kor+eng', {
+                logger: m => {
+                  if (m.status === 'recognizing text') {
+                    const pct = Math.round((m.progress || 0) * 100);
+                    setOcrProgressText(`글자 인식 중... (${pct}%)`);
+                  }
+                }
+              });
+              extractedText = text;
+            } else {
+              extractedText = fullPdfText;
+            }
+          } else {
+            // 2. 이미지 파일 처리 (JPG, PNG, WebP 등)
+            if (typeof Tesseract === 'undefined') {
+              throw new Error('OCR 판독 엔진(Tesseract.js) 라이브러리를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+            }
+            setOcrProgressText('이미지 로딩 및 OCR 준비...');
+            const { data: { text } } = await Tesseract.recognize(file, 'kor+eng', {
+              logger: m => {
+                if (m.status === 'recognizing text') {
+                  const pct = Math.round((m.progress || 0) * 100);
+                  setOcrProgressText(`글자 인식 중... (${pct}%)`);
+                }
+              }
+            });
+            extractedText = text;
+          }
+
+          const cleanExtracted = (extractedText || '').trim();
+          if (!cleanExtracted) {
+            alert('업로드하신 파일에서 인식 가능한 텍스트를 찾지 못했습니다.\n선명한 이미지나 텍스트가 포함된 문서를 선택해주세요.');
+            return;
+          }
+
+          // 3. 텍스트 자동 바인딩 및 텍스트에어리어에 반영
+          setRawText(cleanExtracted);
+          setOcrProgressText('AI 주소·주문 정제 실행 중...');
+
+          // 4. [⚡ AI 즉시 주소·주문 정제] 자동 트리거
+          setIsParsing(true);
+          await new Promise(r => setTimeout(r, 400));
+          const result = await parseOrderText(cleanExtracted, farmProfile?.products || [], selectedProduct);
+          setParsedData(result);
+
+          // 일반 주문 폼 동시 프리필 지원 (원스톱 주문 환경 제공)
+          if (result) {
+            setNormalReceiver(prev => ({
+              ...prev,
+              name: result.receiver_name || prev.name,
+              phone: result.receiver_phone || prev.phone,
+              zip: result.zip_code || prev.zip,
+              roadAddress: result.refined_road_address || prev.roadAddress,
+              detailAddress: result.refined_detail_address || prev.detailAddress
+            }));
+            if (result.orderer_name) {
+              setNormalSender(prev => ({
+                ...prev,
+                name: result.orderer_name || prev.name,
+                phone: result.orderer_phone || prev.phone
+              }));
+            }
+          }
+
+          // 5. 완료 알림 안내 (다중 배송지 감지 vs 단일 주문)
+          if (result && result.is_multiple && result.multiple_orders && result.multiple_orders.length > 1) {
+            alert(`💡 총 ${result.multiple_orders.length}건의 배송지가 감지되어 ${result.multiple_orders.length}건의 개별 주문으로 자동 분할 정제되었습니다.\n\n화면 폼에는 1번째 주문 정보가 표시되며, [주문 확정] 시 ${result.multiple_orders.length}건이 개별 주문 번호로 자동 저장됩니다.`);
+            setToastMessage(`💡 총 ${result.multiple_orders.length}건의 배송지가 감지되어 ${result.multiple_orders.length}건의 개별 주문으로 자동 분할 정제되었습니다.`);
+          } else {
+            setToastMessage('✅ 주문 정보가 성공적으로 추출·정제되었습니다.');
+          }
+
+        } catch (error) {
+          console.error('OCR 파싱 실패:', error);
+          alert('파일 분석 또는 OCR 처리 중 오류가 발생했습니다:\n' + (error.message || error));
+        } finally {
+          setIsOcrProcessing(false);
+          setOcrProgressText('');
+          setIsParsing(false);
+          if (e.target) e.target.value = '';
         }
       };
 
@@ -1179,83 +1546,121 @@
           console.error(err);
         }
 
-        // 고유 주문번호 생성 (예: ORD- + 4자리)
-        const newOrderId = 'ORD-' + Math.floor(1000 + Math.random() * 9000);
         const currentFarmCode = farmProfile?.merchantCode || farmProfile?.code || 'FARM-2026-224';
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlRef = urlParams.get('ref') || urlParams.get('refId') || 'DIRECT';
 
-        const senderName = parsedData.orderer_name || '주문 고객';
-        const senderPhone = parsedData.orderer_phone || '010-0000-0000';
-        const receiverName = parsedData.receiver_name || senderName;
-        const receiverPhone = parsedData.receiver_phone || senderPhone;
-        const postcode = parsedData.zip_code || '06236';
-        const address = parsedData.refined_road_address || '도로명주소';
-        const detailAddress = parsedData.refined_detail_address || '';
-        const productName = parsedData.product_name || '대표 상품';
-        const quantity = Number(parsedData.order_quantity) || 1;
-        const price = Number(parsedData.total_amount) || 42000;
-        const memo = (rawText && rawText.includes('선물')) ? '부모님 명절 선물입니다.' : '배송 전 연락 부탁드립니다.';
+        // 단일 주문 vs N건 다중 분할 주문 대상 배열 구성
+        const ordersToSubmit = (parsedData.is_multiple && parsedData.multiple_orders && parsedData.multiple_orders.length > 1)
+          ? parsedData.multiple_orders
+          : [parsedData];
 
-        // 2. 통합 표준 스키마 객체 생성 (요청 표준 규격 100% 준수 + 하위 호환 필드)
-        const newOrder = {
-          // [필수 표준 규격]
-          orderId: newOrderId,
-          farmCode: currentFarmCode,
-          senderName,
-          senderPhone,
-          receiverName,
-          receiverPhone,
-          postcode,
-          address,
-          detailAddress,
-          productName,
-          quantity,
-          price,
-          memo,
-          paymentStatus: '미입금',
-          shippingStatus: '준비중',
-          createdAt: new Date().toISOString(),
+        const createdOrders = [];
+        const baseTimestamp = Date.now();
+        const usedIds = new Set(existingOrders.map(o => o.orderId || o.id));
 
-          // [하위 호환 객체 필드]
-          id: newOrderId,
-          channel: 'PWA',
-          source: 'PWA',
-          rawText: rawText || `${senderName} ${senderPhone} ${address} ${productName} ${quantity}박스`,
-          orderer: { name: senderName, tel: senderPhone },
-          receiver: { name: receiverName, tel: receiverPhone },
-          product: { name: productName, qty: quantity, price },
-          status: { payment: 'UNPAID', staging: 'PENDING' },
-          paid: false,
-          confidence: `${Math.round((parsedData.confidence_score || 0.96) * 100)}% (${parsedData.confidence_level || 'GREEN'})`,
-          tracking: null
-        };
+        ordersToSubmit.forEach((item, idx) => {
+          let newOrderId = '';
+          do {
+            newOrderId = 'ORD-' + Math.floor(1000 + Math.random() * 9000);
+          } while (usedIds.has(newOrderId));
+          usedIds.add(newOrderId);
 
-        // 3. 최상단(unshift) 추가 및 localStorage('ooms_orders')에 영구 저장
-        existingOrders.unshift(newOrder);
+          const senderName = item.orderer_name || '주문 고객';
+          const senderPhone = item.orderer_phone || '010-0000-0000';
+          const receiverName = item.receiver_name || senderName;
+          const receiverPhone = item.receiver_phone || senderPhone;
+          const postcode = item.zip_code || '06236';
+          const address = item.refined_road_address || '도로명주소';
+          const detailAddress = item.refined_detail_address || '';
+          const productName = item.product_name || '대표 상품';
+          const quantity = Number(item.order_quantity) || 1;
+          const price = Number(item.total_amount) || 42000;
+          const memo = item.memo || ((rawText && rawText.includes('선물')) ? '부모님 명절 선물입니다.' : '배송 전 연락 부탁드립니다.');
+
+          // 2. 통합 표준 스키마 객체 생성
+          const newOrder = {
+            orderId: newOrderId,
+            refId: urlRef,
+            ref: urlRef,
+            farmCode: currentFarmCode,
+            senderName,
+            senderPhone,
+            receiverName,
+            receiverPhone,
+            postcode,
+            address,
+            detailAddress,
+            productName,
+            quantity,
+            price,
+            memo,
+            paymentStatus: '미입금',
+            shippingStatus: '준비중',
+            createdAt: new Date(baseTimestamp + idx * 1000).toISOString(),
+
+            // [하위 호환 객체 필드]
+            id: newOrderId,
+            channel: 'PWA',
+            source: 'PWA',
+            rawText: item.raw_chunk || `${senderName} ${senderPhone} ${address} ${productName} ${quantity}박스`,
+            orderer: { name: senderName, tel: senderPhone },
+            receiver: { name: receiverName, tel: receiverPhone },
+            product: { name: productName, qty: quantity, price },
+            status: { payment: 'UNPAID', staging: 'PENDING' },
+            paid: false,
+            confidence: `${Math.round((item.confidence_score || 0.96) * 100)}% (${item.confidence_level || 'GREEN'})`,
+            tracking: null
+          };
+
+          createdOrders.push(newOrder);
+        });
+
+        // 3. 최상단(unshift) 일괄 추가 및 localStorage 영구 저장
+        existingOrders.unshift(...createdOrders);
+        const primaryOrder = createdOrders[0];
+
         try {
           localStorage.setItem('ooms_orders', JSON.stringify(existingOrders));
-          // 하위 호환성 유지용
           localStorage.setItem('ooms_staging_orders', JSON.stringify(existingOrders));
-          // 고객 CS 자동 세션 프리필용 캐시 저장
           localStorage.setItem('ooms_last_order', JSON.stringify({
-            orderId: newOrderId,
-            customerName: senderName,
-            customerPhone: senderPhone,
-            createdAt: newOrder.createdAt
+            orderId: primaryOrder.orderId,
+            customerName: primaryOrder.senderName,
+            customerPhone: primaryOrder.senderPhone,
+            createdAt: primaryOrder.createdAt
+          }));
+          localStorage.setItem('lastOrderCustomerInfo', JSON.stringify({
+            name: primaryOrder.senderName,
+            phone: primaryOrder.senderPhone,
+            senderName: primaryOrder.senderName,
+            senderPhone: primaryOrder.senderPhone,
+            receiverName: primaryOrder.receiverName,
+            receiverPhone: primaryOrder.receiverPhone,
+            zip: primaryOrder.postcode || '',
+            roadAddress: primaryOrder.address || '',
+            address: primaryOrder.address || '',
+            detailAddress: primaryOrder.detailAddress || '',
+            deliveryMemo: primaryOrder.memo || '문 앞 보관'
           }));
           window.dispatchEvent(new Event('storage'));
         } catch (storageErr) {
           console.error('localStorage 저장 오류:', storageErr);
         }
 
-        // 4. [UX 개편] 외부 페이지(back.html) 이동 차단 및 내부 [배송/주문조회] 탭으로 즉시 전환
-        setTrackedOrder(newOrder);
+        if (createdOrders.length > 1) {
+          alert(`🎉 총 ${createdOrders.length}건의 주문이 개별 주문 번호로 성공적으로 일괄 접수되었습니다!\n\n• 1번째 주문번호: ${primaryOrder.orderId} (${primaryOrder.receiverName})\n• 총 주문 수량: ${createdOrders.reduce((sum, o) => sum + o.quantity, 0)}박스\n\n첫 번째 주문 배송 조회 화면으로 이동합니다.`);
+        }
+
+        // 4. [UX 개편] 외부 페이지 이동 차단 및 영수증 화면 유지
+        setCompletedOrder(primaryOrder);
+        setTrackedOrder(primaryOrder);
         setHasSearched(true);
-        setSearchQuery(newOrderId);
-        setJustPlacedOrderId(newOrderId);
+        setSearchQuery(primaryOrder.orderId);
+        setJustPlacedOrderId(primaryOrder.orderId);
         setDetectedSession({
-          orderId: newOrderId,
-          customerName: senderName,
-          customerPhone: senderPhone,
+          orderId: primaryOrder.orderId,
+          customerName: primaryOrder.senderName,
+          customerPhone: primaryOrder.senderPhone,
           source: 'SESSION'
         });
         setOrderMode('TRACKING');
@@ -1365,11 +1770,59 @@
         setAddressSearchResults(matched);
       };
 
+      // 표준 카카오(Daum) 우편번호 도로명주소 검색 함수
+      const openAddressSearch = () => {
+        if (typeof daum === 'undefined' || !daum.Postcode) {
+          alert('주소 검색 서비스를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+          return;
+        }
+        new daum.Postcode({
+          oncomplete: function(data) {
+            // 1. 도로명 주소 또는 지번 주소 선택
+            var fullAddr = data.userSelectedType === 'R' ? data.roadAddress : data.jibunAddress;
+            var extraAddr = '';
+
+            // 2. 법정동 및 건물명 참고항목 조합
+            if (data.userSelectedType === 'R') {
+              if (data.bname !== '' && /[동|로|가]$/g.test(data.bname)) {
+                extraAddr += data.bname;
+              }
+              if (data.buildingName !== '' && data.apartment === 'Y') {
+                extraAddr += (extraAddr !== '' ? ', ' + data.buildingName : data.buildingName);
+              }
+              if (extraAddr !== '') {
+                fullAddr += ' (' + extraAddr + ')';
+              }
+            }
+
+            // 3. React 상태 및 DOM 인풋 필드 동기화
+            setNormalReceiver(prev => ({
+              ...prev,
+              zip: data.zonecode,
+              roadAddress: fullAddr
+            }));
+
+            var zipEl = document.getElementById('orderZipcode') || document.getElementById('farmerZipcode');
+            var addrEl = document.getElementById('orderAddress') || document.getElementById('farmerAddress');
+            var detailEl = document.getElementById('orderDetailAddress') || document.getElementById('farmerDetailAddress');
+
+            if (zipEl) zipEl.value = data.zonecode;
+            if (addrEl) addrEl.value = fullAddr;
+
+            // 4. 상세주소로 커서 포커스 이동
+            if (detailEl) {
+              detailEl.focus();
+            }
+          }
+        }).open();
+      };
+
+      const openJusoPopup = openAddressSearch;
+      window.openAddressSearch = openAddressSearch;
+      window.openJusoPopup = openAddressSearch;
+
       const handleOpenAddressModal = () => {
-        setAddressSearchQuery('');
-        setAddressSearchResults([]);
-        setAddressSearchPerformed(false);
-        setIsAddressModalOpen(true);
+        openAddressSearch();
       };
 
       const handleSelectAddressItem = (item) => {
@@ -1382,6 +1835,81 @@
           roadAddress: fullAddr
         }));
         setIsAddressModalOpen(false);
+      };
+
+      // [연락처 기반 최근 배송지 불러오기]
+      const handleLoadRecentDeliveryAddress = () => {
+        const inputPhone = (normalSender.phone || '').trim().replace(/[^0-9]/g, '');
+        if (!inputPhone || inputPhone.length < 8) {
+          alert('주문자 연락처(휴대폰 번호)를 먼저 입력해주세요.');
+          const phoneInput = document.getElementById('normal_sender_phone');
+          if (phoneInput) phoneInput.focus();
+          return;
+        }
+
+        try {
+          const savedOrders = JSON.parse(localStorage.getItem('ooms_orders') || '[]');
+          // 전화번호로 일치하는 주문 검색 (뒤 8자리 또는 전체 번호 매칭, 최신 주문 우선)
+          const matched = savedOrders.find(o => {
+            const sPhone = (o.senderPhone || o.orderer?.tel || o.phone || '').replace(/[^0-9]/g, '');
+            const rPhone = (o.receiverPhone || o.receiver?.tel || '').replace(/[^0-9]/g, '');
+            if (sPhone && (sPhone === inputPhone || sPhone.endsWith(inputPhone.slice(-8)))) return true;
+            if (rPhone && (rPhone === inputPhone || rPhone.endsWith(inputPhone.slice(-8)))) return true;
+            return false;
+          });
+
+          if (matched) {
+            const rName = matched.receiverName || matched.receiver?.name || matched.senderName || '';
+            const rPhone = matched.receiverPhone || matched.receiver?.tel || normalSender.phone;
+            const rZip = matched.postcode || matched.zip || matched.address?.zip || '';
+            const rRoad = matched.address?.road || (typeof matched.address === 'string' ? matched.address : '') || '';
+            const rDetail = matched.detailAddress || matched.address?.detail || '';
+            const rMemo = matched.memo || '문 앞 보관';
+
+            setNormalReceiver(prev => ({
+              ...prev,
+              name: rName || prev.name,
+              phone: rPhone || prev.phone,
+              zip: rZip || prev.zip,
+              roadAddress: rRoad || prev.roadAddress,
+              detailAddress: rDetail || prev.detailAddress,
+              deliveryMemo: rMemo || prev.deliveryMemo
+            }));
+
+            if (!normalSender.name.trim() && (matched.senderName || matched.orderer?.name)) {
+              setNormalSender(prev => ({
+                ...prev,
+                name: matched.senderName || matched.orderer?.name
+              }));
+            }
+
+            setToastMessage('✅ 이전 배송지(주소)가 성공적으로 입력되었습니다!');
+          } else {
+            // lastOrderCustomerInfo에서도 확인
+            const rawLast = localStorage.getItem('lastOrderCustomerInfo');
+            if (rawLast) {
+              const lastCust = JSON.parse(rawLast);
+              const lastPhone = (lastCust.phone || lastCust.senderPhone || '').replace(/[^0-9]/g, '');
+              if (lastPhone && (lastPhone === inputPhone || lastPhone.endsWith(inputPhone.slice(-8)))) {
+                setNormalReceiver(prev => ({
+                  ...prev,
+                  name: lastCust.receiverName || lastCust.name || prev.name,
+                  phone: lastCust.receiverPhone || lastCust.phone || prev.phone,
+                  zip: lastCust.zip || prev.zip,
+                  roadAddress: lastCust.roadAddress || lastCust.address || prev.roadAddress,
+                  detailAddress: lastCust.detailAddress || prev.detailAddress,
+                  deliveryMemo: lastCust.deliveryMemo || prev.deliveryMemo
+                }));
+                setToastMessage('✅ 이전 배송지(주소)가 성공적으로 입력되었습니다!');
+                return;
+              }
+            }
+            alert(`'${normalSender.phone}' 번호로 저장된 이전 배송지 이력이 없습니다.\n직접 주소를 검색하여 입력해주세요.`);
+          }
+        } catch (err) {
+          console.error('최근 배송지 불러오기 오류:', err);
+          alert('최근 배송지를 불러오는 중 오류가 발생했습니다.');
+        }
       };
 
       // [📝 일반주문] 원스톱 주문 확정하기 핸들러 (중복 리스트 없이 직관적 확정)
@@ -1447,6 +1975,7 @@
           : (normalReceiver.deliveryMemo || '문 앞 보관');
 
         const newOrderId = 'ORD-NORM-' + Date.now().toString().slice(-4);
+        const urlRef = urlParams.get('ref') || urlParams.get('refId') || 'DIRECT';
         const sName = normalSender.name.trim();
         const sPhone = normalSender.phone.trim();
         const rName = normalReceiver.name.trim();
@@ -1455,8 +1984,38 @@
         const dAddress = normalReceiver.detailAddress.trim();
         const zipCode = normalReceiver.zip.trim() || '06236';
 
+        // [사전예약 Cap 검증] 선택된 상품과 매칭되는 작기 정식 데이터 확인
+        let matchedPlanting = null;
+        let isPreOrder = false;
+        try {
+          const currentPlantings = JSON.parse(localStorage.getItem('ooms_plantings') || '[]');
+          matchedPlanting = currentPlantings.find(p => {
+            const pFarm = (p.farmCode || '').toLowerCase();
+            const tFarm = (targetFarmCode || '').toLowerCase();
+            if (pFarm !== tFarm) return false;
+            const pCrop = (p.cropType || '').toLowerCase();
+            const pName = (p.cropName || '').toLowerCase();
+            const prodName = (product.name || '').toLowerCase();
+            return prodName.includes(pCrop) || prodName.includes(pName) || pName.includes(prodName);
+          });
+
+          if (matchedPlanting) {
+            isPreOrder = true;
+            const currentReserved = Number(matchedPlanting.reservedCount) || 0;
+            const cap = Number(matchedPlanting.totalCap) || 0;
+            if (currentReserved + qty > cap) {
+              alert(`⚠️ [사전예약 Cap 한도 초과]\n\n'${matchedPlanting.cropName || matchedPlanting.cropType}'의 사전예약 허용 한도(${cap.toLocaleString()}박스)를 초과했습니다.\n(현재 예약: ${currentReserved.toLocaleString()}박스 / 잔여: ${Math.max(0, cap - currentReserved)}박스)\n\n수량을 조절하여 다시 신청해주세요.`);
+              return;
+            }
+          }
+        } catch (err) {
+          console.error('사전예약 Cap 검증 오류:', err);
+        }
+
         const newOrder = {
           orderId: newOrderId,
+          refId: urlRef, // 링크별 발급된 고객 고유 식별자 (1:1 매핑)
+          ref: urlRef,
           farmCode: targetFarmCode,
           farmName: targetFarmName,
           senderName: sName,
@@ -1472,14 +2031,16 @@
           memo: memo,
           paymentStatus: '미입금',
           shippingStatus: '준비중',
-          orderType: '일반주문',
-          channel: 'PWA(일반)',
-          source: '일반주문',
+          orderType: isPreOrder ? '사전예약' : '일반주문',
+          plantingId: matchedPlanting ? matchedPlanting.plantingId : null,
+          estimatedShipDate: matchedPlanting ? matchedPlanting.harvestDate : null,
+          channel: isPreOrder ? 'PWA(사전예약)' : 'PWA(일반)',
+          source: isPreOrder ? '사전예약' : '일반주문',
           createdAt: nowIso,
 
           // 하위 호환 필드
           id: newOrderId,
-          rawText: `[일반주문] ${rName} ${rPhone} ${fullAddress} ${product.name} ${qty}박스`,
+          rawText: `[${isPreOrder ? '사전예약' : '일반주문'}] ${rName} ${rPhone} ${fullAddress} ${product.name} ${qty}박스`,
           orderer: { name: sName, tel: sPhone },
           receiver: { name: rName, tel: rPhone },
           product: { name: product.name, qty: qty, price: totalAmount },
@@ -1510,13 +2071,44 @@
             customerPhone: sPhone,
             createdAt: nowIso
           }));
+          localStorage.setItem('lastOrderCustomerInfo', JSON.stringify({
+            name: sName,
+            phone: sPhone,
+            senderName: sName,
+            senderPhone: sPhone,
+            receiverName: rName,
+            receiverPhone: rPhone,
+            zip: zipCode,
+            roadAddress: fullAddress,
+            address: fullAddress,
+            detailAddress: dAddress,
+            deliveryMemo: memo
+          }));
+
+          // [사전예약 Cap 실시간 카운트 증액]
+          if (matchedPlanting) {
+            try {
+              const curPlts = JSON.parse(localStorage.getItem('ooms_plantings') || '[]');
+              const updatedPlts = curPlts.map(p => {
+                if (p.plantingId === matchedPlanting.plantingId) {
+                  return { ...p, reservedCount: (Number(p.reservedCount) || 0) + qty };
+                }
+                return p;
+              });
+              localStorage.setItem('ooms_plantings', JSON.stringify(updatedPlts));
+              setPlantings(updatedPlts);
+            } catch (pErr) {
+              console.error('ooms_plantings 예약수 증액 오류:', pErr);
+            }
+          }
+
           window.dispatchEvent(new Event('storage'));
         } catch (storageErr) {
           console.error('일반 주문 저장 오류:', storageErr);
         }
 
-        // 4. 배송/주문조회 탭으로 즉시 자동 전환 및 상태 안내
-        alert(`🎉 [산지직송 주문 접수 완료]\n\n주문번호: ${newOrderId}\n상품: ${product.name} ${qty}박스\n수령인: ${rName}님\n\n배송/주문조회 화면으로 이동합니다.`);
+        // 4. 주문 접수 완료 확인 영수증 표시 및 상태 안내 (화면 유지 UX)
+        setCompletedOrder(newOrder);
         setJustPlacedOrderId(newOrderId);
         setTrackedOrder(newOrder);
         setHasSearched(true);
@@ -1527,7 +2119,7 @@
           customerPhone: sPhone,
           source: 'SESSION'
         });
-        setOrderMode('TRACKING');
+        setToastMessage(`🎉 [주문 접수 완료] 주문번호 ${newOrderId}가 안전하게 접수되었습니다.`);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       };
 
@@ -1577,6 +2169,7 @@
 
         // 현재 URL 및 로컬스토리지에서 농가코드(farmCode) 엄격 추출
         const urlParams = new URLSearchParams(window.location.search);
+        const urlRef = urlParams.get('ref') || urlParams.get('refId') || 'DIRECT';
         const targetFarmCode = urlParams.get('farm') || 
                                urlParams.get('code') || 
                                urlParams.get('merchantCode') || 
@@ -1607,6 +2200,8 @@
 
           return {
             orderId: newOrderId,
+            refId: urlRef, // 링크별 발급된 고객 고유 식별자
+            ref: urlRef,
             farmCode: targetFarmCode, // ★ 필수 농가코드 연결
             farmName: targetFarmName,
             senderName,
@@ -1653,6 +2248,19 @@
               customerPhone: createdBulkOrders[0].senderPhone,
               createdAt: createdBulkOrders[0].createdAt
             }));
+            localStorage.setItem('lastOrderCustomerInfo', JSON.stringify({
+              name: createdBulkOrders[0].senderName,
+              phone: createdBulkOrders[0].senderPhone,
+              senderName: createdBulkOrders[0].senderName,
+              senderPhone: createdBulkOrders[0].senderPhone,
+              receiverName: createdBulkOrders[0].receiverName,
+              receiverPhone: createdBulkOrders[0].receiverPhone,
+              zip: createdBulkOrders[0].postcode || '',
+              roadAddress: createdBulkOrders[0].address || '',
+              address: createdBulkOrders[0].address || '',
+              detailAddress: createdBulkOrders[0].detailAddress || '',
+              deliveryMemo: createdBulkOrders[0].memo || '문 앞 보관'
+            }));
           }
           window.dispatchEvent(new Event('storage'));
         } catch (storageErr) {
@@ -1661,6 +2269,7 @@
 
         setBulkOrderComplete(true);
         if (createdBulkOrders.length > 0) {
+          setCompletedOrder(createdBulkOrders[0]);
           setJustPlacedOrderId(createdBulkOrders[0].orderId);
           setTrackedOrder(createdBulkOrders[0]);
           setHasSearched(true);
@@ -1678,31 +2287,33 @@
 
       return (
         <div style={{ maxWidth: '860px', width: '100%', margin: '0 auto', boxSizing: 'border-box', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} className={`mobile-container min-h-screen bg-slate-50 border-x border-slate-200 pb-20 ${seniorMode ? 'text-lg' : 'text-sm'}`}>
-          {/* 1. 상단 농가 프로필 배지 (동적 바인딩) */}
-          <div className="bg-gradient-to-r from-farm-600 to-farm-700 text-white p-4 rounded-b-3xl shadow-md">
-            <div className="flex items-center justify-between mb-2.5">
-              <div className="flex items-center gap-1.5">
-                <a
-                  href="index.html"
-                  className="text-xs bg-black/25 hover:bg-black/40 text-white px-2.5 py-1 rounded-full font-bold tracking-wide transition-all border border-white/30 flex items-center gap-1 shadow-2xs shrink-0"
-                  title="메인 허브(index.html)로 즉시 이동"
-                >
-                  <span>🍏</span>
-                  <span>← 홈</span>
-                </a>
-                <span className="text-[11px] bg-white/20 px-2 py-0.5 rounded-full font-medium tracking-tight truncate">
-                  🌱 직거래 주문창 (PWA)
-                </span>
+          {/* 토스트 알림 메시지 */}
+          {toastMessage && (
+            <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-emerald-950/95 text-emerald-100 text-xs font-bold px-5 py-3 rounded-2xl shadow-2xl border border-emerald-500/60 flex items-center gap-2 animate-bounce">
+              <span className="text-sm">✅</span>
+              <span>{toastMessage}</span>
+            </div>
+          )}
+
+          {/* 최상단 네비게이션 헤더 (심플 직거래 주문 전용 뷰) */}
+          <header className="bg-white border-b border-slate-200 px-4 py-2.5 sticky top-0 z-40 shadow-xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🌱</span>
+                <span className="text-sm font-bold text-slate-800">산지직송 직거래 주문 (농장 전용)</span>
               </div>
               <button 
                 type="button"
                 onClick={() => setSeniorMode(!seniorMode)}
-                className="flex items-center gap-1 text-[11px] bg-harvest-500 hover:bg-harvest-600 px-2.5 py-1 rounded-full font-bold shadow-sm transition-all shrink-0"
+                className="flex items-center gap-1 text-[11px] bg-harvest-500 hover:bg-harvest-600 text-white px-2.5 py-1 rounded-full font-bold shadow-sm transition-all shrink-0 cursor-pointer"
               >
                 👓 {seniorMode ? '일반' : '큰글씨'}
               </button>
             </div>
+          </header>
 
+          {/* 1. 상단 농가 프로필 배지 (동적 바인딩) */}
+          <div className="bg-gradient-to-r from-farm-600 to-farm-700 text-white p-4 rounded-b-3xl shadow-md">
             <div className="flex items-center gap-3">
               <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-white shadow-inner bg-farm-100 shrink-0 flex items-center justify-center text-2xl">
                 <span>🌾</span>
@@ -1717,7 +2328,7 @@
                   </span>
                 </div>
                 <p className="text-farm-100 text-[11px] mt-0.5 font-medium truncate">
-                  대표 농부 {farmProfile?.repName || '농가대표'} • {farmProfile?.address || '산지 직송'}
+                  대표 농부 {farmProfile?.ownerName || farmProfile?.repName || farmProfile?.owner || '김혜진 대표'} • {farmProfile?.address || '충청남도 태안군 소원면 소근로 54-16'}
                 </p>
                 <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                   <span className="bg-yellow-400 text-slate-900 text-[10px] font-bold px-1.5 py-0.2 rounded shadow-xs">
@@ -1757,6 +2368,116 @@
               </div>
             )}
           </div>
+
+          {/* 주문 접수 완료 확인 영수증 (상태 유지 및 재확인 UX) */}
+          {completedOrder && (
+            <div className="mx-3 mt-3.5 bg-white rounded-3xl p-5 shadow-lg border-2 border-emerald-500/50 animate-fadeIn space-y-4">
+              <div className="text-center pb-3 border-b border-slate-100">
+                <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-2 text-2xl font-black shadow-inner">
+                  ✓
+                </div>
+                <span className="inline-block bg-emerald-100 text-emerald-800 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full mb-1">
+                  {completedOrder.orderType === '사전예약' ? '🌱 수확 사전예약 접수완료' : '🎉 산지직송 주문 접수완료'}
+                </span>
+                <h3 className="text-lg font-black text-slate-900">
+                  주문이 정상적으로 접수되었습니다
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  아래 주문 내역을 확인해 주세요. 카카오 알림톡/문자로 상세 안내가 전송됩니다.
+                </p>
+              </div>
+
+              {/* 영수증 상세 내역 카드 (주문번호, 품목, 수령인, 안내사항) */}
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 text-xs space-y-2.5 font-medium">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                  <span className="text-slate-500">주문번호</span>
+                  <span className="font-mono font-black text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200 text-[11px]">
+                    {completedOrder.orderId || completedOrder.id}
+                  </span>
+                </div>
+
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-slate-500 shrink-0">주문 품목</span>
+                  <div className="text-right">
+                    <span className="font-black text-slate-900">{completedOrder.productName || completedOrder.product?.name || '산지 직송 농산물'}</span>
+                    <span className="text-slate-500 ml-1 font-bold">({completedOrder.quantity || completedOrder.product?.qty || 1}박스)</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">결제 예정 금액</span>
+                  <span className="font-mono font-black text-harvest-600 text-sm">
+                    {Number(completedOrder.price || completedOrder.product?.price || 0).toLocaleString()}원
+                  </span>
+                </div>
+
+                <div className="flex items-start justify-between gap-2 pt-1 border-t border-slate-200/60">
+                  <span className="text-slate-500 shrink-0">수령인(받는 분)</span>
+                  <span className="font-bold text-slate-900 text-right">
+                    {completedOrder.receiverName || completedOrder.receiver?.name || completedOrder.senderName || '-'} ({completedOrder.receiverPhone || completedOrder.receiver?.tel || completedOrder.senderPhone || '-'})
+                  </span>
+                </div>
+
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-slate-500 shrink-0">배송지</span>
+                  <span className="text-slate-700 text-right">
+                    {completedOrder.postcode ? `[${completedOrder.postcode}] ` : ''}
+                    {completedOrder.address?.road || (typeof completedOrder.address === 'string' ? completedOrder.address : '') || ''} {completedOrder.detailAddress || ''}
+                  </span>
+                </div>
+
+                {completedOrder.memo && completedOrder.memo !== '요청사항 없음' && (
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-slate-500 shrink-0">배송 요청사항</span>
+                    <span className="text-slate-600 text-right">{completedOrder.memo}</span>
+                  </div>
+                )}
+
+                {/* 안내사항 */}
+                <div className="mt-3 p-3 bg-emerald-50/80 rounded-xl border border-emerald-200/70 text-[11px] text-emerald-900 space-y-1">
+                  <p className="font-bold flex items-center gap-1 text-emerald-800">
+                    <span>📢</span> 출하 및 배송 안내사항
+                  </p>
+                  <p className="text-[10px] leading-relaxed text-emerald-800">
+                    • <b>{completedOrder.farmName || farmProfile?.farmName || '산지 농가'}</b>에서 정성껏 선별 및 포장하여 신선하게 발송합니다.
+                  </p>
+                  {completedOrder.estimatedShipDate && (
+                    <p className="text-[10px] leading-relaxed text-emerald-800 font-bold">
+                      • 수확 예정일: {completedOrder.estimatedShipDate} 순차 출하 발송
+                    </p>
+                  )}
+                  <p className="text-[10px] leading-relaxed text-emerald-800">
+                    • 택배 송장 발급 시 알림톡/문자로 실시간 배송조회 링크가 자동 전송됩니다.
+                  </p>
+                </div>
+              </div>
+
+              {/* 영수증 하단 2개 버튼 구성 */}
+              <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentUrl = window.location.pathname + (window.location.search || '');
+                    window.location.href = currentUrl;
+                  }}
+                  className="flex-1 py-3 px-3 bg-white hover:bg-slate-50 active:scale-98 border-2 border-slate-300 rounded-2xl font-bold text-xs text-slate-800 flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                  title="현재 농장 파라미터를 유지한 채 폼을 새로고침하여 재주문"
+                >
+                  <span>🔄</span> 다른 상품 추가 주문하기
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setToastMessage('✅ 주문 정보 확인이 완료되었습니다. 영수증이 화면에 계속 유지됩니다.');
+                  }}
+                  className="flex-1 py-3 px-3 bg-farm-600 hover:bg-farm-700 active:scale-98 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-farm-600/30 cursor-pointer"
+                  title="주문 정보 확인 완료"
+                >
+                  <span>📋</span> 주문 정보 확인 완료
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* 2. 고객 모드 5대 탭 스위처: [일반 주문] vs [간편 복사주문] vs [대량 주문] vs [배송 조회] vs [고객 문의] */}
           <div className="mx-3 mt-3.5 bg-white p-1 rounded-2xl border border-slate-200 shadow-sm grid grid-cols-5 gap-0.5 text-center">
@@ -1841,6 +2562,23 @@
           {/* 3-0. [신규 모드] [📝 일반주문] 간소화된 상하 1컬럼 수직 폼 뷰 */}
           {orderMode === 'NORMAL' && (
             <div className="mx-3 mt-3 space-y-3">
+              {/* 이전 주문 정보 자동 프리필 안내 배너 */}
+              {autoFillNotice && (
+                <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 px-3.5 py-2.5 rounded-2xl flex items-center justify-between text-xs font-bold animate-fadeIn shadow-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base text-emerald-600">✓</span>
+                    <span>이전 주문 정보를 자동으로 불러왔습니다.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAutoFillNotice(false)}
+                    className="text-emerald-600 hover:text-emerald-900 text-xs px-1.5 py-0.5 rounded cursor-pointer font-bold"
+                    title="닫기"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
               {/* [최상단 공통] 출하 상품 선택하기 ▾ 아코디언 드롭다운 & 수량 조절기 */}
               <div className="bg-white p-4 rounded-2xl shadow-sm border border-farm-300 space-y-3">
                 <div className="flex items-center justify-between">
@@ -1913,13 +2651,55 @@
                                 className="accent-farm-600"
                               />
                               <div>
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1.5 flex-wrap">
                                   <span className="font-bold text-slate-900 text-xs">{p.name}</span>
                                   <span className="text-[10px] bg-white text-slate-600 border border-slate-200 px-1 py-0.2 rounded font-mono">
                                     {p.spec || '특품'}
                                   </span>
+                                  {/* 사전예약(Pre-Order) 연동 뱃지 */}
+                                  {(() => {
+                                    const curFCode = (farmProfile?.merchantCode || farmProfile?.code || farmProfile?.farmCode || 'FARM-2026-224').toLowerCase();
+                                    const matchPlt = plantings.find(plt => {
+                                      if ((plt.farmCode || '').toLowerCase() !== curFCode) return false;
+                                      const cType = (plt.cropType || '').toLowerCase();
+                                      const cName = (plt.cropName || '').toLowerCase();
+                                      const pName = (p.name || '').toLowerCase();
+                                      return pName.includes(cType) || pName.includes(cName) || cName.includes(pName);
+                                    });
+                                    if (!matchPlt) return null;
+                                    const cap = Number(matchPlt.totalCap) || 0;
+                                    const res = Number(matchPlt.reservedCount) || 0;
+                                    const remain = Math.max(0, cap - res);
+                                    const isSoldOut = res >= cap;
+                                    return (
+                                      <span className={`text-[10px] px-1.5 py-0.2 rounded font-extrabold flex items-center gap-0.5 ${
+                                        isSoldOut ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-800'
+                                      }`}>
+                                        <span>🌱</span>
+                                        <span>{isSoldOut ? '사전예약 완판(매진)' : `사전예약 잔여 ${remain.toLocaleString()}박스`}</span>
+                                      </span>
+                                    );
+                                  })()}
                                 </div>
-                                <p className="text-[10px] text-slate-400">{p.variety || p.desc || '산지 직송 고당도 프리미엄'}</p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <p className="text-[10px] text-slate-400">{p.variety || p.desc || '산지 직송 고당도 프리미엄'}</p>
+                                  {(() => {
+                                    const curFCode = (farmProfile?.merchantCode || farmProfile?.code || farmProfile?.farmCode || 'FARM-2026-224').toLowerCase();
+                                    const matchPlt = plantings.find(plt => {
+                                      if ((plt.farmCode || '').toLowerCase() !== curFCode) return false;
+                                      const cType = (plt.cropType || '').toLowerCase();
+                                      const cName = (plt.cropName || '').toLowerCase();
+                                      const pName = (p.name || '').toLowerCase();
+                                      return pName.includes(cType) || pName.includes(cName) || cName.includes(pName);
+                                    });
+                                    if (!matchPlt || !matchPlt.harvestDate) return null;
+                                    return (
+                                      <span className="text-[9px] text-harvest-600 font-bold bg-orange-50 px-1 py-0.2 rounded">
+                                        📦 {matchPlt.harvestDate} 수확순차배송
+                                      </span>
+                                    );
+                                  })()}
+                                </div>
                               </div>
                             </div>
                             <span className="font-mono font-black text-harvest-600 text-xs">
@@ -1978,9 +2758,14 @@
                     <span className="w-4 h-4 rounded-full bg-farm-600 text-white text-[10px] flex items-center justify-center font-bold">1</span>
                     <span>1. 주문자(보내는 분)</span>
                   </h4>
-                  <span className="text-[10px] text-farm-700 bg-farm-50 px-2 py-0.5 rounded-full font-bold">
-                    기본 발송 정보
-                  </span>
+                  <button
+                    type="button"
+                    onClick={handleLoadRecentDeliveryAddress}
+                    className="text-[11px] bg-slate-100 hover:bg-farm-50 text-slate-700 hover:text-farm-800 border border-slate-300 hover:border-farm-400 px-2.5 py-1 rounded-xl font-bold flex items-center gap-1 transition-all shadow-2xs active:scale-95 cursor-pointer"
+                    title="입력하신 휴대폰 번호로 이전 배송지 자동 완성"
+                  >
+                    <span>🔍</span> 최근 배송지 불러오기
+                  </button>
                 </div>
 
                 <div className="space-y-2.5 text-xs">
@@ -2084,39 +2869,59 @@
                     />
                   </div>
 
-                  {/* 배송지 주소 (기본주소 + 상세주소 2단계 간소화) */}
+                  {/* 배송지 주소 (우편번호 + 기본주소 + 상세주소) */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between mb-0.5">
                       <label className="block font-bold text-slate-700 text-[11px]">
                         배송지 주소 <span className="text-rose-500">*</span>
                       </label>
-                      <span className="text-[10px] text-slate-400">직접 입력 / 검색 지원</span>
+                      {normalReceiver.roadAddress ? (
+                        <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
+                          ✓ 주소 확인됨
+                        </span>
+                      ) : null}
                     </div>
 
-                    {/* 1. 기본 도로명 주소 및 검색 버튼 */}
+                    {/* 1. 우편번호 & 주소 검색 버튼 */}
                     <div className="flex gap-1.5">
                       <input
+                        id="orderZipcode"
+                        name="orderZipcode"
                         type="text"
-                        value={normalReceiver.roadAddress}
-                        onChange={(e) => setNormalReceiver({ ...normalReceiver, roadAddress: e.target.value })}
-                        placeholder="도로명 주소 입력 또는 [🔍 검색]"
-                        className="flex-1 p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-farm-500 focus:outline-none text-xs"
+                        readOnly={true}
+                        value={normalReceiver.zip || ''}
+                        placeholder="우편번호"
+                        className="w-28 p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-farm-500 focus:outline-none font-mono text-xs bg-slate-50 cursor-not-allowed text-slate-700 font-bold"
                       />
                       <button
                         type="button"
-                        onClick={handleOpenAddressModal}
-                        className="bg-slate-800 hover:bg-slate-900 active:scale-95 text-white font-bold px-3 py-2.5 rounded-xl text-xs shrink-0 flex items-center gap-1 shadow-sm transition-all cursor-pointer"
+                        onClick={openAddressSearch}
+                        className="bg-slate-800 hover:bg-slate-900 active:scale-95 text-white font-bold px-3.5 py-2.5 rounded-xl text-xs shrink-0 flex items-center gap-1 shadow-sm transition-all cursor-pointer"
                       >
                         <span>🔍</span>
-                        <span>검색</span>
+                        <span>주소 검색</span>
                       </button>
                     </div>
 
-                    {/* 2. 상세주소 */}
+                    {/* 2. 기본 도로명 주소 (readonly, 클릭 시 openAddressSearch) */}
+                    <input
+                      id="orderAddress"
+                      name="orderAddress"
+                      type="text"
+                      readOnly={true}
+                      onClick={openAddressSearch}
+                      value={normalReceiver.roadAddress || ''}
+                      placeholder="주소 검색 버튼 또는 여기를 클릭하세요"
+                      className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-farm-500 focus:outline-none text-xs bg-slate-50 cursor-pointer text-slate-900 placeholder-slate-400 font-medium"
+                    />
+
+                    {/* 3. 상세주소 (직접 입력 가능) */}
                     <div>
                       <input
+                        id="orderDetailAddress"
+                        name="orderDetailAddress"
                         type="text"
-                        value={normalReceiver.detailAddress}
+                        value={normalReceiver.detailAddress || ''}
                         onChange={(e) => setNormalReceiver({ ...normalReceiver, detailAddress: e.target.value })}
                         placeholder="상세주소 (기와집, 황토집, 102동 405호 등)"
                         className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-farm-500 focus:outline-none text-xs"
@@ -2166,15 +2971,52 @@
                     </span>
                   </label>
 
-                  {/* 직관적인 원스톱 확정 버튼 */}
-                  <button
-                    type="button"
-                    onClick={handleDirectConfirmNormalOrder}
-                    className="w-full mt-2 bg-harvest-500 hover:bg-harvest-600 active:scale-[0.99] text-white font-extrabold py-3.5 px-4 rounded-2xl text-xs sm:text-sm shadow-lg shadow-harvest-500/30 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <span>🎁</span>
-                    <span>[산지직송 주문 확정하기]</span>
-                  </button>
+                  {/* 직관적인 원스톱 확정 버튼 (사전예약 완판 여부 감지) */}
+                  {(() => {
+                    const prod = normalSelectedProduct || selectedProduct || (farmProfile?.products && farmProfile.products[0]);
+                    const curFCode = (farmProfile?.merchantCode || farmProfile?.code || farmProfile?.farmCode || 'FARM-2026-224').toLowerCase();
+                    const matchPlt = prod ? plantings.find(plt => {
+                      if ((plt.farmCode || '').toLowerCase() !== curFCode) return false;
+                      const cType = (plt.cropType || '').toLowerCase();
+                      const cName = (plt.cropName || '').toLowerCase();
+                      const pName = (prod.name || '').toLowerCase();
+                      return pName.includes(cType) || pName.includes(cName) || cName.includes(pName);
+                    }) : null;
+
+                    const isSoldOut = matchPlt && (Number(matchPlt.reservedCount) || 0) >= (Number(matchPlt.totalCap) || 0);
+
+                    return (
+                      <button
+                        type="button"
+                        onClick={handleDirectConfirmNormalOrder}
+                        disabled={isSoldOut}
+                        className={`w-full mt-2 font-extrabold py-3.5 px-4 rounded-2xl text-xs sm:text-sm shadow-lg transition-all flex items-center justify-center gap-1.5 ${
+                          isSoldOut
+                            ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
+                            : matchPlt
+                            ? 'bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white shadow-emerald-600/30 cursor-pointer'
+                            : 'bg-harvest-500 hover:bg-harvest-600 active:scale-[0.99] text-white shadow-harvest-500/30 cursor-pointer'
+                        }`}
+                      >
+                        {isSoldOut ? (
+                          <>
+                            <span>⚠️</span>
+                            <span>[사전예약 조기 마감 (완판)]</span>
+                          </>
+                        ) : matchPlt ? (
+                          <>
+                            <span>🌱</span>
+                            <span>[사전예약 접수 확정하기 (D-Day 배송)]</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>🎁</span>
+                            <span>[산지직송 주문 확정하기]</span>
+                          </>
+                        )}
+                      </button>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -2283,12 +3125,45 @@
                     )}
                   </button>
                   
+                  {/* 이미지/PDF 파일 업로드 숨김 인풋 */}
+                  <input
+                    type="file"
+                    id="ocrFileInput"
+                    accept="image/*,application/pdf"
+                    style={{ display: 'none' }}
+                    onChange={handleOcrFileSelect}
+                  />
+
                   <button 
                     type="button"
-                    onClick={() => alert('손글씨 영수증/장부 사진 OCR 모듈이 작동합니다.')}
-                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2.5 rounded-xl text-xs flex items-center gap-1.5 transition-all"
+                    disabled={isOcrProcessing || isParsing}
+                    onClick={() => {
+                      const fileInput = document.getElementById('ocrFileInput');
+                      if (fileInput) {
+                        fileInput.value = '';
+                        fileInput.click();
+                      }
+                    }}
+                    title="영수증, 장부, 송장 이미지 또는 주문 PDF 파일을 선택하시면 글자를 자동 판독합니다"
+                    className={`font-bold px-3 py-2.5 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm ${
+                      isOcrProcessing
+                        ? 'bg-amber-100 text-amber-900 border border-amber-300 animate-pulse cursor-wait shrink-0'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700 active:scale-95 cursor-pointer shrink-0'
+                    }`}
                   >
-                    📸 OCR
+                    {isOcrProcessing ? (
+                      <>
+                        <svg className="animate-spin -ml-0.5 mr-1 h-3.5 w-3.5 text-amber-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>{ocrProgressText || '⏳ 글자 인식 중...'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>📸 OCR</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -2296,11 +3171,55 @@
               {/* AI Instant Recognition Card (정제 실행 시에만 동적 노출) */}
               {parsedData ? (
                 <div className="mx-4 mt-3 p-5 bg-gradient-to-b from-white to-farm-50/30 rounded-2xl shadow-md border-2 border-farm-200 animate-fadeIn">
+                  {/* [다중 배송지 감지 배너 및 N건 분할 목록] */}
+                  {parsedData.is_multiple && parsedData.multiple_orders && parsedData.multiple_orders.length > 1 && (
+                    <div className="mb-4 p-3.5 bg-blue-50 border-2 border-blue-300 rounded-xl shadow-xs">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">💡</span>
+                          <div>
+                            <h3 className="text-xs font-black text-blue-900">
+                              총 {parsedData.multiple_orders.length}건의 배송지가 감지되어 {parsedData.multiple_orders.length}건의 개별 주문으로 자동 분할 정제되었습니다.
+                            </h3>
+                            <p className="text-[11px] text-blue-700 mt-0.5">
+                              아래 폼에는 1번째 건이 표시되며, [일괄 주문 확정] 시 {parsedData.multiple_orders.length}건의 개별 주문번호로 동시 접수됩니다.
+                            </p>
+                          </div>
+                        </div>
+                        <span className="bg-blue-600 text-white text-[11px] font-extrabold px-2.5 py-1 rounded-full whitespace-nowrap">
+                          {parsedData.multiple_orders.length}건 일괄 대기
+                        </span>
+                      </div>
+
+                      {/* 분할된 N건 주문 목록 요약 */}
+                      <div className="mt-3 space-y-2 max-h-48 overflow-y-auto pr-1">
+                        {parsedData.multiple_orders.map((subOrder, subIdx) => (
+                          <div key={subIdx} className="p-2.5 bg-white rounded-lg border border-blue-200 text-xs flex items-center justify-between shadow-2xs">
+                            <div className="min-w-0 flex-1 mr-2">
+                              <div className="flex items-center gap-1.5">
+                                <span className="bg-blue-100 text-blue-800 font-bold px-1.5 py-0.5 rounded text-[10px]">#{subIdx + 1}</span>
+                                <span className="font-bold text-slate-900">{subOrder.receiver_name}</span>
+                                <span className="text-slate-500 font-mono text-[11px]">({subOrder.receiver_phone})</span>
+                              </div>
+                              <div className="text-slate-600 text-[11px] truncate mt-0.5">
+                                📍 {subOrder.refined_road_address} {subOrder.refined_detail_address}
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="font-bold text-harvest-600">{subOrder.order_quantity}박스</span>
+                              <div className="text-[10px] text-slate-400 font-mono">{(subOrder.total_amount || 0).toLocaleString()}원</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between pb-3 border-b border-farm-100">
                     <div className="flex items-center gap-2">
                       <span className="w-3 h-3 rounded-full bg-farm-500 animate-ping"></span>
                       <h2 className="font-black text-slate-800 text-base">
-                        AI 스마트 주문서 인식 결과
+                        AI 스마트 주문서 인식 결과 {parsedData.is_multiple ? `(1번째 건 기준)` : ''}
                       </h2>
                     </div>
                     <span className={`text-xs font-extrabold px-2.5 py-1 rounded-full ${parsedData.confidence_level === 'GREEN' ? 'bg-farm-100 text-farm-700' : 'bg-amber-100 text-amber-700'}`}>
@@ -2365,7 +3284,11 @@
                       onClick={handleSingleSubmit}
                       className="w-full bg-harvest-500 hover:bg-harvest-600 active:scale-[0.99] text-white font-extrabold py-4 px-6 rounded-2xl text-base shadow-lg shadow-harvest-500/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
                     >
-                      <span>🎁 산지직송 직거래 주문 확정하기</span>
+                      <span>
+                        {parsedData.is_multiple && parsedData.multiple_orders && parsedData.multiple_orders.length > 1
+                          ? `🎁 총 ${parsedData.multiple_orders.length}건 산지직송 직거래 일괄 주문 확정하기`
+                          : '🎁 산지직송 직거래 주문 확정하기'}
+                      </span>
                       <span className="text-xs bg-white/20 px-2 py-1 rounded">1-클릭</span>
                     </button>
                   </div>
@@ -2717,10 +3640,16 @@
                         >
                           {/* 상단: 주문번호 & 배송 상태 뱃지 */}
                           <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 text-xs">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="font-mono font-black text-slate-800 bg-slate-100 px-2 py-0.5 rounded text-[11px]">
                                 {orderId}
                               </span>
+                              {order.orderType === '사전예약' && (
+                                <span className="bg-emerald-100 text-emerald-800 font-extrabold text-[10px] px-1.5 py-0.2 rounded-full border border-emerald-300 flex items-center gap-0.5">
+                                  <span>🌱</span>
+                                  <span>사전예약</span>
+                                </span>
+                              )}
                               {createdAtStr && (
                                 <span className="text-[10px] text-slate-400 font-mono">
                                   {createdAtStr}
@@ -2765,6 +3694,12 @@
                                   <span className="text-slate-400 ml-1">· 주문자: {senderName}</span>
                                 )}
                               </p>
+                              {order.estimatedShipDate && (
+                                <p className="text-[10px] text-emerald-700 font-extrabold mt-0.5 flex items-center gap-1">
+                                  <span>📦</span>
+                                  <span>수확 출하예정일: {order.estimatedShipDate} 순차 발송</span>
+                                </p>
+                              )}
                             </div>
 
                             {orderPrice > 0 && (
@@ -3323,6 +4258,38 @@
     } else {
       initApp();
     }
+  </script>
+  <script>
+    // 전역 휴대전화 번호 실시간 자동 하이픈 및 최대 13자 제한 포매팅 (동적 렌더링 입력창 완벽 지원)
+    document.addEventListener('input', function(e) {
+      var target = e.target;
+      if (!target || target.tagName !== 'INPUT') return;
+      var type = target.getAttribute('type') || '';
+      var id = target.id || '';
+      var name = target.name || '';
+      var placeholder = target.placeholder || '';
+
+      var isPhone = type === 'tel' ||
+                    /phone|tel/i.test(id) ||
+                    /phone|tel/i.test(name) ||
+                    /010|전화|연락처|휴대폰/i.test(placeholder);
+
+      if (isPhone) {
+        target.setAttribute('maxlength', '13');
+        var val = target.value.replace(/[^0-9]/g, '');
+        if (val.length > 11) val = val.slice(0, 11);
+
+        if (val.length >= 11) {
+          target.value = val.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
+        } else if (val.length >= 7) {
+          target.value = val.replace(/(\d{3})(\d{3,4})(\d+)/, '$1-$2-$3');
+        } else if (val.length >= 4) {
+          target.value = val.replace(/(\d{3})(\d+)/, '$1-$2');
+        } else {
+          target.value = val;
+        }
+      }
+    }, true);
   </script>
 </body>
 </html>

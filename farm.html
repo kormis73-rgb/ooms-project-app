@@ -3,13 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>태안 조이장네 - 농가 모바일 (OOMS)</title>
+  <title>태안 사과농장 - 농가 모바일 (OOMS)</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- React 18, ReactDOM, Babel Standalone -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- SheetJS (xlsx) CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -81,13 +83,13 @@
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span class="font-extrabold text-sm tracking-wide text-emerald-400">태안 조이장네</span>
+            <span class="font-extrabold text-sm tracking-wide text-emerald-400">태안 사과농장</span>
           </div>
-          <span class="text-[10px] bg-slate-800 border border-slate-700 text-slate-300 px-2 py-0.5 rounded font-mono">FARM-2026-088</span>
+          <span class="text-[10px] bg-slate-800 border border-slate-700 text-slate-300 px-2 py-0.5 rounded font-mono">FARM-2026-224</span>
         </div>
         <div class="flex items-center justify-between mt-2">
           <h1 class="text-xl font-black">농가 모바일</h1>
-          <span class="text-xs text-slate-400">대표: <b class="text-white">조국래</b></span>
+          <span class="text-xs text-slate-400">대표: <b class="text-white">김혜진</b></span>
         </div>
         <p class="text-[11px] text-slate-400 mt-0.5">📞 010-3849-1234 | 택배사: 1092837465</p>
       </div>
@@ -121,16 +123,16 @@
         <!-- 상품 카드 뼈대 -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
           <div class="flex justify-between items-center mb-2.5">
-            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">🍈 현재 출하 등록 상품 (1종)</h3>
+            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">🍎 현재 출하 등록 상품 (2종)</h3>
             <span class="text-[10px] text-farm-600 font-bold">실시간 판매중</span>
           </div>
           <div class="py-2 flex justify-between items-center text-xs">
             <div>
-              <span class="text-[10px] bg-farm-50 text-farm-700 px-1.5 py-0.5 rounded font-bold mr-1.5">메론</span>
-              <span class="font-extrabold text-slate-900">하미과메론(노랑)</span>
-              <p class="text-[11px] text-slate-500 mt-0.5">2수(4kg 내외 특품) • 황토와 해풍으로 키워낸 고당도 하미과메론</p>
+              <span class="text-[10px] bg-farm-50 text-farm-700 px-1.5 py-0.5 rounded font-bold mr-1.5">사과</span>
+              <span class="font-extrabold text-slate-900">맛있는 꿀사과 10kg</span>
+              <p class="text-[11px] text-slate-500 mt-0.5">10kg(28~32과 특품) • 태안 해풍과 황토에서 자란 아삭하고 달콤한 특품 꿀사과</p>
             </div>
-            <span class="font-mono font-black text-harvest-600 text-xs ml-2">70,000원</span>
+            <span class="font-mono font-black text-harvest-600 text-xs ml-2">55,000원</span>
           </div>
         </div>
       </div>
@@ -140,57 +142,385 @@
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    // 농가 기본 마스터 데이터 (태안 조이장네 / 조국래 대표 / test 계정 기본 호환)
+    // 행정안전부 및 기본 산지 표준 주소 마스터 데이터
+    const STANDARD_ADDRESS_DB = [
+      { zonecode: '32130', roadAddress: '충청남도 태안군 소원면 소근로 54-16', jibunAddress: '충청남도 태안군 소원면 소근리 520' },
+      { zonecode: '32145', roadAddress: '충청남도 태안군 태안읍 송암로 523', jibunAddress: '충청남도 태안군 태안읍 송암리 422', buildingName: '태안군농업기술센터' },
+      { zonecode: '32145', roadAddress: '충청남도 태안군 태안읍 환동로 34-12', jibunAddress: '충청남도 태안군 태안읍 동문리 580-2' },
+      { zonecode: '32145', roadAddress: '충청남도 태안군 태안읍 환동로 43-12', jibunAddress: '충청남도 태안군 태안읍 동문리 562-1' },
+      { zonecode: '32147', roadAddress: '충청남도 태안군 태안읍 환동로 1', jibunAddress: '충청남도 태안군 태안읍 남문리 120' },
+      { zonecode: '32143', roadAddress: '충청남도 태안군 태안읍 군청로 1', jibunAddress: '충청남도 태안군 태안읍 남문리 320' },
+      { zonecode: '32158', roadAddress: '충청남도 태안군 안면읍 안면대로 3000', jibunAddress: '충청남도 태안군 안면읍 승언리 1240' },
+      { zonecode: '32128', roadAddress: '충청남도 태안군 소원면 서해로 1', jibunAddress: '충청남도 태안군 소원면 신덕리 10' },
+      { zonecode: '37432', roadAddress: '경상북도 청송군 주왕산면 당마루길 45', jibunAddress: '경상북도 청송군 주왕산면 상의리 312' },
+      { zonecode: '37431', roadAddress: '경상북도 청송군 청송읍 청송로 290', jibunAddress: '경상북도 청송군 청송읍 월막리 214' },
+      { zonecode: '36980', roadAddress: '경상북도 문경시 문경읍 백두대간로 128', jibunAddress: '경상북도 문경시 문경읍 상초리 288' },
+      { zonecode: '36735', roadAddress: '경상북도 안동시 길안면 천지길 30', jibunAddress: '경상북도 안동시 길안면 천지리 555' },
+      { zonecode: '36000', roadAddress: '경상북도 영주시 풍기읍 동양대로 10', jibunAddress: '경상북도 영주시 풍기읍 산법리 1' },
+      { zonecode: '37100', roadAddress: '경상북도 상주시 모동면 중모로 89', jibunAddress: '경상북도 상주시 모동면 용호리 115' },
+      { zonecode: '38820', roadAddress: '경상북도 영천시 금호읍 거여로 120', jibunAddress: '경상북도 영천시 금호읍 교대리 200' },
+      { zonecode: '39400', roadAddress: '경상북도 성주군 성주읍 성주순환로 50', jibunAddress: '경상북도 성주군 성주읍 예산리 110' },
+      { zonecode: '58245', roadAddress: '전라남도 나주시 금천면 영산로 245', jibunAddress: '전라남도 나주시 금천면 원곡리 521' },
+      { zonecode: '57530', roadAddress: '전라남도 곡성군 곡성읍 기차마을로 232', jibunAddress: '전라남도 곡성군 곡성읍 오곡리 55' },
+      { zonecode: '58700', roadAddress: '전라남도 해남군 해남읍 중앙1로 1', jibunAddress: '전라남도 해남군 해남읍 성내리 34' },
+      { zonecode: '59000', roadAddress: '전라남도 담양군 담양읍 추성로 1371', jibunAddress: '전라남도 담양군 담양읍 객사리 99' },
+      { zonecode: '55321', roadAddress: '전라북도 완주군 삼례읍 삼례로 88', jibunAddress: '전라북도 완주군 삼례읍 후정리 450' },
+      { zonecode: '56300', roadAddress: '전라북도 고창군 고창읍 중앙로 245', jibunAddress: '전라북도 고창군 고창읍 교촌리 20' },
+      { zonecode: '55500', roadAddress: '전라북도 무주군 무주읍 당산강변로 32', jibunAddress: '전라북도 무주군 무주읍 읍내리 280' },
+      { zonecode: '32400', roadAddress: '충청남도 예산군 고덕면 사과로 77', jibunAddress: '충청남도 예산군 고덕면 대천리 410' },
+      { zonecode: '33140', roadAddress: '충청남도 부여군 부여읍 성왕로 110', jibunAddress: '충청남도 부여군 부여읍 구아리 230' },
+      { zonecode: '33012', roadAddress: '충청남도 논산시 연무읍 득안대로 512', jibunAddress: '충청남도 논산시 연무읍 안심리 12' },
+      { zonecode: '27600', roadAddress: '충청북도 음성군 음성읍 중앙로 40', jibunAddress: '충청북도 음성군 음성읍 읍내리 300' },
+      { zonecode: '27300', roadAddress: '충청북도 충주시 충원대로 2699', jibunAddress: '충청북도 충주시 달천동 150' },
+      { zonecode: '29000', roadAddress: '충청북도 옥천군 옥천읍 중앙로 99', jibunAddress: '충청북도 옥천군 옥천읍 삼양리 100' },
+      { zonecode: '50123', roadAddress: '경상남도 거창군 거창읍 사과골길 15', jibunAddress: '경상남도 거창군 거창읍 대평리 78' },
+      { zonecode: '50000', roadAddress: '경상남도 밀양시 밀양대로 2047', jibunAddress: '경상남도 밀양시 교동 1000' },
+      { zonecode: '52200', roadAddress: '경상남도 산청군 산청읍 웅석봉로 25', jibunAddress: '경상남도 산청군 산청읍 옥산리 300' },
+      { zonecode: '26400', roadAddress: '강원특별자치도 원주시 원일로 115', jibunAddress: '강원특별자치도 원주시 일산동 50' },
+      { zonecode: '25200', roadAddress: '강원특별자치도 횡성군 횡성읍 태기로 15', jibunAddress: '강원특별자치도 횡성군 횡성읍 읍하리 100' },
+      { zonecode: '63605', roadAddress: '제주특별자치도 서귀포시 남원읍 태위로 340', jibunAddress: '제주특별자치도 서귀포시 남원읍 남원리 102' },
+      { zonecode: '63000', roadAddress: '제주특별자치도 제주시 첨단로 242', jibunAddress: '제주특별자치도 제주시 영평동 2181' },
+      { zonecode: '06774', roadAddress: '서울특별시 서초구 강남대로 27', jibunAddress: '서울특별시 서초구 양재동 232 aT센터' },
+      { zonecode: '06236', roadAddress: '서울특별시 강남구 테헤란로 152', jibunAddress: '서울특별시 강남구 역삼동 737 강남파이낸스센터' }
+    ];
+
+    // 농가 기본 마스터 데이터 (태안 사과농장 / 김혜진 대표 / test 계정 표준 규격)
     const DEFAULT_FARM = {
       id: 'm-test',
       merchantCode: 'FARM-2026-224',
       farmCode: 'FARM-2026-224',
       code: 'FARM-2026-224',
       loginId: 'test',
-      farmName: '태안 조이장네',
-      name: '태안 조이장네',
-      repName: '조국래',
-      owner: '조국래',
+      farmName: '태안 사과농장',
+      name: '태안 사과농장',
+      repName: '김혜진',
+      owner: '김혜진',
       phone: '010-3849-1234',
       address: '충청남도 태안군 소원면 소근로 54-16',
       postOfficeNum: '1092837465',
       status: 'APPROVED',
+      brix: '당도 16.5 Brix 보증',
       products: [
+        {
+          id: 'p-apple-1',
+          category: '사과',
+          name: '맛있는 꿀사과 10kg',
+          variety: '후지(부사)',
+          spec: '10kg(28~32과 특품)',
+          originPrice: 65000,
+          salePrice: 55000,
+          desc: '태안 해풍과 황토에서 자란 아삭하고 달콤한 특품 꿀사과'
+        },
         {
           id: 'p-melon-1',
           category: '메론',
-          name: '하미과메론(노랑)',
+          name: '정품 하미과 4.5kg',
           variety: '하미과(황금)',
-          spec: '2수(4kg 내외 특품)',
-          originPrice: 78000,
-          salePrice: 70000,
+          spec: '2수(4.5kg 내외 특품)',
+          originPrice: 55000,
+          salePrice: 45000,
           desc: '황토와 해풍으로 키워낸 고당도 하미과메론'
         }
       ]
     };
 
-    // 기본 주문 목업 데이터 (완전 초기화 0건)
-    const DEFAULT_ORDERS = [];
-
-    // [더미 농가 영구 차단 및 정리] 브라우저에 남아있던 FARM-2026-001 / FARM-2026-002 즉시 영구 삭제
-    try {
-      ['ooms_farms', 'OOMS_MERCHANTS_DATA'].forEach(key => {
-        const raw = localStorage.getItem(key);
-        if (raw) {
-          try {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) {
-              const cleaned = parsed.filter(f => {
-                const code = f.merchantCode || f.farmCode || f.code || '';
-                const name = f.farmName || '';
-                return code !== 'FARM-2026-001' && code !== 'FARM-2026-002' &&
-                       !name.includes('청송 하늘아래') && !name.includes('나주 금천 배사랑');
-              });
-              localStorage.setItem(key, JSON.stringify(cleaned));
-            }
-          } catch(e){}
+    // 청송 꿀사과 농원 마스터 데이터 (FARM-2026-456 / 조국래 대표 / kakao_456 계정)
+    const CHEONGSONG_FARM = {
+      id: 'm-kakao-456',
+      merchantCode: 'FARM-2026-456',
+      farmCode: 'FARM-2026-456',
+      code: 'FARM-2026-456',
+      loginId: 'kakao_456',
+      farmName: '청송 꿀사과 농원',
+      name: '청송 꿀사과 농원',
+      repName: '조국래',
+      owner: '조국래',
+      phone: '010-8730-2147',
+      address: '경상북도 청송군 주왕산면 당마루길 45',
+      postOfficeNum: '1082736451',
+      status: 'APPROVED',
+      approvalStatus: 'APPROVED',
+      brix: '당도 16.0 Brix 보증',
+      products: [
+        {
+          id: 'p-cheongsong-1',
+          category: '사과',
+          name: '청송 꿀사과 10kg(특품)',
+          variety: '후지(부사)',
+          spec: '10kg(28~32과 특품)',
+          originPrice: 65000,
+          salePrice: 55000,
+          desc: '청송 주왕산 자락의 맑은 공기와 일교차로 당도가 가득 찬 명품 꿀사과'
         }
-      });
+      ]
+    };
+
+    // 기본 주문 목업 데이터 (태안 사과농장 FARM-2026-224 8건 정규 주문 데이터)
+    const DEFAULT_ORDERS = [
+      {
+        id: 'ORD-BULK-9566-1',
+        orderId: 'ORD-BULK-9566-1',
+        farmCode: 'FARM-2026-224',
+        createdAt: '2026-10-10 14:20',
+        senderName: '한리라',
+        senderPhone: '010-7733-1122',
+        receiverName: '한리라',
+        receiverPhone: '010-7733-1122',
+        address: '경기도 안양시 만안구 안양로 112',
+        detailAddress: '101호',
+        postcode: '14000',
+        productName: '맛있는 꿀사과 10kg',
+        quantity: 2,
+        price: 110000,
+        paid: true,
+        paymentStatus: '입금완료',
+        shippingStatus: '배송중',
+        carrier: 'CJ대한통운',
+        courier: 'CJ대한통운',
+        tracking: '1234-5678-9012',
+        invoiceNum: '1234-5678-9012',
+        channel: '엑셀(대량)',
+        source: '엑셀(대량)',
+        orderType: '대량주문(엑셀)',
+        memo: '안전 배송 부탁드립니다.',
+        status: { payment: 'PAID', shipping: 'SHIPPED', staging: 'APPROVED' }
+      },
+      {
+        id: 'ORD-BULK-9566-2',
+        orderId: 'ORD-BULK-9566-2',
+        farmCode: 'FARM-2026-224',
+        createdAt: '2026-10-10 15:05',
+        senderName: '이약속',
+        senderPhone: '010-4491-0021',
+        receiverName: '이약속',
+        receiverPhone: '010-4491-0021',
+        address: '경기도 성남시 분당구 판교역로 166',
+        detailAddress: '402호',
+        postcode: '13529',
+        productName: '정품 하미과 4.5kg',
+        quantity: 1,
+        price: 45000,
+        paid: true,
+        paymentStatus: '입금완료',
+        shippingStatus: '배송중',
+        carrier: 'CJ대한통운',
+        courier: 'CJ대한통운',
+        tracking: '1234-5678-9013',
+        invoiceNum: '1234-5678-9013',
+        channel: '엑셀(대량)',
+        source: '엑셀(대량)',
+        orderType: '대량주문(엑셀)',
+        memo: '배송 전 연락 부탁드립니다.',
+        status: { payment: 'PAID', shipping: 'SHIPPED', staging: 'APPROVED' }
+      },
+      {
+        id: 'ORD-BULK-9566-3',
+        orderId: 'ORD-BULK-9566-3',
+        farmCode: 'FARM-2026-224',
+        createdAt: '2026-10-11 11:30',
+        senderName: '최현경',
+        senderPhone: '010-9876-5432',
+        receiverName: '최현경',
+        receiverPhone: '010-9876-5432',
+        address: '서울특별시 금천구 시흥대로 73',
+        detailAddress: '201동 502호',
+        postcode: '08500',
+        productName: '맛있는 꿀사과 10kg',
+        quantity: 1,
+        price: 55000,
+        paid: true,
+        paymentStatus: '입금완료',
+        shippingStatus: '배송중',
+        carrier: 'CJ대한통운',
+        courier: 'CJ대한통운',
+        tracking: '1234-5678-9014',
+        invoiceNum: '1234-5678-9014',
+        channel: '엑셀(대량)',
+        source: '엑셀(대량)',
+        orderType: '대량주문(엑셀)',
+        memo: '문 앞 보관 부탁드립니다.',
+        status: { payment: 'PAID', shipping: 'SHIPPED', staging: 'APPROVED' }
+      },
+      {
+        id: 'ORD-BULK-9566-4',
+        orderId: 'ORD-BULK-9566-4',
+        farmCode: 'FARM-2026-224',
+        createdAt: '2026-10-11 14:15',
+        senderName: '김황래',
+        senderPhone: '010-7788-9900',
+        receiverName: '김황래',
+        receiverPhone: '010-7788-9900',
+        address: '서울특별시 강서구 공항대로 212',
+        detailAddress: '5층',
+        postcode: '07500',
+        productName: '정품 하미과 4.5kg',
+        quantity: 1,
+        price: 45000,
+        paid: true,
+        paymentStatus: '입금완료',
+        shippingStatus: '배송중',
+        carrier: 'CJ대한통운',
+        courier: 'CJ대한통운',
+        tracking: '1234-5678-9015',
+        invoiceNum: '1234-5678-9015',
+        channel: '엑셀(대량)',
+        source: '엑셀(대량)',
+        orderType: '대량주문(엑셀)',
+        memo: '부재 시 경비실 보관 부탁드립니다.',
+        status: { payment: 'PAID', shipping: 'SHIPPED', staging: 'APPROVED' }
+      },
+      {
+        id: 'ORD-BULK-9566-5',
+        orderId: 'ORD-BULK-9566-5',
+        farmCode: 'FARM-2026-224',
+        createdAt: '2026-10-12 10:40',
+        senderName: '안성광',
+        senderPhone: '010-2233-4455',
+        receiverName: '안성광',
+        receiverPhone: '010-2233-4455',
+        address: '경상남도 밀양시 밀양대로 2047',
+        detailAddress: '102호',
+        postcode: '50400',
+        productName: '맛있는 꿀사과 10kg',
+        quantity: 1,
+        price: 55000,
+        paid: true,
+        paymentStatus: '입금완료',
+        shippingStatus: '배송중',
+        carrier: 'CJ대한통운',
+        courier: 'CJ대한통운',
+        tracking: '1234-5678-9016',
+        invoiceNum: '1234-5678-9016',
+        channel: '엑셀(대량)',
+        source: '엑셀(대량)',
+        orderType: '대량주문(엑셀)',
+        memo: '배송 전 연락 요망',
+        status: { payment: 'PAID', shipping: 'SHIPPED', staging: 'APPROVED' }
+      },
+      {
+        id: 'ORD-BULK-9566-6',
+        orderId: 'ORD-BULK-9566-6',
+        farmCode: 'FARM-2026-224',
+        createdAt: '2026-10-12 13:20',
+        senderName: '김은하',
+        senderPhone: '010-6677-8899',
+        receiverName: '김은하',
+        receiverPhone: '010-6677-8899',
+        address: '대구광역시 달서구 달구벌대로 1200',
+        detailAddress: '7층',
+        postcode: '42600',
+        productName: '맛있는 꿀사과 10kg',
+        quantity: 2,
+        price: 110000,
+        paid: true,
+        paymentStatus: '입금완료',
+        shippingStatus: '배송중',
+        carrier: 'CJ대한통운',
+        courier: 'CJ대한통운',
+        tracking: '1234-5678-9017',
+        invoiceNum: '1234-5678-9017',
+        channel: '엑셀(대량)',
+        source: '엑셀(대량)',
+        orderType: '대량주문(엑셀)',
+        memo: '문 앞 보관 요망',
+        status: { payment: 'PAID', shipping: 'SHIPPED', staging: 'APPROVED' }
+      },
+      {
+        id: 'ORD-1692',
+        orderId: 'ORD-1692',
+        farmCode: 'FARM-2026-224',
+        createdAt: '2026-10-12 15:30',
+        senderName: '홍길순',
+        senderPhone: '010-3344-5566',
+        receiverName: '홍길순',
+        receiverPhone: '010-3344-5566',
+        address: '충청남도 태안군 태안읍 송암로 523',
+        detailAddress: '101호',
+        postcode: '32145',
+        productName: '맛있는 꿀사과 10kg',
+        quantity: 1,
+        price: 55000,
+        paid: true,
+        paymentStatus: '입금완료',
+        shippingStatus: '배송중',
+        carrier: '롯데택배',
+        courier: '롯데택배',
+        tracking: '111111111',
+        invoiceNum: '111111111',
+        channel: 'PWA',
+        source: '일반주문',
+        orderType: '일반주문',
+        memo: '직접 수령',
+        status: { payment: 'PAID', shipping: 'SHIPPED', staging: 'APPROVED' }
+      },
+      {
+        id: 'ORD-4602',
+        orderId: 'ORD-4602',
+        farmCode: 'FARM-2026-224',
+        createdAt: '2026-10-12 17:10',
+        senderName: '엄기철',
+        senderPhone: '010-1212-3434',
+        receiverName: '엄기철',
+        receiverPhone: '010-1212-3434',
+        address: '충청남도 태안군 소원면 소근로 70',
+        detailAddress: '단독주택',
+        postcode: '32130',
+        productName: '정품 하미과 4.5kg',
+        quantity: 1,
+        price: 45000,
+        paid: true,
+        paymentStatus: '입금완료',
+        shippingStatus: '배송중',
+        carrier: 'CJ대한통운',
+        courier: 'CJ대한통운',
+        tracking: '6892948122190',
+        invoiceNum: '6892948122190',
+        channel: 'PWA',
+        source: '일반주문',
+        orderType: '일반주문',
+        memo: '대문 앞 보관',
+        status: { payment: 'PAID', shipping: 'SHIPPED', staging: 'APPROVED' }
+      }
+    ];
+
+    // [더미 농가 영구 차단 및 태안 사과농장/8건 주문 빈 스토리지 자동 탑재]
+    try {
+      // 1. 농가 데이터 초기화
+      const rawFarms = localStorage.getItem('ooms_farms') || localStorage.getItem('OOMS_MERCHANTS_DATA');
+      let parsedFarms = [];
+      if (rawFarms) {
+        try { parsedFarms = JSON.parse(rawFarms); } catch(e){}
+      }
+      if (!Array.isArray(parsedFarms) || parsedFarms.length === 0) {
+        localStorage.setItem('ooms_farms', JSON.stringify([DEFAULT_FARM, CHEONGSONG_FARM]));
+        localStorage.setItem('OOMS_MERCHANTS_DATA', JSON.stringify([DEFAULT_FARM, CHEONGSONG_FARM]));
+      } else {
+        const cleaned = parsedFarms.filter(f => {
+          const code = f.merchantCode || f.farmCode || f.code || '';
+          const name = f.farmName || '';
+          return code !== 'FARM-2026-001' && code !== 'FARM-2026-002' &&
+                 !name.includes('청송 하늘아래') && !name.includes('나주 금천 배사랑');
+        });
+        if (!cleaned.some(f => (f.farmCode === 'FARM-2026-224' || f.merchantCode === 'FARM-2026-224'))) {
+          cleaned.unshift(DEFAULT_FARM);
+        }
+        if (!cleaned.some(f => (f.farmCode === 'FARM-2026-456' || f.merchantCode === 'FARM-2026-456'))) {
+          cleaned.push(CHEONGSONG_FARM);
+        }
+        localStorage.setItem('ooms_farms', JSON.stringify(cleaned));
+        localStorage.setItem('OOMS_MERCHANTS_DATA', JSON.stringify(cleaned));
+      }
+
+      // 2. 주문 데이터 초기화 (ooms_orders가 비어있으면 8건 정규 주문 탑재)
+      const rawOrders = localStorage.getItem('ooms_orders');
+      let parsedOrders = [];
+      if (rawOrders) {
+        try { parsedOrders = JSON.parse(rawOrders); } catch(e){}
+      }
+      if (!Array.isArray(parsedOrders) || parsedOrders.length === 0) {
+        localStorage.setItem('ooms_orders', JSON.stringify(DEFAULT_ORDERS));
+        localStorage.setItem('ooms_staging_orders', JSON.stringify(DEFAULT_ORDERS));
+      }
     } catch(e){}
 
     function FarmPortalApp() {
@@ -216,60 +546,197 @@
             } catch (e) {}
           }
 
-          // 1순위: URL ?farm= 파라미터 우선 바인딩 및 현재 탭 세션 격리 저장
+          // 1순위: URL ?farm= 쿼리 파라미터 최우선 바인딩 (이전 캐시나 하드코딩값으로 절대 덮어쓰지 않음)
           if (farmParam) {
             const cleanP = farmParam.trim().toLowerCase();
+
+            // 1-0. 세션/로컬 스토리지에 저장된 실제 로그인 농가('current_user_farm')와 일치하는지 확인
+            try {
+              const curUserFarmRaw = sessionStorage.getItem('current_user_farm') || localStorage.getItem('current_user_farm');
+              if (curUserFarmRaw) {
+                const curUserFarm = JSON.parse(curUserFarmRaw);
+                const curCode = (curUserFarm.farmCode || curUserFarm.merchantCode || curUserFarm.code || curUserFarm.loginId || '').trim().toLowerCase();
+                if (curCode === cleanP || (curUserFarm.farmName && curUserFarm.farmName.toLowerCase().includes(cleanP))) {
+                  const normalized = {
+                    ...curUserFarm,
+                    farmCode: curUserFarm.farmCode || curUserFarm.merchantCode || farmParam,
+                    code: curUserFarm.merchantCode || curUserFarm.farmCode || farmParam,
+                    approvalStatus: curUserFarm.approvalStatus || curUserFarm.status || 'APPROVED',
+                    status: curUserFarm.approvalStatus || curUserFarm.status || 'APPROVED',
+                    products: curUserFarm.products || []
+                  };
+                  try {
+                    sessionStorage.setItem('ooms_farm_session', JSON.stringify(normalized));
+                    localStorage.setItem('ooms_current_farm', JSON.stringify(normalized));
+                    localStorage.setItem('ooms_farm_code', normalized.farmCode);
+                    sessionStorage.setItem('ooms_farm_code', normalized.farmCode);
+                  } catch(e){}
+                  return normalized;
+                }
+              }
+            } catch (e) {}
+
+            // 1-1. 전체 농가 데이터베이스에서 매칭
             const matched = allFarms.find(f => 
               (f.merchantCode && f.merchantCode.toLowerCase() === cleanP) ||
+              (f.farmCode && f.farmCode.toLowerCase() === cleanP) ||
+              (f.code && f.code.toLowerCase() === cleanP) ||
               (f.id && f.id.toLowerCase() === cleanP) ||
               (f.loginId && f.loginId.toLowerCase() === cleanP) ||
-              (f.farmName && f.farmName.toLowerCase().includes(cleanP))
+              (f.farmName && f.farmName.toLowerCase().includes(cleanP)) ||
+              (f.repName && f.repName.toLowerCase() === cleanP) ||
+              (f.owner && f.owner.toLowerCase() === cleanP)
             );
             if (matched) {
               const normalized = {
                 ...matched,
                 farmCode: matched.merchantCode || matched.farmCode || farmParam,
                 code: matched.merchantCode || matched.code || farmParam,
+                approvalStatus: matched.approvalStatus || matched.status || 'APPROVED',
+                status: matched.approvalStatus || matched.status || 'APPROVED',
                 products: matched.products || []
               };
-              try { sessionStorage.setItem('ooms_farm_session', JSON.stringify(normalized)); } catch(e){}
+              try {
+                sessionStorage.setItem('ooms_farm_session', JSON.stringify(normalized));
+                localStorage.setItem('ooms_current_farm', JSON.stringify(normalized));
+                localStorage.setItem('ooms_farm_code', normalized.farmCode);
+                sessionStorage.setItem('ooms_farm_code', normalized.farmCode);
+              } catch(e){}
               return normalized;
             }
 
-            // query param이 FARM-2026-224, test 또는 FARM-2026-088일 때 DEFAULT_FARM 반환
-            if (cleanP === 'farm-2026-224' || cleanP === 'test' || cleanP === 'farm-2026-088' || cleanP.includes('태안')) {
-              try { sessionStorage.setItem('ooms_farm_session', JSON.stringify(DEFAULT_FARM)); } catch(e){}
+            // 1-2. query param이 FARM-2026-224 또는 test일 때 DEFAULT_FARM (김혜진 대표 / 태안 사과농장)
+            if (cleanP === 'farm-2026-224' || cleanP === 'test' || cleanP.includes('태안')) {
+              try {
+                sessionStorage.setItem('ooms_farm_session', JSON.stringify(DEFAULT_FARM));
+                localStorage.setItem('ooms_current_farm', JSON.stringify(DEFAULT_FARM));
+                localStorage.setItem('ooms_farm_code', DEFAULT_FARM.farmCode);
+                sessionStorage.setItem('ooms_farm_code', DEFAULT_FARM.farmCode);
+              } catch(e){}
               return DEFAULT_FARM;
             }
 
-            // 등록되지 않은 임의의 코드라도 화면 백지화 방지용 동적 농가 생성
+            // 1-3. query param이 FARM-2026-456일 때 CHEONGSONG_FARM (조국래 대표 / 청송 꿀사과 농원)
+            if (cleanP === 'farm-2026-456' || cleanP === 'kakao_456' || cleanP.includes('청송')) {
+              try {
+                sessionStorage.setItem('ooms_farm_session', JSON.stringify(CHEONGSONG_FARM));
+                localStorage.setItem('ooms_current_farm', JSON.stringify(CHEONGSONG_FARM));
+                localStorage.setItem('ooms_farm_code', CHEONGSONG_FARM.farmCode);
+                sessionStorage.setItem('ooms_farm_code', CHEONGSONG_FARM.farmCode);
+              } catch(e){}
+              return CHEONGSONG_FARM;
+            }
+
+            // 1-4. 신규/미등록 농가 코드의 경우, 다른 농가의 상품이나 주문이 섞이지 않는 독립된 클린 워크스페이스 생성 (심사대기 PENDING 상태)
             const dynamicFarm = {
-              ...DEFAULT_FARM,
               id: `m-${cleanP}`,
               merchantCode: farmParam,
               farmCode: farmParam,
               code: farmParam,
-              farmName: farmParam.startsWith('FARM-') ? `농가 (${farmParam})` : farmParam
+              loginId: cleanP,
+              farmName: farmParam.startsWith('FARM-') ? `농가 (${farmParam})` : farmParam,
+              repName: '신규 대표',
+              phone: '010-0000-0000',
+              address: '주소 미등록',
+              postOfficeNum: '10' + Math.floor(10000000 + Math.random() * 90000000),
+              status: 'PENDING',
+              approvalStatus: 'PENDING',
+              products: []
             };
-            try { sessionStorage.setItem('ooms_farm_session', JSON.stringify(dynamicFarm)); } catch(e){}
+            try {
+              sessionStorage.setItem('ooms_farm_session', JSON.stringify(dynamicFarm));
+              localStorage.setItem('ooms_current_farm', JSON.stringify(dynamicFarm));
+              localStorage.setItem('ooms_farm_code', dynamicFarm.farmCode);
+              sessionStorage.setItem('ooms_farm_code', dynamicFarm.farmCode);
+            } catch(e){}
             return dynamicFarm;
           }
 
-          // 2순위: 현재 탭 전용 sessionStorage (타 탭의 Admin/타 농가 로그인과 100% 격리)
+          // 2순위: 세션/로컬 스토리지에 저장된 실제 로그인 농가('current_user_farm') 확인
+          const curUserFarmRaw = sessionStorage.getItem('current_user_farm') || localStorage.getItem('current_user_farm');
+          if (curUserFarmRaw) {
+            try {
+              const curFarm = JSON.parse(curUserFarmRaw);
+              if (curFarm && (curFarm.farmCode || curFarm.merchantCode || curFarm.farmName)) {
+                return {
+                  ...curFarm,
+                  farmCode: curFarm.farmCode || curFarm.merchantCode || 'FARM-2026-224',
+                  code: curFarm.merchantCode || curFarm.farmCode || 'FARM-2026-224',
+                  approvalStatus: curFarm.approvalStatus || curFarm.status || 'APPROVED',
+                  status: curFarm.approvalStatus || curFarm.status || 'APPROVED',
+                  products: curFarm.products || []
+                };
+              }
+            } catch(e) {}
+          }
+
+          // 2순위: localStorage: ooms_farmer_session 및 ooms_session 확인
+          const farmerSessionRaw = localStorage.getItem('ooms_farmer_session') || localStorage.getItem('ooms_session');
+          if (farmerSessionRaw) {
+            try {
+              const fSession = JSON.parse(farmerSessionRaw);
+              if (fSession && fSession.farmCode) {
+                const sCode = fSession.farmCode.trim().toLowerCase();
+                const matchedSessionFarm = allFarms.find(f =>
+                  (f.merchantCode && f.merchantCode.toLowerCase() === sCode) ||
+                  (f.farmCode && f.farmCode.toLowerCase() === sCode) ||
+                  (f.code && f.code.toLowerCase() === sCode) ||
+                  (f.loginId && f.loginId.toLowerCase() === sCode)
+                );
+                if (matchedSessionFarm) {
+                  const normalized = {
+                    ...matchedSessionFarm,
+                    farmCode: matchedSessionFarm.merchantCode || matchedSessionFarm.farmCode || fSession.farmCode,
+                    code: matchedSessionFarm.merchantCode || matchedSessionFarm.code || fSession.farmCode,
+                    approvalStatus: matchedSessionFarm.approvalStatus || matchedSessionFarm.status || fSession.approvalStatus || 'APPROVED',
+                    status: matchedSessionFarm.approvalStatus || matchedSessionFarm.status || fSession.approvalStatus || 'APPROVED',
+                    products: matchedSessionFarm.products || []
+                  };
+                  try { sessionStorage.setItem('ooms_farm_session', JSON.stringify(normalized)); } catch(e){}
+                  return normalized;
+                }
+                // 세션에 저장된 정보로 반환
+                const directFromSession = {
+                  id: `m-${sCode}`,
+                  merchantCode: fSession.farmCode,
+                  farmCode: fSession.farmCode,
+                  code: fSession.farmCode,
+                  loginId: fSession.farmCode,
+                  farmName: fSession.farmName || fSession.farmCode,
+                  repName: fSession.repName || '대표',
+                  phone: fSession.phone || '010-0000-0000',
+                  address: fSession.address || '주소 등록',
+                  postOfficeNum: '1092837465',
+                  status: fSession.approvalStatus || 'APPROVED',
+                  approvalStatus: fSession.approvalStatus || 'APPROVED',
+                  products: fSession.merchant?.products || []
+                };
+                return directFromSession;
+              }
+            } catch(e) {}
+          }
+
+          // 3순위: 현재 탭 전용 sessionStorage (ooms_farm_session)
           const tabSessionRaw = sessionStorage.getItem('ooms_farm_session');
           if (tabSessionRaw) {
             const parsedTab = JSON.parse(tabSessionRaw);
             if (parsedTab && (parsedTab.merchantCode || parsedTab.farmName)) {
               return {
                 ...parsedTab,
+                approvalStatus: parsedTab.approvalStatus || parsedTab.status || 'APPROVED',
+                status: parsedTab.approvalStatus || parsedTab.status || 'APPROVED',
                 products: parsedTab.products || []
               };
             }
           }
 
-          // 3순위: 기본 등록 농가 1순위 Fallback
+          // 4순위: 기본 등록 1번 농가 (김혜진 대표 / 태안 사과농장)
           if (allFarms.length > 0) {
-            const first = { ...allFarms[0], products: allFarms[0].products || [] };
+            const first = { 
+              ...allFarms[0], 
+              approvalStatus: allFarms[0].approvalStatus || allFarms[0].status || 'APPROVED',
+              products: allFarms[0].products || [] 
+            };
             try { sessionStorage.setItem('ooms_farm_session', JSON.stringify(first)); } catch(e){}
             return first;
           }
@@ -279,25 +746,24 @@
         return DEFAULT_FARM;
       });
 
-      // 2. 농가 주문 목록 상태 관리 (localStorage 'ooms_orders' 연동 및 파이프라인 동기화, 기본 0건)
+      // 2. 농가 주문 목록 상태 관리 (localStorage 'ooms_orders' 연동 및 DEFAULT_ORDERS(8건) 보증)
       const [orders, setOrdersState] = useState(() => {
         try {
-          const isReset = localStorage.getItem('ooms_orders_reset_pipeline');
-          if (!isReset) {
-            localStorage.setItem('ooms_orders', JSON.stringify([]));
-            localStorage.setItem('ooms_staging_orders', JSON.stringify([]));
-            localStorage.setItem('ooms_orders_reset_pipeline', 'true');
-            return [];
-          }
-          const saved = localStorage.getItem('ooms_orders');
-          if (saved !== null) {
+          const saved = localStorage.getItem('ooms_orders') || localStorage.getItem('ooms_staging_orders');
+          if (saved) {
             const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed)) return parsed;
+            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
           }
+          // 저장된 주문이 없거나 비어있는 경우 8건 표준 주문 시딩
+          try {
+            localStorage.setItem('ooms_orders', JSON.stringify(DEFAULT_ORDERS));
+            localStorage.setItem('ooms_staging_orders', JSON.stringify(DEFAULT_ORDERS));
+          } catch(e){}
+          return DEFAULT_ORDERS;
         } catch (e) {
           console.error('주문 데이터 로드 오류:', e);
         }
-        return [];
+        return DEFAULT_ORDERS;
       });
 
       // orders 변경 시 localStorage 자동 동기화 헬퍼
@@ -315,25 +781,44 @@
         });
       };
 
-      // 3. 고객 CS 문의 목록 상태 관리 (localStorage 'ooms_cs_inquiries' 영구 동기화, 기본 0건)
+      // 3. 고객 CS 문의 목록 상태 관리 (localStorage 'ooms_cs_inquiries' 영구 동기화, 기본 1건 유지)
+      const DEFAULT_CS = [
+        {
+          id: 'CS-1092',
+          farmCode: 'FARM-2026-224',
+          orderId: 'ORD-1691',
+          type: '배송지 변경',
+          category: '배송지 변경',
+          status: '접수대기',
+          title: '배송지 주소 호수 변경 요청드립니다',
+          content: '어제 주문한 사과 배송지 동호수를 102동 1104호로 변경 부탁드립니다. 부재 시 경비실에 맡겨주세요.',
+          customerName: '조국래',
+          customerPhone: '010-9876-5432',
+          phone: '010-9876-5432',
+          createdAt: '2026-10-12 14:30',
+          answeredAt: null,
+          resolvedAt: null,
+          reply: null,
+          response: ''
+        }
+      ];
+
       const [csInquiries, setCsInquiriesState] = useState(() => {
         try {
-          const isCsReset = localStorage.getItem('ooms_cs_reset_pipeline');
-          if (!isCsReset) {
-            localStorage.setItem('ooms_cs_inquiries', JSON.stringify([]));
-            localStorage.setItem('ooms_cs_tickets', JSON.stringify([]));
-            localStorage.setItem('ooms_cs_reset_pipeline', 'true');
-            return [];
-          }
           const saved = localStorage.getItem('ooms_cs_inquiries') || localStorage.getItem('ooms_cs_tickets');
           if (saved) {
             const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed)) return parsed;
+            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
           }
+          try {
+            localStorage.setItem('ooms_cs_inquiries', JSON.stringify(DEFAULT_CS));
+            localStorage.setItem('ooms_cs_tickets', JSON.stringify(DEFAULT_CS));
+          } catch(e) {}
+          return DEFAULT_CS;
         } catch (e) {
           console.error('CS 데이터 로드 오류:', e);
         }
-        return [];
+        return DEFAULT_CS;
       });
 
       const setCsInquiries = (updater) => {
@@ -402,16 +887,129 @@
               }
             } catch (err) {}
           }
+          if (!e.key || e.key === 'ooms_plantings') {
+            try {
+              const savedPlt = localStorage.getItem('ooms_plantings');
+              if (savedPlt) {
+                const parsed = JSON.parse(savedPlt);
+                if (Array.isArray(parsed)) setPlantingsState(parsed);
+              }
+            } catch (err) {}
+          }
         };
         window.addEventListener('storage', handleStorageChange);
         return () => window.removeEventListener('storage', handleStorageChange);
       }, []);
 
-      const [filterPaid, setFilterPaid] = useState('ALL'); // ALL, UNPAID, PAID
-      const [toast, setToast] = useState(null);
-      const [farmCsReplyModal, setFarmCsReplyModal] = useState({ isOpen: false, item: null, reply: '' });
+      // [정식/생산 관리] 작기별 정식 데이터 상태 (localStorage 'ooms_plantings' 영구 연동)
+      const DEFAULT_PLANTINGS = [
+        {
+          plantingId: "PLT-2026-224-01",
+          farmCode: "FARM-2026-224",
+          cropType: "수박",
+          cropName: "고당도 흑수박 7kg",
+          plantedDate: "2026-04-10",
+          harvestDate: "2026-07-09",
+          plantedCount: 10000,
+          yieldRate: 85,
+          safetyBuffer: 80,
+          totalCap: 6800,
+          reservedCount: 420,
+          status: "GROWING"
+        },
+        {
+          plantingId: "PLT-2026-224-02",
+          farmCode: "FARM-2026-224",
+          cropType: "멜론",
+          cropName: "정품 하미과 4.5kg",
+          plantedDate: "2026-03-25",
+          harvestDate: "2026-07-03",
+          plantedCount: 5000,
+          yieldRate: 90,
+          safetyBuffer: 85,
+          totalCap: 3825,
+          reservedCount: 310,
+          status: "GROWING"
+        }
+      ];
 
-      // 모바일 친화형 농가 신규 상품 추가 모달 상태
+      const [plantings, setPlantingsState] = useState(() => {
+        try {
+          const saved = localStorage.getItem('ooms_plantings');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed)) return parsed;
+          } else {
+            localStorage.setItem('ooms_plantings', JSON.stringify(DEFAULT_PLANTINGS));
+            return DEFAULT_PLANTINGS;
+          }
+        } catch (e) {}
+        return DEFAULT_PLANTINGS;
+      });
+
+      const setPlantings = (updater) => {
+        setPlantingsState(prev => {
+          const next = typeof updater === 'function' ? updater(prev) : updater;
+          try {
+            localStorage.setItem('ooms_plantings', JSON.stringify(next));
+            window.dispatchEvent(new Event('storage'));
+          } catch (e) {
+            console.error(e);
+          }
+          return next;
+        });
+      };
+
+      // 정식 데이터 등록 모달 상태
+      const [addPlantingModal, setAddPlantingModal] = useState({
+        isOpen: false,
+        cropType: '수박',
+        cropName: '',
+        plantedDate: new Date().toISOString().slice(0, 10),
+        harvestDate: '',
+        plantedCount: 5000,
+        yieldRate: 85,
+        safetyBuffer: 80
+      });
+
+      // [모바일 5대 탭 분할 개편] 'ORDERS' (주문·배송) | 'ONSITE' (현장 주문등록) | 'PLANTING' (작기·정식) | 'PRODUCTS' (등록 상품) | 'CS' (고객 CS)
+      const [mainTab, setMainTab] = useState('ORDERS');
+
+      // [✍️ 현장 주문등록] 서브 세그먼트: 'MANUAL' (일반 수기입력) | 'BULK' (엑셀 대량업로드)
+      const [onsiteSubMode, setOnsiteSubMode] = useState('MANUAL');
+
+      // [현장 수기입력 폼 상태]
+      const [onsiteOrder, setOnsiteOrder] = useState({
+        productId: '',
+        quantity: 1,
+        isPaid: true,
+        receiverName: '',
+        receiverPhone: '',
+        zip: '',
+        roadAddress: '',
+        detailAddress: '',
+        deliveryMemo: '문 앞 보관',
+        customMemo: ''
+      });
+
+      // [도로명주소 표준 검색 모달 상태]
+      const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+      const [addressSearchQuery, setAddressSearchQuery] = useState('');
+      const [addressSearchResults, setAddressSearchResults] = useState([]);
+      const [addressSearchPerformed, setAddressSearchPerformed] = useState(false);
+
+      // [엑셀 대량 업로드 상태]
+      const [onsiteBulkFile, setOnsiteBulkFile] = useState(null);
+      const [onsiteBulkRows, setOnsiteBulkRows] = useState([]);
+      const [onsiteBulkIsPaid, setOnsiteBulkIsPaid] = useState(true);
+
+      // [주문 필터 상태] 'ALL' | 'UNPAID' | 'PAID' | 'BULK'
+      const [filterPaid, setFilterPaid] = useState('ALL');
+
+      // [토스트 알림 상태]
+      const [toast, setToast] = useState(null);
+
+      // [신규 상품 등록 모달 상태]
       const [addProductModal, setAddProductModal] = useState({
         isOpen: false,
         category: '사과',
@@ -420,6 +1018,399 @@
         price: '',
         brix: ''
       });
+
+      // [농가 CS 답변 등록 모달 상태]
+      const [farmCsReplyModal, setFarmCsReplyModal] = useState({
+        isOpen: false,
+        item: null,
+        reply: ''
+      });
+
+      // [하단 FAB 1: 📸 과수원 소식 모달 상태]
+      const [orchardNewsModal, setOrchardNewsModal] = useState({
+        isOpen: false,
+        stage: '수확 D-7',
+        brix: '15.5',
+        comment: '태안 가을 햇살을 듬뿍 받아 꿀사과가 빨갛게 익어가고 있습니다!',
+        photoUrl: '',
+        fileName: ''
+      });
+
+      // [하단 FAB 2: 📋 입금 독려톡 모달 상태]
+      const [paymentReminderModal, setPaymentReminderModal] = useState({
+        isOpen: false
+      });
+
+      // [하단 FAB 3: 🚚 택배사 송장 모달 상태]
+      const [courierInvoiceModal, setCourierInvoiceModal] = useState({
+        isOpen: false,
+        tab: 'BULK', // 'BULK' | 'DIRECT'
+        courier: 'CJ대한통운',
+        bulkFile: null,
+        matchResults: [],
+        directInputs: {}
+      });
+
+      // 행정안전부 도로명주소 검색 실행
+      const handleExecuteAddressSearch = async (queryStr) => {
+        const query = (queryStr !== undefined ? queryStr : addressSearchQuery).trim();
+        if (!query) {
+          alert('검색어를 입력해주세요.');
+          return;
+        }
+
+        setAddressSearchPerformed(true);
+
+        let remoteResults = [];
+        try {
+          const confmKey = 'U01TX0FVVEgyMDI2MTAwOTAwMDAwMDE=';
+          const jusoUrl = `https://business.juso.go.kr/addrlink/addrLinkApi.do?currentPage=1&countPerPage=15&keyword=${encodeURIComponent(query)}&confmKey=${confmKey}&resultType=json`;
+          const res = await fetch(jusoUrl, { mode: 'cors' });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.results && Array.isArray(data.results.juso)) {
+              remoteResults = data.results.juso.map(item => ({
+                zonecode: item.zipNo || item.zonecode,
+                roadAddress: item.roadAddr || item.roadAddress,
+                jibunAddress: item.jibunAddr || item.jibunAddress,
+                buildingName: item.bdNm || ''
+              }));
+            }
+          }
+        } catch (e) {}
+
+        if (remoteResults.length > 0) {
+          setAddressSearchResults(remoteResults);
+          return;
+        }
+
+        const lowerQ = query.toLowerCase().replace(/\s+/g, '');
+        let matched = STANDARD_ADDRESS_DB.filter(addr => {
+          const roadClean = addr.roadAddress.replace(/\s+/g, '').toLowerCase();
+          const jibunClean = addr.jibunAddress.replace(/\s+/g, '').toLowerCase();
+          const bldgClean = (addr.buildingName || '').replace(/\s+/g, '').toLowerCase();
+          return roadClean.includes(lowerQ) || jibunClean.includes(lowerQ) || (bldgClean && bldgClean.includes(lowerQ));
+        });
+
+        if (matched.length === 0) {
+          const tokens = query.split(/\s+/).filter(Boolean).map(t => t.toLowerCase());
+          if (tokens.length > 1) {
+            matched = STANDARD_ADDRESS_DB.filter(addr => {
+              const roadClean = addr.roadAddress.replace(/\s+/g, '').toLowerCase();
+              const jibunClean = addr.jibunAddress.replace(/\s+/g, '').toLowerCase();
+              const bldgClean = (addr.buildingName || '').replace(/\s+/g, '').toLowerCase();
+              return tokens.every(token => roadClean.includes(token) || jibunClean.includes(token) || bldgClean.includes(token));
+            });
+          }
+        }
+
+        if (matched.length === 0 && (query.includes('로') || query.includes('길') || query.includes('리') || query.includes('동'))) {
+          const isFull = query.includes('도') || query.includes('시') || query.includes('군') || query.includes('구');
+          const fullRoad = isFull ? query : `충청남도 태안군 ${query}`;
+          matched = [
+            {
+              zonecode: '32145',
+              roadAddress: fullRoad,
+              jibunAddress: fullRoad.replace('송암로', '태안읍 송암리').replace('로 ', '로 지번 ').replace('길 ', '길 지번 '),
+              buildingName: query.includes('송암') ? '태안군농업기술센터' : ''
+            }
+          ];
+        }
+
+        setAddressSearchResults(matched);
+      };
+
+      const handleOpenAddressModal = () => {
+        setAddressSearchQuery('');
+        setAddressSearchResults([]);
+        setAddressSearchPerformed(false);
+        setIsAddressModalOpen(true);
+      };
+
+      const handleSelectAddressItem = (item) => {
+        const fullAddr = (item.buildingName && !item.roadAddress.includes(item.buildingName))
+          ? `${item.roadAddress} (${item.buildingName})`
+          : item.roadAddress;
+        setOnsiteOrder(prev => ({
+          ...prev,
+          zip: item.zonecode,
+          roadAddress: fullAddr
+        }));
+        setIsAddressModalOpen(false);
+      };
+
+      // 현장 수기 주문 즉시 등록 핸들러
+      const handleSaveOnsiteManualOrder = (e) => {
+        if (e) e.preventDefault();
+        const { productId, quantity, isPaid: orderIsPaid, receiverName, receiverPhone, zip, roadAddress, detailAddress, deliveryMemo, customMemo } = onsiteOrder;
+
+        if (!receiverName.trim()) {
+          alert('받는 분(수령인) 성함을 입력해주세요.');
+          return;
+        }
+        if (!receiverPhone.trim()) {
+          alert('받는 분 연락처를 입력해주세요.');
+          return;
+        }
+        if (!roadAddress.trim()) {
+          alert('배송지 도로명 주소를 입력해주세요.');
+          return;
+        }
+
+        const prods = currentMerchant?.products || [];
+        const chosenProd = prods.find(p => (p.id || p.name) === productId) || prods[0] || {
+          name: '맛있는 꿀사과 10kg',
+          salePrice: 55000,
+          price: 55000
+        };
+
+        const qty = Number(quantity) || 1;
+        const unitPrice = Number(chosenProd.salePrice || chosenProd.price || 55000);
+        const totalAmount = unitPrice * qty;
+        const curFarmCode = currentMerchant?.merchantCode || currentMerchant?.farmCode || currentMerchant?.code || 'FARM-2026-224';
+        const newOrderId = 'ORD-ONSITE-' + Date.now().toString().slice(-4);
+        const finalMemo = deliveryMemo === '직접 입력' ? (customMemo || '요청사항 없음') : (deliveryMemo || '문 앞 보관');
+
+        const newOrderObj = {
+          orderId: newOrderId,
+          farmCode: curFarmCode,
+          farmName: currentMerchant?.farmName || '태안 사과농장',
+          senderName: currentMerchant?.repName || '농가현장등록',
+          senderPhone: currentMerchant?.phone || '010-3849-1234',
+          receiverName: receiverName.trim(),
+          receiverPhone: receiverPhone.trim(),
+          postcode: zip || '32145',
+          address: roadAddress.trim(),
+          detailAddress: (detailAddress || '').trim(),
+          productName: chosenProd.name,
+          quantity: qty,
+          price: totalAmount,
+          memo: finalMemo,
+          paymentStatus: orderIsPaid ? '입금완료' : '미입금',
+          shippingStatus: '준비중',
+          channel: '현장(수기)',
+          source: '현장(수기)',
+          orderType: '현장수기주문',
+          createdAt: new Date().toISOString(),
+          id: newOrderId,
+          rawText: `[현장수기] ${receiverName.trim()} ${receiverPhone.trim()} ${roadAddress.trim()} ${chosenProd.name} ${qty}박스`,
+          orderer: { name: currentMerchant?.repName || '농가현장등록', tel: currentMerchant?.phone || '010-3849-1234' },
+          receiver: { name: receiverName.trim(), tel: receiverPhone.trim() },
+          product: { name: chosenProd.name, qty: qty, price: totalAmount },
+          status: { payment: orderIsPaid ? 'PAID' : 'UNPAID', staging: 'APPROVED' },
+          paid: orderIsPaid,
+          confidence: '100% (현장직접등록)',
+          tracking: null
+        };
+
+        setOrders(prev => [newOrderObj, ...prev]);
+
+        // 폼 초기화
+        setOnsiteOrder({
+          productId: prods[0]?.id || prods[0]?.name || '',
+          quantity: 1,
+          isPaid: true,
+          receiverName: '',
+          receiverPhone: '',
+          zip: '',
+          roadAddress: '',
+          detailAddress: '',
+          deliveryMemo: '문 앞 보관',
+          customMemo: ''
+        });
+
+        showToast(`🚀 [${receiverName.trim()}님] 현장 주문이 즉시 등록되었습니다!`);
+        setMainTab('ORDERS');
+      };
+
+      // 현장 엑셀 파일 업로드 파싱 핸들러 (SheetJS 기반)
+      const handleOnsiteExcelUpload = (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+
+        setOnsiteBulkFile(file);
+
+        const defaultProdName = (currentMerchant?.products && currentMerchant.products[0]?.name) || '맛있는 꿀사과 10kg';
+
+        const normalizePhone = (val) => {
+          if (!val) return '010-0000-0000';
+          let str = String(val).trim().replace(/[^0-9]/g, '');
+          if (str.length === 11) return str.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
+          if (str.length === 10) {
+            if (str.startsWith('02')) return str.replace(/(\d{2})(\d{4})(\d{4})/, '$1-$2-$3');
+            return str.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+          }
+          return str || '010-0000-0000';
+        };
+
+        const processRows = (rows) => {
+          if (!rows || rows.length === 0) {
+            alert('파일에 데이터가 없습니다.');
+            return;
+          }
+
+          let parsedRows = [];
+          let headerIdx = -1;
+          let colMap = { receiver: -1, phone: -1, address: -1, detailAddress: -1, zip: -1, product: -1, qty: -1, note: -1 };
+
+          for (let r = 0; r < Math.min(rows.length, 5); r++) {
+            const rowStr = rows[r].map(c => String(c || '').trim());
+            const hasReceiver = rowStr.some(c => /수령인|받는\s*분|받는사람|성명|이름|고객명/.test(c));
+            const hasAddress = rowStr.some(c => /주소|배송지|도로명|지번/.test(c));
+            const hasPhone = rowStr.some(c => /전화|연락처|휴대폰|핸드폰|번호/.test(c));
+
+            if (hasReceiver || hasAddress || hasPhone) {
+              headerIdx = r;
+              rowStr.forEach((colName, cIdx) => {
+                if (/수령인|받는\s*분|받는사람|성명|이름|고객명/.test(colName) && colMap.receiver === -1) colMap.receiver = cIdx;
+                else if (/전화|연락처|휴대폰|핸드폰|번호|tel|phone/i.test(colName) && colMap.phone === -1) colMap.phone = cIdx;
+                else if (/상세주소|동호수|상세/i.test(colName) && colMap.detailAddress === -1) colMap.detailAddress = cIdx;
+                else if (/도로명주소|배송지|주소|도로명/i.test(colName) && colMap.address === -1) colMap.address = cIdx;
+                else if (/우편번호|우편|zonecode|zip/i.test(colName) && colMap.zip === -1) colMap.zip = cIdx;
+                else if (/상품명|품목|상품|품종/i.test(colName) && colMap.product === -1) colMap.product = cIdx;
+                else if (/수량|박스|상자|개수|qty/i.test(colName) && colMap.qty === -1) colMap.qty = cIdx;
+                else if (/배송메모|요청사항|메모|비고|note/i.test(colName) && colMap.note === -1) colMap.note = cIdx;
+              });
+              break;
+            }
+          }
+
+          if (headerIdx === -1) {
+            colMap = { receiver: 0, phone: 1, address: 2, detailAddress: 3, zip: 4, product: 5, qty: 6, note: 7 };
+          } else {
+            if (colMap.receiver === -1) colMap.receiver = 0;
+            if (colMap.phone === -1) colMap.phone = 1;
+            if (colMap.address === -1) colMap.address = 2;
+          }
+
+          const startRow = headerIdx !== -1 ? headerIdx + 1 : 0;
+
+          for (let i = startRow; i < rows.length; i++) {
+            const row = rows[i];
+            if (!row || row.length === 0) continue;
+
+            const receiver = String(row[colMap.receiver] || '').trim();
+            const phoneRaw = String(row[colMap.phone] || '').trim();
+            const address = String(row[colMap.address] || '').trim();
+
+            if (!receiver && !address) continue;
+
+            const detailAddress = colMap.detailAddress !== -1 ? String(row[colMap.detailAddress] || '').trim() : '';
+            const zip = colMap.zip !== -1 ? String(row[colMap.zip] || '').trim() : '32145';
+            const product = colMap.product !== -1 && row[colMap.product] ? String(row[colMap.product]).trim() : defaultProdName;
+            const qtyVal = colMap.qty !== -1 ? parseInt(String(row[colMap.qty]).replace(/[^0-9]/g, ''), 10) : 1;
+            const note = colMap.note !== -1 ? String(row[colMap.note] || '').trim() : '부재 시 문 앞 보관';
+
+            parsedRows.push({
+              id: parsedRows.length + 1,
+              receiver: receiver || `수령인${parsedRows.length + 1}`,
+              phone: normalizePhone(phoneRaw),
+              address: address || '도로명 주소 확인 필요',
+              detailAddress: detailAddress,
+              zip: zip || '32145',
+              product: product || defaultProdName,
+              qty: isNaN(qtyVal) || qtyVal <= 0 ? 1 : qtyVal,
+              note: note || '부재 시 문 앞 보관'
+            });
+          }
+
+          if (parsedRows.length === 0) {
+            alert('유효한 주문 데이터를 찾을 수 없습니다.');
+            return;
+          }
+
+          setOnsiteBulkRows(parsedRows);
+          showToast(`📊 '${file.name}' 파싱 완료: 총 ${parsedRows.length}건 배송지 감지`);
+        };
+
+        const reader = new FileReader();
+        if (window.XLSX && typeof window.XLSX.read === 'function') {
+          reader.onload = (event) => {
+            try {
+              const data = new Uint8Array(event.target.result);
+              const workbook = window.XLSX.read(data, { type: 'array', cellDates: true });
+              const firstSheetName = workbook.SheetNames[0];
+              const worksheet = workbook.Sheets[firstSheetName];
+              const jsonRows = window.XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+              processRows(jsonRows);
+            } catch (err) {
+              console.error('SheetJS 파싱 에러:', err);
+              alert('엑셀 파일 파싱 중 오류가 발생했습니다: ' + (err.message || err));
+            }
+          };
+          reader.readAsArrayBuffer(file);
+        } else {
+          reader.onload = (event) => {
+            const text = event.target.result;
+            const lines = text.split(/\r\n|\n/).filter(line => line.trim().length > 0);
+            const jsonRows = lines.map(line => line.split(','));
+            processRows(jsonRows);
+          };
+          reader.readAsText(file, 'euc-kr');
+        }
+      };
+
+      // 현장 엑셀 대량 주문 일괄 등록 핸들러
+      const handleSaveOnsiteBulkOrders = () => {
+        if (!onsiteBulkRows || onsiteBulkRows.length === 0) {
+          alert('등록할 엑셀 주문 내역이 없습니다.');
+          return;
+        }
+
+        const curFarmCode = currentMerchant?.merchantCode || currentMerchant?.farmCode || currentMerchant?.code || 'FARM-2026-224';
+        const defaultProd = (currentMerchant?.products && currentMerchant.products[0]) || {
+          name: '맛있는 꿀사과 10kg',
+          salePrice: 55000,
+          price: 55000
+        };
+        const unitPrice = Number(defaultProd.salePrice || defaultProd.price || 55000);
+        const batchTag = Date.now().toString().slice(-4);
+
+        const newBulkOrders = onsiteBulkRows.map((item, idx) => {
+          const newOrderId = `ORD-ONSITE-BULK-${batchTag}-${idx + 1}`;
+          const q = Number(item.qty) || 1;
+          const tot = unitPrice * q;
+
+          return {
+            orderId: newOrderId,
+            farmCode: curFarmCode,
+            farmName: currentMerchant?.farmName || '태안 사과농장',
+            senderName: currentMerchant?.repName || '농가현장대량',
+            senderPhone: currentMerchant?.phone || '010-3849-1234',
+            receiverName: item.receiver,
+            receiverPhone: item.phone,
+            postcode: item.zip || '32145',
+            address: item.address,
+            detailAddress: item.detailAddress || '',
+            productName: item.product || defaultProd.name,
+            quantity: q,
+            price: tot,
+            memo: item.note || '부재 시 문 앞 보관',
+            paymentStatus: onsiteBulkIsPaid ? '입금완료' : '미입금',
+            shippingStatus: '준비중',
+            channel: '엑셀(대량)',
+            source: '엑셀(대량)',
+            orderType: '대량주문(엑셀)',
+            createdAt: new Date().toISOString(),
+            id: newOrderId,
+            rawText: `[현장엑셀] ${item.receiver} ${item.phone} ${item.address} ${item.product} ${q}박스`,
+            orderer: { name: currentMerchant?.repName || '농가현장대량', tel: currentMerchant?.phone || '010-3849-1234' },
+            receiver: { name: item.receiver, tel: item.phone },
+            product: { name: item.product || defaultProd.name, qty: q, price: tot },
+            status: { payment: onsiteBulkIsPaid ? 'PAID' : 'UNPAID', staging: 'APPROVED' },
+            paid: onsiteBulkIsPaid,
+            confidence: '100% (현장엑셀등록)',
+            tracking: null
+          };
+        });
+
+        setOrders(prev => [...newBulkOrders, ...prev]);
+        setOnsiteBulkRows([]);
+        setOnsiteBulkFile(null);
+
+        showToast(`🎉 엑셀 ${newBulkOrders.length}건이 현장 대량주문으로 등록되었습니다!`);
+        setMainTab('ORDERS');
+      };
 
       const showToast = (msg) => {
         setToast(msg);
@@ -528,9 +1519,98 @@
         showToast(`🎉 신규 상품 '${newProduct.name}' 등록 완료!`);
       };
 
-      // 전용 주문 링크 URL 생성 헬퍼
-      const getFarmOrderUrl = () => {
-        const curCode = currentMerchant?.merchantCode || currentMerchant?.code || 'FARM-2026-224';
+      // [정식/생산 관리] 출하예정일 자동 계산 헬퍼 (수박: 90일, 멜론: 100일, 사과: 150일, 기타: 90일)
+      const calculateHarvestDate = (cropType, plantedDateStr) => {
+        if (!plantedDateStr) return '';
+        const d = new Date(plantedDateStr);
+        if (isNaN(d.getTime())) return '';
+        let days = 90;
+        if (cropType === '수박') days = 90;
+        else if (cropType === '멜론') days = 100;
+        else if (cropType === '사과') days = 150;
+        else if (cropType === '배') days = 160;
+        else days = 90;
+
+        d.setDate(d.getDate() + days);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      };
+
+      // [정식/생산 관리] 신규 정식 데이터 저장 처리
+      const handleSavePlanting = (e) => {
+        e.preventDefault();
+        const { cropType, cropName, plantedDate, harvestDate, plantedCount, yieldRate, safetyBuffer } = addPlantingModal;
+        const curFarmCode = currentMerchant?.merchantCode || currentMerchant?.code || currentMerchant?.farmCode || 'FARM-2026-224';
+
+        const finalHarvest = harvestDate || calculateHarvestDate(cropType, plantedDate);
+        const pCount = Number(plantedCount) || 5000;
+        const yRate = Number(yieldRate) || 85;
+        const sBuffer = Number(safetyBuffer) || 80;
+        const totalCap = Math.floor(pCount * (yRate / 100) * (sBuffer / 100));
+
+        const newPlanting = {
+          plantingId: `PLT-${curFarmCode.replace(/[^0-9]/g, '') || '224'}-${Date.now().toString().slice(-4)}`,
+          farmCode: curFarmCode,
+          cropType: cropType || '수박',
+          cropName: cropName.trim() || `${cropType} (${curFarmCode})`,
+          plantedDate: plantedDate || new Date().toISOString().slice(0, 10),
+          harvestDate: finalHarvest,
+          plantedCount: pCount,
+          yieldRate: yRate,
+          safetyBuffer: sBuffer,
+          totalCap: totalCap,
+          reservedCount: 0,
+          status: "GROWING"
+        };
+
+        setPlantings(prev => [newPlanting, ...prev]);
+        setAddPlantingModal({
+          isOpen: false,
+          cropType: '수박',
+          cropName: '',
+          plantedDate: new Date().toISOString().slice(0, 10),
+          harvestDate: '',
+          plantedCount: 5000,
+          yieldRate: 85,
+          safetyBuffer: 80
+        });
+
+        showToast(`🌱 [${newPlanting.cropType}] 정식 등록 완료! 예약 Cap: ${totalCap.toLocaleString()}박스`);
+      };
+
+      // [정식/생산 관리] 작기 상태 변경 처리 (생육중 ➔ 출하임박 ➔ 출하완료)
+      const handleChangePlantingStatus = (plantingId, nextStatus) => {
+        setPlantings(prev => prev.map(p => {
+          if (p.plantingId === plantingId) {
+            return { ...p, status: nextStatus };
+          }
+          return p;
+        }));
+        showToast(`작기 상태가 [${nextStatus === 'COMPLETED' ? '출하완료' : (nextStatus === 'READY' ? '출하임박 D-5' : '생육중')}]로 변경되었습니다.`);
+      };
+
+      // 고유 주문 식별 코드 (ref) 생성 함수: REF-YYMMDD-XXXX (예: REF-261015-8A2F)
+      const generateNewRefCode = () => {
+        const d = new Date();
+        const yy = String(d.getFullYear()).slice(-2);
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const chars = '0123456789ABCDEF';
+        let rand = '';
+        for (let i = 0; i < 4; i++) {
+          rand += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return `REF-${yy}${mm}${dd}-${rand}`;
+      };
+
+      // 농가 주문 링크 고유 식별자 상태 (로드 시 1회 자동 발급)
+      const [currentRefCode, setCurrentRefCode] = useState(generateNewRefCode);
+
+      // 전용 주문 링크 URL 생성 헬퍼 (farmCode와 고유 ref 포함)
+      const getFarmOrderUrl = (refCode = currentRefCode) => {
+        const curCode = currentMerchant?.merchantCode || currentMerchant?.code || currentMerchant?.farmCode || 'FARM-2026-224';
         const origin = window.location.origin || '';
         let basePath = window.location.pathname || '';
         if (basePath.endsWith('farm.html')) {
@@ -538,35 +1618,56 @@
         } else {
           basePath = 'order.html';
         }
-        return `${origin}${basePath}?farm=${encodeURIComponent(curCode)}`;
+        return `${origin}${basePath}?farm=${encodeURIComponent(curCode)}&ref=${encodeURIComponent(refCode)}`;
       };
 
-      // 원터치 링크 복사 헬퍼
+      // 원터치 링크 복사 헬퍼 (복사 후 다음 고객을 위해 새 ref 자동 발급)
       const copyOrderLink = () => {
-        const url = getFarmOrderUrl();
+        const urlToCopy = getFarmOrderUrl(currentRefCode);
+        const copiedRef = currentRefCode;
+        const nextRef = generateNewRefCode();
+
+        const doSuccess = () => {
+          showToast(`📋 고객 식별코드 [${copiedRef}] 전용 링크가 복사되었습니다! (다음 링크 자동 생성됨)`);
+          setCurrentRefCode(nextRef);
+        };
+
         if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(url).then(() => {
-            showToast('📋 농가 전용 주문 링크가 복사되었습니다!');
-          }).catch(() => {
-            prompt('아래 전용 주문 링크를 복사하여 고객에게 전송하세요:', url);
+          navigator.clipboard.writeText(urlToCopy).then(doSuccess).catch(() => {
+            prompt('아래 전용 주문 링크를 복사하여 고객에게 전송하세요:', urlToCopy);
+            setCurrentRefCode(nextRef);
           });
         } else {
-          prompt('아래 전용 주문 링크를 복사하여 고객에게 전송하세요:', url);
+          prompt('아래 전용 주문 링크를 복사하여 고객에게 전송하세요:', urlToCopy);
+          setCurrentRefCode(nextRef);
         }
       };
 
-      // 문자/카톡 전송용 전체 홍보문구 복사 헬퍼
+      // 문자/카톡 전송용 전체 홍보문구 복사 헬퍼 (고유 ref 링크 삽입 및 다음 링크 자동 갱신)
       const copyFullShareText = () => {
-        const url = getFarmOrderUrl();
-        const shareText = `[${currentMerchant?.farmName || '산지직송 농가'}] 신선 농산물 산지직송 간편 주문서 링크:\n${url}\n\n문자나 카톡 주문 내용을 그대로 붙여넣어 간편하게 주문하세요!`;
+        const urlToCopy = getFarmOrderUrl(currentRefCode);
+        const farmName = currentMerchant?.farmName || '태안 사과농장';
+        const copiedRef = currentRefCode;
+        const nextRef = generateNewRefCode();
+
+        const shareText = `[${farmName} 산지직송 직거래 간편주문]
+신선하고 맛있는 꿀사과를 밭에서 바로 수확해 보내드립니다.
+아래 전용 링크를 누르시면 로그인 없이 바로 간편 주문이 가능합니다.
+▶ 전용 주문서: ${urlToCopy}`;
+
+        const doSuccess = () => {
+          showToast(`💬 고객 식별코드 [${copiedRef}] 카톡/문자 안내 문구가 복사되었습니다!`);
+          setCurrentRefCode(nextRef);
+        };
+
         if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(shareText).then(() => {
-            showToast('💬 카톡/문자 안내 문구가 복사되었습니다!');
-          }).catch(() => {
+          navigator.clipboard.writeText(shareText).then(doSuccess).catch(() => {
             prompt('아래 안내 문구를 복사하여 고객에게 전송하세요:', shareText);
+            setCurrentRefCode(nextRef);
           });
         } else {
           prompt('아래 안내 문구를 복사하여 고객에게 전송하세요:', shareText);
+          setCurrentRefCode(nextRef);
         }
       };
 
@@ -739,36 +1840,45 @@
         }));
       };
 
-      // 로그아웃 처리 (탭 전용 농가 세션 안전 해제)
+      // 로그아웃 처리 (농가 세션 안전 해제 및 index.html?tab=login 리다이렉트)
       const handleLogout = () => {
         if (confirm('농가 포털에서 로그아웃하시겠습니까?')) {
+          // 1. 현재 농가 세션 및 인증 정보 정리
           try {
+            sessionStorage.removeItem('current_farm_user');
+            sessionStorage.removeItem('current_user_farm');
+            localStorage.removeItem('current_user_farm');
+            sessionStorage.removeItem('ooms_farm_code');
+            localStorage.removeItem('ooms_farm_code');
+            sessionStorage.removeItem('kakao_auth_mode');
             sessionStorage.removeItem('ooms_farm_session');
+            sessionStorage.removeItem('ooms_farmer_session');
+            localStorage.removeItem('ooms_farmer_session');
+            localStorage.removeItem('ooms_current_farm');
+            localStorage.removeItem('OOMS_AUTH_SESSION');
+            localStorage.removeItem('OOMS_LOGGED_IN_MERCHANT');
           } catch (e) {}
-          alert('농가 세션이 안전하게 종료되었습니다.');
-          if (window.opener) {
-            window.close();
-          } else {
-            window.location.href = 'index.html';
-          }
+
+          // 2. index.html 메인 허브로 이동
+          alert('정상적으로 로그아웃되었습니다.');
+          window.location.href = 'index.html';
         }
       };
 
-      // [핵심] 현재 농가의 고유 코드(farmCode)와 일치하는 주문만 필터링
+      // [핵심] 현재 농가의 고유 코드(farmCode)와 일치하는 주문만 엄격히 필터링
       const myFarmOrders = orders.filter(o => {
-        if (!currentMerchant) return true;
-        const curCode = (currentMerchant.merchantCode || currentMerchant.farmCode || currentMerchant.code || '').toLowerCase();
-        const curId = (currentMerchant.id || '').toLowerCase();
-        const curLogin = (currentMerchant.loginId || '').toLowerCase();
+        if (!currentMerchant) return false;
+        const curCode = (currentMerchant.merchantCode || currentMerchant.farmCode || currentMerchant.code || '').trim().toLowerCase();
+        const curId = (currentMerchant.id || '').trim().toLowerCase();
+        const curLogin = (currentMerchant.loginId || '').trim().toLowerCase();
         
         if (o.farmCode) {
-          const oCode = String(o.farmCode).toLowerCase();
-          return oCode === curCode || oCode === curId || oCode === curLogin || 
-                 (curCode && oCode.includes(curCode)) || (curCode && curCode.includes(oCode));
+          const oCode = String(o.farmCode).trim().toLowerCase();
+          return oCode === curCode || oCode === curId || oCode === curLogin;
         }
-        // 구 스키마 fallback: 상품명 매칭
+        // farmCode가 없는 구형 주문의 경우, 해당 농가의 고유 상품명이 정확히 일치할 때만 한정 매핑
         const pName = o.productName || o.product?.name || o.product || '';
-        return (currentMerchant.products || []).some(p => pName.includes(p.name) || p.name.includes(pName));
+        return pName && (currentMerchant.products || []).length > 0 && (currentMerchant.products || []).some(p => p.name && pName.includes(p.name));
       });
 
       // 결제 상태 및 주문 유형 필터링 적용 (내 농가 주문 기준)
@@ -807,6 +1917,347 @@
         return c.farmCode === curCode || c.farmCode === currentMerchant.id;
       });
 
+      // =========================================================================
+      // [하단 FAB 퀵메뉴 실행 핸들러]
+      // =========================================================================
+
+      // 농가 입금 계좌 정보 (기본 fallback: 태안사과농장 김혜진 대표 계좌)
+      const farmAccountInfo = currentMerchant?.bankAccount || `농협 352-1234-5678-93 (예금주: ${currentMerchant?.repName || '김혜진'})`;
+
+      // 1. [📸 과수원 소식] 현장 사진 첨부 파싱
+      const handleOrchardPhotoUpload = (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          setOrchardNewsModal(prev => ({
+            ...prev,
+            photoUrl: ev.target.result,
+            fileName: file.name
+          }));
+        };
+        reader.readAsDataURL(file);
+      };
+
+      // 1-1. [📸 과수원 소식] 알림톡 문구 생성 & 복사 & 로그 저장
+      const handleGenerateAndCopyOrchardNews = (e) => {
+        if (e) e.preventDefault();
+        const curFarmName = currentMerchant?.farmName || '태안 사과농장';
+        const rep = currentMerchant?.repName || '김혜진';
+        const phone = currentMerchant?.phone || '010-3849-1234';
+        const addr = currentMerchant?.address || '충청남도 태안군 소원면 소근로 54-16';
+
+        const shareMsg = `[${curFarmName}] 🍎 과수원 생육 소식 & 당도 측정 알림\n\n안녕하세요, ${curFarmName} ${rep} 농부입니다!\n정성껏 가꾼 과실이 태안의 해풍과 황토 속에서 맛있게 익어가고 있습니다.\n\n📍 현재 생육 단계: [${orchardNewsModal.stage}]\n☀️ 측정 당도: [${orchardNewsModal.brix} Brix 보증]\n💬 농부 한마디:\n"${orchardNewsModal.comment}"\n\n곧 최상의 신선도로 수확하여 정성껏 보내드리겠습니다. 감사합니다!\n\n• 산지: ${addr}\n• 고객문의: ${phone}`;
+
+        try {
+          const logs = JSON.parse(localStorage.getItem('ooms_growth_logs') || '[]');
+          const newLog = {
+            id: 'LOG-' + Date.now(),
+            farmCode: currentMerchant?.merchantCode || currentMerchant?.farmCode || 'FARM-2026-224',
+            farmName: curFarmName,
+            stage: orchardNewsModal.stage,
+            brix: orchardNewsModal.brix,
+            comment: orchardNewsModal.comment,
+            photoUrl: orchardNewsModal.photoUrl,
+            createdAt: new Date().toLocaleString()
+          };
+          logs.unshift(newLog);
+          localStorage.setItem('ooms_growth_logs', JSON.stringify(logs.slice(0, 30)));
+        } catch (err) {}
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(shareMsg).then(() => {
+            showToast('📢 과수원 소식 알림톡 문구가 클립보드에 복사되었습니다!');
+          }).catch(() => {
+            prompt('아래 알림톡 문구를 복사하여 고객에게 전송하세요:', shareMsg);
+          });
+        } else {
+          prompt('아래 알림톡 문구를 복사하여 고객에게 전송하세요:', shareMsg);
+        }
+        setOrchardNewsModal(prev => ({ ...prev, isOpen: false }));
+      };
+
+      // 2. [📋 입금 독려톡] 개별 주문 SMS 링크 열기
+      const handleSendPaymentSms = (order) => {
+        const curFarmName = currentMerchant?.farmName || '태안 사과농장';
+        const receiver = order.receiverName || order.receiver?.name || order.senderName || '고객';
+        const cleanTel = (order.receiverPhone || order.receiver?.tel || order.senderPhone || '').replace(/[^0-9]/g, '');
+        const prod = order.productName || order.product?.name || '상품';
+        const amt = Number(order.price) || Number(order.product?.price) || 0;
+
+        const body = `[${curFarmName}] 입금 안내\n${receiver}님, 주문하신 [${prod}] ${amt.toLocaleString()}원의 입금 계좌를 안내드립니다.\n\n▶ 입금계좌: ${farmAccountInfo}\n입금 확인 즉시 정성껏 수확 및 출하 준비가 시작됩니다. 감사합니다!`;
+        window.location.href = `sms:${cleanTel}?body=${encodeURIComponent(body)}`;
+      };
+
+      // 2-1. [📋 입금 독려톡] 개별 문구 복사
+      const handleCopyPaymentMsg = (order) => {
+        const curFarmName = currentMerchant?.farmName || '태안 사과농장';
+        const receiver = order.receiverName || order.receiver?.name || order.senderName || '고객';
+        const prod = order.productName || order.product?.name || '상품';
+        const amt = Number(order.price) || Number(order.product?.price) || 0;
+
+        const body = `[${curFarmName}] 입금 안내\n${receiver}님, 주문하신 [${prod}] ${amt.toLocaleString()}원의 입금 계좌를 안내드립니다.\n\n▶ 입금계좌: ${farmAccountInfo}\n입금 확인 즉시 정성껏 수확 및 출하 준비가 시작됩니다. 감사합니다!`;
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(body).then(() => {
+            showToast(`📋 ${receiver}님 입금 안내 문구가 복사되었습니다.`);
+          });
+        } else {
+          prompt('입금 안내 문구:', body);
+        }
+      };
+
+      // 2-2. [📋 입금 독려톡] 전체 미입금자 안내문구 일괄 복사
+      const handleCopyAllUnpaidMsg = () => {
+        if (unpaidOrders.length === 0) return;
+        const curFarmName = currentMerchant?.farmName || '태안 사과농장';
+        let text = `[${curFarmName}] 미입금 주문 입금 안내 (총 ${unpaidOrders.length}건)\n\n▶ 입금계좌: ${farmAccountInfo}\n\n`;
+        unpaidOrders.forEach((o, idx) => {
+          const receiver = o.receiverName || o.receiver?.name || o.senderName || '고객';
+          const tel = o.receiverPhone || o.senderPhone || '';
+          const prod = o.productName || o.product?.name || '상품';
+          const amt = Number(o.price) || Number(o.product?.price) || 0;
+          text += `${idx + 1}. ${receiver}님 (${tel}): ${prod} (${amt.toLocaleString()}원)\n`;
+        });
+        text += `\n입금 확인 즉시 발송 준비가 진행됩니다. 감사합니다.`;
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(() => {
+            showToast(`📋 전체 미입금자 (${unpaidOrders.length}건) 안내문구가 일괄 복사되었습니다.`);
+          });
+        } else {
+          prompt('전체 미입금 안내문구:', text);
+        }
+      };
+
+      // 3. [🚚 택배사 송장] 엑셀 일괄 매칭 파싱 (SheetJS 기반)
+      const handleCourierExcelUpload = (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+
+        setCourierInvoiceModal(prev => ({ ...prev, bulkFile: file, matchResults: [] }));
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            let rows = [];
+            if (window.XLSX && typeof window.XLSX.read === 'function') {
+              const data = new Uint8Array(event.target.result);
+              const workbook = window.XLSX.read(data, { type: 'array', cellDates: true });
+              const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+              rows = window.XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' });
+            } else {
+              const text = event.target.result;
+              rows = text.split(/\r\n|\n/).filter(Boolean).map(l => l.split(','));
+            }
+
+            if (!rows || rows.length === 0) {
+              alert('파일에 데이터가 없습니다.');
+              return;
+            }
+
+            let headerIdx = -1;
+            let colMap = { invoice: -1, receiver: -1, phone: -1, orderId: -1 };
+
+            for (let r = 0; r < Math.min(rows.length, 5); r++) {
+              const rowStr = rows[r].map(c => String(c || '').trim());
+              const hasInvoice = rowStr.some(c => /운송장|송장|등기|tracking|invoice/i.test(c));
+              const hasReceiver = rowStr.some(c => /수령인|받는\s*분|성명|이름|고객명|receiver/i.test(c));
+              if (hasInvoice || hasReceiver) {
+                headerIdx = r;
+                rowStr.forEach((colName, cIdx) => {
+                  if (/운송장|송장|등기|tracking|invoice/i.test(colName) && colMap.invoice === -1) colMap.invoice = cIdx;
+                  else if (/주문번호|주문ID|주문코드|orderid|orderno/i.test(colName) && colMap.orderId === -1) colMap.orderId = cIdx;
+                  else if (/수령인|받는\s*분|성명|이름|고객명|receiver/i.test(colName) && colMap.receiver === -1) colMap.receiver = cIdx;
+                  else if (/전화|연락처|휴대폰|핸드폰|tel|phone/i.test(colName) && colMap.phone === -1) colMap.phone = cIdx;
+                });
+                break;
+              }
+            }
+
+            if (headerIdx === -1) {
+              colMap = { invoice: 0, receiver: 1, phone: 2, orderId: 3 };
+            } else {
+              if (colMap.invoice === -1) colMap.invoice = 0;
+              if (colMap.receiver === -1) colMap.receiver = 1;
+            }
+
+            const startRow = headerIdx !== -1 ? headerIdx + 1 : 0;
+            const results = [];
+
+            for (let i = startRow; i < rows.length; i++) {
+              const row = rows[i];
+              if (!row || row.length === 0) continue;
+
+              const invRaw = colMap.invoice !== -1 ? String(row[colMap.invoice] || '').trim().replace(/[^0-9]/g, '') : '';
+              const recRaw = colMap.receiver !== -1 ? String(row[colMap.receiver] || '').trim() : '';
+              const phoneRaw = colMap.phone !== -1 ? String(row[colMap.phone] || '').trim().replace(/[^0-9]/g, '') : '';
+              const orderIdRaw = colMap.orderId !== -1 ? String(row[colMap.orderId] || '').trim() : '';
+
+              if (!invRaw && !recRaw && !orderIdRaw) continue;
+
+              let matched = null;
+              if (orderIdRaw) {
+                matched = myFarmOrders.find(o => (o.orderId === orderIdRaw || o.id === orderIdRaw));
+              }
+              if (!matched && recRaw) {
+                matched = myFarmOrders.find(o => {
+                  const oRec = o.receiverName || o.receiver?.name || o.senderName || '';
+                  const oPhone = (o.receiverPhone || o.receiver?.tel || o.senderPhone || '').replace(/[^0-9]/g, '');
+                  const nameMatch = oRec.includes(recRaw) || recRaw.includes(oRec);
+                  if (phoneRaw && phoneRaw.length >= 4 && oPhone.length >= 4) {
+                    return nameMatch && (oPhone.endsWith(phoneRaw.slice(-4)) || phoneRaw.endsWith(oPhone.slice(-4)));
+                  }
+                  return nameMatch;
+                });
+              }
+
+              if (matched && invRaw.length >= 8) {
+                results.push({
+                  rowNo: i + 1,
+                  receiver: recRaw || matched.receiverName || matched.senderName,
+                  phone: phoneRaw,
+                  extractedInvoice: invRaw,
+                  matchedOrder: matched,
+                  status: 'SUCCESS',
+                  reason: '주문 매칭 완료'
+                });
+              } else {
+                results.push({
+                  rowNo: i + 1,
+                  receiver: recRaw || '미확인',
+                  phone: phoneRaw,
+                  extractedInvoice: invRaw,
+                  matchedOrder: null,
+                  status: 'FAILED',
+                  reason: invRaw.length < 8 ? '송장번호 형식 오류(8자리 미만)' : '일치하는 주문 내역 없음'
+                });
+              }
+            }
+
+            setCourierInvoiceModal(prev => ({ ...prev, matchResults: results }));
+            showToast(`📊 송장 엑셀 분석 완료: 성공 ${results.filter(r => r.status === 'SUCCESS').length}건, 실패 ${results.filter(r => r.status === 'FAILED').length}건`);
+          } catch (err) {
+            console.error('송장 엑셀 파싱 에러:', err);
+            alert('엑셀 파일 파싱 중 오류가 발생했습니다: ' + err.message);
+          }
+        };
+
+        if (window.XLSX && typeof window.XLSX.read === 'function') {
+          reader.readAsArrayBuffer(file);
+        } else {
+          reader.readAsText(file, 'euc-kr');
+        }
+      };
+
+      // 3-1. [🚚 택배사 송장] 일괄 송장 등록 & 배송중 전환
+      const handleApplyBulkInvoices = () => {
+        const successItems = courierInvoiceModal.matchResults.filter(r => r.status === 'SUCCESS' && r.matchedOrder);
+        if (successItems.length === 0) {
+          alert('등록 가능한 매칭 성공 주문이 없습니다.');
+          return;
+        }
+
+        const curCourier = courierInvoiceModal.courier;
+        const matchMap = {};
+        successItems.forEach(item => {
+          const oId = item.matchedOrder.orderId || item.matchedOrder.id;
+          matchMap[oId] = item.extractedInvoice;
+        });
+
+        setOrders(prev => prev.map(o => {
+          const oId = o.orderId || o.id;
+          if (matchMap[oId]) {
+            const inv = matchMap[oId];
+            return {
+              ...o,
+              tracking: inv,
+              invoiceNum: inv,
+              invoiceNumber: inv,
+              carrier: curCourier,
+              courier: curCourier,
+              shippingStatus: '배송중',
+              status: {
+                ...(typeof o.status === 'object' ? o.status : {}),
+                staging: 'INVOICE_ISSUED',
+                shipping: 'SHIPPED'
+              }
+            };
+          }
+          return o;
+        }));
+
+        try {
+          const shipments = JSON.parse(localStorage.getItem('ooms_shipments') || '{}');
+          successItems.forEach(item => {
+            const oId = item.matchedOrder.orderId || item.matchedOrder.id;
+            shipments[oId] = {
+              orderId: oId,
+              tracking: item.extractedInvoice,
+              status: 'SHIPPED',
+              carrier: curCourier,
+              issuedAt: new Date().toISOString()
+            };
+          });
+          localStorage.setItem('ooms_shipments', JSON.stringify(shipments));
+        } catch (e) {}
+
+        showToast(`🎉 총 ${successItems.length}건 송장 등록 및 [배송중] 일괄 전환 완료!`);
+        setCourierInvoiceModal(prev => ({ ...prev, isOpen: false, matchResults: [], bulkFile: null }));
+      };
+
+      // 3-2. [🚚 택배사 송장] 간편 수기 송장 일괄 저장
+      const handleSaveDirectInvoices = () => {
+        const inputs = courierInvoiceModal.directInputs || {};
+        const filledEntries = Object.entries(inputs).filter(([id, val]) => val && val.trim().length >= 8);
+        if (filledEntries.length === 0) {
+          alert('8자리 이상의 유효한 송장번호를 1건 이상 입력해주세요.');
+          return;
+        }
+
+        const curCourier = courierInvoiceModal.courier;
+        const map = Object.fromEntries(filledEntries.map(([id, val]) => [id, val.trim().replace(/[^0-9]/g, '')]));
+
+        setOrders(prev => prev.map(o => {
+          const oId = o.orderId || o.id;
+          if (map[oId]) {
+            const num = map[oId];
+            return {
+              ...o,
+              tracking: num,
+              invoiceNum: num,
+              invoiceNumber: num,
+              carrier: curCourier,
+              courier: curCourier,
+              shippingStatus: '배송중',
+              status: {
+                ...(typeof o.status === 'object' ? o.status : {}),
+                staging: 'INVOICE_ISSUED',
+                shipping: 'SHIPPED'
+              }
+            };
+          }
+          return o;
+        }));
+
+        try {
+          const shipments = JSON.parse(localStorage.getItem('ooms_shipments') || '{}');
+          filledEntries.forEach(([oId, val]) => {
+            shipments[oId] = {
+              orderId: oId,
+              tracking: val.trim().replace(/[^0-9]/g, ''),
+              status: 'SHIPPED',
+              carrier: curCourier,
+              issuedAt: new Date().toISOString()
+            };
+          });
+          localStorage.setItem('ooms_shipments', JSON.stringify(shipments));
+        } catch (e) {}
+
+        showToast(`🎉 ${filledEntries.length}건 송장 등록 완료 ➔ 배송중 전환!`);
+        setCourierInvoiceModal(prev => ({ ...prev, isOpen: false, directInputs: {} }));
+      };
+
       return (
         <div style={{ maxWidth: '860px', width: '100%', margin: '0 auto', boxSizing: 'border-box', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} className="mobile-container min-h-screen bg-slate-100 pb-28 text-slate-800 border-x border-slate-200">
           {/* 1. 상단 농가 헤더 바 */}
@@ -823,7 +2274,7 @@
                 </a>
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse ml-1"></span>
                 <span className="font-extrabold text-sm tracking-wide text-emerald-400 truncate max-w-[140px]">
-                  {currentMerchant?.farmName || '태안 조이장네'}
+                  {currentMerchant?.farmName || '태안 사과농장'}
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
@@ -831,8 +2282,9 @@
                   {currentMerchant?.merchantCode || 'FARM-2026-224'}
                 </span>
                 <button
+                  id="btnLogout"
                   onClick={handleLogout}
-                  className="text-[11px] bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded transition-all font-bold"
+                  className="text-[11px] bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded transition-all font-bold cursor-pointer"
                   title="로그아웃"
                 >
                   로그아웃
@@ -843,7 +2295,7 @@
             <div className="flex items-center justify-between mt-2">
               <h1 className="text-xl font-black">농가 모바일</h1>
               <span className="text-xs text-slate-400">
-                대표: <b className="text-white">{currentMerchant?.repName || '조국래'}</b>
+                대표: <b className="text-white">{currentMerchant?.repName || '김혜진'}</b>
               </span>
             </div>
             <p className="text-[11px] text-slate-400 mt-0.5">
@@ -852,51 +2304,103 @@
           </div>
 
           <div className="p-4 space-y-4">
-            {/* 1.5. 농가 전용 주문 링크 생성 및 원터치 공유 카드 */}
-            <div className="bg-gradient-to-br from-farm-600 via-farm-700 to-emerald-800 text-white p-4 rounded-2xl shadow-md space-y-2.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-base">🔗</span>
-                  <h3 className="font-extrabold text-sm tracking-tight">농가 전용 주문 링크 생성기</h3>
+            {/* [RBAC 승인 통제 게이트웨이] 심사 대기(PENDING) 경고 배너 */}
+            {((currentMerchant?.approvalStatus || currentMerchant?.status) !== 'APPROVED') && (
+              <div className="bg-amber-500/10 border-2 border-amber-500/60 p-4 rounded-2xl flex items-start gap-3 shadow-md animate-fadeIn">
+                <span className="text-2xl shrink-0">⚠️</span>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-black text-amber-800 text-sm">관리자 승인 심사 대기 중</h4>
+                    <span className="text-[10px] bg-amber-500 text-white font-bold px-2 py-0.5 rounded-full">심사대기</span>
+                  </div>
+                  <p className="text-xs text-amber-900/90 mt-1 leading-relaxed">
+                    현재 농가 계정은 관리자 승인 심사 중입니다. 총괄 관리자(back.html)의 승인 완료 후 고객 전용 주문 링크 및 현장 주문 접수가 활성화됩니다.
+                  </p>
                 </div>
-                <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-bold">
-                  원터치 복사
-                </span>
               </div>
-              <p className="text-[11px] text-farm-100 leading-relaxed">
-                고객에게 이 전용 링크를 보내면, 로그인 없이도 <b>{currentMerchant?.farmName || '우리 농가'}</b> 상품으로 자동 연결되어 간편 주문이 접수됩니다.
-              </p>
-              <div className="bg-slate-900/60 p-2 rounded-xl flex items-center justify-between gap-2 border border-white/10">
-                <span className="font-mono text-xs text-emerald-300 truncate max-w-[210px] select-all">
-                  {getFarmOrderUrl()}
-                </span>
-                <button
-                  type="button"
-                  onClick={copyOrderLink}
-                  className="bg-white text-farm-800 hover:bg-farm-50 active:scale-95 text-xs font-black px-3 py-1.5 rounded-lg shadow-sm shrink-0 transition-all cursor-pointer flex items-center gap-1"
-                  title="전용 링크 복사하기"
-                >
-                  <span>📋 링크 복사</span>
-                </button>
-              </div>
-              <div className="flex gap-2 pt-0.5">
-                <button
-                  type="button"
-                  onClick={copyFullShareText}
-                  className="flex-1 bg-white/15 hover:bg-white/25 active:scale-98 text-white text-[11px] font-bold py-2 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer"
-                >
-                  <span>💬 카톡/문자 안내문구 복사</span>
-                </button>
-                <a
-                  href={getFarmOrderUrl()}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-white/15 hover:bg-white/25 active:scale-98 text-white text-[11px] font-bold px-3 py-2 rounded-xl transition-all flex items-center justify-center gap-1 text-center"
-                >
-                  <span>미리보기 ↗</span>
-                </a>
-              </div>
-            </div>
+            )}
+
+            {/* 1.5. 농가 전용 주문 링크 생성 및 원터치 공유 카드 */}
+            {(() => {
+              const isApproved = (currentMerchant?.approvalStatus || currentMerchant?.status) === 'APPROVED';
+
+              return (
+                <div className={`p-4 rounded-2xl shadow-md space-y-2.5 text-white transition-all ${
+                  isApproved 
+                    ? 'bg-gradient-to-br from-farm-600 via-farm-700 to-emerald-800' 
+                    : 'bg-slate-700 opacity-90'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-base">{isApproved ? '🔗' : '🔒'}</span>
+                      <h3 className="font-extrabold text-sm tracking-tight">농가 전용 주문 링크 생성기</h3>
+                    </div>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                      isApproved ? 'bg-white/20' : 'bg-amber-400 text-slate-900 font-black'
+                    }`}>
+                      {isApproved ? '원터치 복사' : '승인 대기 중'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-farm-100 leading-relaxed">
+                    {isApproved ? (
+                      <>고객에게 이 전용 링크를 보내면, 로그인 없이도 <b>{currentMerchant?.farmName || '우리 농가'}</b> 상품으로 자동 연결되어 간편 주문이 접수됩니다.</>
+                    ) : (
+                      <>⚠️ <b>관리자 승인 심사 중</b>입니다. 승인 완료 후 고객 전용 주문 링크가 활성화됩니다.</>
+                    )}
+                  </p>
+                  <div className="bg-slate-900/60 p-2 rounded-xl flex items-center justify-between gap-2 border border-white/10">
+                    <span className="font-mono text-xs text-emerald-300 truncate max-w-[210px] select-all">
+                      {isApproved ? getFarmOrderUrl() : '관리자 승인 후 링크가 활성화됩니다'}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={!isApproved}
+                      onClick={copyOrderLink}
+                      className={`text-xs font-black px-3 py-1.5 rounded-lg shadow-sm shrink-0 transition-all flex items-center gap-1 ${
+                        isApproved
+                          ? 'bg-white text-farm-800 hover:bg-farm-50 active:scale-95 cursor-pointer'
+                          : 'bg-slate-600 text-slate-400 cursor-not-allowed opacity-60'
+                      }`}
+                      title={isApproved ? "전용 링크 복사하기" : "관리자 승인 후 이용 가능합니다."}
+                    >
+                      <span>📋 링크 복사</span>
+                    </button>
+                  </div>
+                  <div className="flex gap-2 pt-0.5">
+                    <button
+                      type="button"
+                      disabled={!isApproved}
+                      onClick={copyFullShareText}
+                      className={`flex-1 text-[11px] font-bold py-2 rounded-xl transition-all flex items-center justify-center gap-1 ${
+                        isApproved
+                          ? 'bg-white/15 hover:bg-white/25 active:scale-98 text-white cursor-pointer'
+                          : 'bg-slate-600/50 text-slate-400 cursor-not-allowed opacity-60'
+                      }`}
+                    >
+                      <span>💬 카톡/문자 안내문구 복사</span>
+                    </button>
+                    {isApproved ? (
+                      <a
+                        href={getFarmOrderUrl()}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-white/15 hover:bg-white/25 active:scale-98 text-white text-[11px] font-bold px-3 py-2 rounded-xl transition-all flex items-center justify-center gap-1 text-center"
+                      >
+                        <span>미리보기 ↗</span>
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled
+                        className="bg-slate-600/50 text-slate-400 text-[11px] font-bold px-3 py-2 rounded-xl opacity-60 cursor-not-allowed"
+                      >
+                        <span>미리보기 ↗</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* 2. 오늘 출하 현황 요약 대시보드 카드 */}
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
@@ -923,8 +2427,265 @@
               </div>
             </div>
 
-            {/* 3. 출하 등록 상품 카드 */}
-            <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+            {/* [모바일 친화형 5대 탭 네비게이션] */}
+            {(() => {
+              const curFarmCode = (currentMerchant?.merchantCode || currentMerchant?.code || currentMerchant?.farmCode || 'FARM-2026-224').toLowerCase();
+              const myPlantingsCount = plantings.filter(p => !p.farmCode || p.farmCode.toLowerCase() === curFarmCode).length;
+              const myProdsCount = currentMerchant?.products?.length || 0;
+              const myCsCount = myFarmCsInquiries.length;
+
+              return (
+                <div className="bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 sticky top-[108px] z-20">
+                  <div className="flex gap-1 overflow-x-auto no-scrollbar scroll-smooth text-xs font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setMainTab('ORDERS')}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
+                        mainTab === 'ORDERS'
+                          ? 'bg-slate-900 text-white shadow-xs font-black'
+                          : 'bg-transparent text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span>📦 주문·배송</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${mainTab === 'ORDERS' ? 'bg-farm-500 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                        {myFarmOrders.length}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const isApproved = (currentMerchant?.approvalStatus || currentMerchant?.status) === 'APPROVED';
+                        if (!isApproved) {
+                          alert('관리자 승인 후 이용 가능합니다.');
+                          return;
+                        }
+                        setMainTab('ONSITE');
+                      }}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
+                        mainTab === 'ONSITE'
+                          ? 'bg-farm-600 text-white shadow-xs font-black'
+                          : 'bg-transparent text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span>✍️ 현장 주문등록</span>
+                      <span className={`text-[9px] px-1.5 py-0.2 rounded font-black ${mainTab === 'ONSITE' ? 'bg-white text-farm-800' : 'bg-farm-100 text-farm-800'}`}>
+                        신규
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setMainTab('PLANTING')}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
+                        mainTab === 'PLANTING'
+                          ? 'bg-slate-900 text-white shadow-xs font-black'
+                          : 'bg-transparent text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span>🌱 작기·정식</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${mainTab === 'PLANTING' ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                        {myPlantingsCount}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setMainTab('PRODUCTS')}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
+                        mainTab === 'PRODUCTS'
+                          ? 'bg-slate-900 text-white shadow-xs font-black'
+                          : 'bg-transparent text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span>🍎 상품 관리</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${mainTab === 'PRODUCTS' ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                        {myProdsCount}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setMainTab('CS')}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
+                        mainTab === 'CS'
+                          ? 'bg-slate-900 text-white shadow-xs font-black'
+                          : 'bg-transparent text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span>💬 고객 CS</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${mainTab === 'CS' ? 'bg-harvest-500 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                        {myCsCount}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ========================================================================= */}
+            {/* [탭 3: 🌱 작기·정식] */}
+            {/* ========================================================================= */}
+            {mainTab === 'PLANTING' && (
+              <div className="animate-fadeIn">
+                {(() => {
+                  const curFarmCode = (currentMerchant?.merchantCode || currentMerchant?.code || currentMerchant?.farmCode || 'FARM-2026-224').toLowerCase();
+                  const myPlantings = plantings.filter(p => !p.farmCode || p.farmCode.toLowerCase() === curFarmCode);
+
+                  return (
+                    <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-base">🌱</span>
+                      <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                        작기 정식 및 사전예약(Pre-Order) Cap 관리 ({myPlantings.length}작기)
+                      </h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAddPlantingModal({
+                        isOpen: true,
+                        cropType: '수박',
+                        cropName: '',
+                        plantedDate: new Date().toISOString().slice(0, 10),
+                        harvestDate: '',
+                        plantedCount: 5000,
+                        yieldRate: 85,
+                        safetyBuffer: 80
+                      })}
+                      className="bg-farm-600 hover:bg-farm-700 active:scale-95 text-white text-[11px] font-black px-2.5 py-1 rounded-lg shadow-sm transition-all flex items-center gap-1 cursor-pointer"
+                      title="신규 작기 정식 데이터 등록"
+                    >
+                      <span>➕</span>
+                      <span>정식 등록</span>
+                    </button>
+                  </div>
+
+                  {myPlantings.length === 0 ? (
+                    <div className="py-6 text-center text-slate-400 bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
+                      <p className="text-xs">등록된 작기 정식 정보가 없습니다.</p>
+                      <button
+                        type="button"
+                        onClick={() => setAddPlantingModal({
+                          isOpen: true,
+                          cropType: '수박',
+                          cropName: '',
+                          plantedDate: new Date().toISOString().slice(0, 10),
+                          harvestDate: '',
+                          plantedCount: 5000,
+                          yieldRate: 85,
+                          safetyBuffer: 80
+                        })}
+                        className="mt-2 text-xs text-farm-600 font-bold hover:underline"
+                      >
+                        + 첫 번째 작기 정식 등록하기
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {myPlantings.map((plt) => {
+                        const cap = plt.totalCap || 0;
+                        const res = plt.reservedCount || 0;
+                        const remain = Math.max(0, cap - res);
+                        const percent = cap > 0 ? Math.min(100, Math.round((res / cap) * 100)) : 0;
+                        const isFull = remain <= 0;
+
+                        const today = new Date();
+                        const hDate = new Date(plt.harvestDate);
+                        const diffDays = Math.ceil((hDate - today) / (1000 * 60 * 60 * 24));
+
+                        return (
+                          <div key={plt.plantingId} className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-[10px] font-bold bg-white text-slate-700 px-1.5 py-0.5 rounded border border-slate-200">
+                                  {plt.plantingId}
+                                </span>
+                                <b className="text-xs text-slate-900 font-black">{plt.cropName || plt.cropType}</b>
+                                <span className={`text-[10px] px-1.5 py-0.2 rounded font-black ${
+                                  plt.status === 'COMPLETED' ? 'bg-slate-200 text-slate-700' :
+                                  plt.status === 'READY' ? 'bg-amber-100 text-amber-800' :
+                                  'bg-emerald-100 text-emerald-800'
+                                }`}>
+                                  {plt.status === 'COMPLETED' ? '출하완료' : (plt.status === 'READY' ? '출하임박 D-5' : '생육중')}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-1">
+                                {plt.status === 'GROWING' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleChangePlantingStatus(plt.plantingId, 'READY')}
+                                    className="text-[10px] bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded px-1.5 py-0.5 font-bold cursor-pointer"
+                                  >
+                                    출하임박 전환
+                                  </button>
+                                )}
+                                {plt.status === 'READY' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleChangePlantingStatus(plt.plantingId, 'COMPLETED')}
+                                    className="text-[10px] bg-slate-200 hover:bg-slate-300 text-slate-800 rounded px-1.5 py-0.5 font-bold cursor-pointer"
+                                  >
+                                    출하완료
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* 생산 파라미터 지표 그리드 */}
+                            <div className="grid grid-cols-4 gap-1 text-[11px] bg-white p-2 rounded-lg border border-slate-100 text-center font-mono">
+                              <div>
+                                <span className="text-[10px] text-slate-400 block font-sans">정식일</span>
+                                <span className="font-bold text-slate-700">{plt.plantedDate}</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-slate-400 block font-sans">출하예정(D{diffDays >= 0 ? `-${diffDays}` : `+${Math.abs(diffDays)}`})</span>
+                                <span className="font-bold text-farm-700">{plt.harvestDate}</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-slate-400 block font-sans">정식수/수율</span>
+                                <span className="font-bold text-slate-700">{plt.plantedCount.toLocaleString()} / {plt.yieldRate}%</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-slate-400 block font-sans">안전Cap(버퍼)</span>
+                                <span className="font-black text-rose-600">{cap.toLocaleString()}박스</span>
+                              </div>
+                            </div>
+
+                            {/* 예약 진행률 프로그레스 바 */}
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[11px] font-bold">
+                                <span className="text-slate-600">
+                                  사전예약 현황: <b className="text-farm-700 font-mono">{res.toLocaleString()}</b> / {cap.toLocaleString()}박스
+                                </span>
+                                <span className={isFull ? "text-rose-600 font-black" : "text-slate-500 font-mono"}>
+                                  {isFull ? "⚠️ 완판(매진)" : `잔여 ${remain.toLocaleString()}박스 (${percent}%)`}
+                                </span>
+                              </div>
+                              <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                                <div
+                                  className={`h-2 transition-all duration-300 rounded-full ${isFull ? 'bg-rose-500' : 'bg-farm-600'}`}
+                                  style={{ width: `${percent}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* [탭 4: 🍎 상품 관리] */}
+        {/* ========================================================================= */}
+        {mainTab === 'PRODUCTS' && (
+          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 animate-fadeIn">
               <div className="flex justify-between items-center mb-2.5">
                 <div className="flex items-center gap-1.5">
                   <span className="text-base">🍈</span>
@@ -934,7 +2695,14 @@
                 </div>
                 <button
                   type="button"
-                  onClick={() => setAddProductModal({ isOpen: true, category: '사과', name: '', spec: '', price: '', brix: '' })}
+                  onClick={() => {
+                    const isApproved = (currentMerchant?.approvalStatus || currentMerchant?.status) === 'APPROVED';
+                    if (!isApproved) {
+                      alert('관리자 승인 후 이용 가능합니다.');
+                      return;
+                    }
+                    setAddProductModal({ isOpen: true, category: '사과', name: '', spec: '', price: '', brix: '' });
+                  }}
                   className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[11px] font-black px-2.5 py-1 rounded-lg shadow-sm transition-all flex items-center gap-1 cursor-pointer"
                   title="신규 상품 등록"
                 >
@@ -948,7 +2716,14 @@
                   <p className="text-xs">등록된 출하 상품이 없습니다.</p>
                   <button
                     type="button"
-                    onClick={() => setAddProductModal({ isOpen: true, category: '사과', name: '', spec: '', price: '', brix: '' })}
+                    onClick={() => {
+                      const isApproved = (currentMerchant?.approvalStatus || currentMerchant?.status) === 'APPROVED';
+                      if (!isApproved) {
+                        alert('관리자 승인 후 이용 가능합니다.');
+                        return;
+                      }
+                      setAddProductModal({ isOpen: true, category: '사과', name: '', spec: '', price: '', brix: '' });
+                    }}
                     className="mt-2 text-xs text-emerald-600 font-bold hover:underline"
                   >
                     + 첫 번째 상품 등록하기
@@ -980,9 +2755,13 @@
                 </div>
               )}
             </div>
+          )}
 
-            {/* 4. [📦 주문 및 배송조회] 실시간 수주·발송 통합 관리 카드 */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          {/* ========================================================================= */}
+          {/* [탭 1: 📦 주문·배송] */}
+          {/* ========================================================================= */}
+          {mainTab === 'ORDERS' && (
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden animate-fadeIn">
               <div className="p-4 border-b border-slate-100 flex flex-col gap-2.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
@@ -1064,6 +2843,11 @@
                               <span className="font-mono text-[11px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
                                 {orderId}
                               </span>
+                              {(order.refId || order.ref) && (
+                                <span className="font-mono text-[10px] bg-emerald-50 text-emerald-700 font-extrabold px-1.5 py-0.5 rounded border border-emerald-300 shadow-2xs">
+                                  🔗 {order.refId || order.ref}
+                                </span>
+                              )}
                               {isBulk && (
                                 <span className="text-[10px] bg-purple-100 text-purple-700 font-black px-1.5 py-0.5 rounded border border-purple-200">
                                   📊 대량(엑셀)
@@ -1117,6 +2901,13 @@
                             <p className="text-[11px] text-slate-500 mt-1 truncate" title={`${roadAddress} ${detailAddress}`}>
                               📍 {roadAddress} {detailAddress} {zipCode && `[${zipCode}]`}
                             </p>
+
+                            {/* 배송 요청사항 / 메모 */}
+                            {(order.memo || order.deliveryMemo || order.req || order.note) && (
+                              <p className="text-[11px] text-amber-800 bg-amber-50/80 px-2 py-0.5 rounded border border-amber-200/60 mt-1 truncate" title={order.memo || order.deliveryMemo || order.req || order.note}>
+                                📝 요청사항: {order.memo || order.deliveryMemo || order.req || order.note}
+                              </p>
+                            )}
 
                             {/* 택배 송장번호 등록 폼 (단일 직접입력 & 배송완료 전환 영역) */}
                             <div className="mt-2.5 pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
@@ -1237,9 +3028,314 @@
                 )}
               </div>
             </div>
+          )}
 
-            {/* 5. 1:1 고객 문의(CS) 관리 카드 */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          {/* ========================================================================= */}
+          {/* [탭 2: ✍️ 현장 주문등록] (신규 추가) */}
+          {/* ========================================================================= */}
+          {mainTab === 'ONSITE' && (
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 space-y-4 animate-fadeIn">
+              <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-base">✍️</span>
+                  <div>
+                    <h3 className="font-extrabold text-sm text-slate-900">현장 주문등록</h3>
+                    <p className="text-[11px] text-slate-500">전화·문자·현장 방문 주문을 즉시 수기 또는 엑셀로 접수합니다.</p>
+                  </div>
+                </div>
+                <span className="text-[10px] bg-farm-50 text-farm-700 font-bold px-2 py-0.5 rounded border border-farm-200">
+                  실시간 즉시 반영
+                </span>
+              </div>
+
+              {/* 서브 세그먼트 토글: [📝 일반 수기입력] | [📊 엑셀 대량업로드] */}
+              <div className="flex p-1 bg-slate-100 rounded-xl text-xs font-bold gap-1">
+                <button
+                  type="button"
+                  onClick={() => setOnsiteSubMode('MANUAL')}
+                  className={`flex-1 py-2 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                    onsiteSubMode === 'MANUAL'
+                      ? 'bg-white text-slate-900 shadow-xs font-black'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <span>📝</span>
+                  <span>일반 수기입력</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOnsiteSubMode('BULK')}
+                  className={`flex-1 py-2 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                    onsiteSubMode === 'BULK'
+                      ? 'bg-white text-purple-700 shadow-xs font-black'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <span>📊</span>
+                  <span>엑셀 대량업로드</span>
+                </button>
+              </div>
+
+              {/* 1) [📝 일반 수기입력] 폼 */}
+              {onsiteSubMode === 'MANUAL' && (
+                <form onSubmit={handleSaveOnsiteManualOrder} className="space-y-3.5 text-xs">
+                  {/* 상품 선택 및 수량 */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">
+                        1. 출하 상품 선택 <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        value={onsiteOrder.productId || (currentMerchant?.products?.[0]?.id || currentMerchant?.products?.[0]?.name || '')}
+                        onChange={(e) => setOnsiteOrder({ ...onsiteOrder, productId: e.target.value })}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl bg-white text-slate-900 font-bold focus:ring-2 focus:ring-farm-500 focus:outline-none"
+                      >
+                        {(currentMerchant?.products || []).map((p, idx) => (
+                          <option key={p.id || idx} value={p.id || p.name}>
+                            {p.name} ({(p.salePrice || p.price)?.toLocaleString()}원)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">
+                        2. 주문 수량 (박스) <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          value={onsiteOrder.quantity}
+                          onChange={(e) => setOnsiteOrder({ ...onsiteOrder, quantity: Math.max(1, parseInt(e.target.value || '1', 10)) })}
+                          className="w-full p-2.5 border border-slate-300 rounded-xl text-slate-900 font-mono font-bold focus:ring-2 focus:ring-farm-500 focus:outline-none"
+                        />
+                        <span className="text-slate-500 shrink-0 font-bold">박스</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 입금 확인 상태 토글 */}
+                  <div className="bg-emerald-50/70 border border-emerald-200/80 p-3 rounded-xl flex items-center justify-between">
+                    <div>
+                      <b className="text-emerald-900 block">결제 / 입금 상태</b>
+                      <span className="text-[11px] text-emerald-700">현장 현금/계좌이체 수납 시 입금완료로 등록됩니다.</span>
+                    </div>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={onsiteOrder.isPaid}
+                        onChange={(e) => setOnsiteOrder({ ...onsiteOrder, isPaid: e.target.checked })}
+                        className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+                      />
+                      <span className="font-extrabold text-xs text-emerald-900">
+                        {onsiteOrder.isPaid ? '✓ 입금완료 상태' : '미입금(대기)'}
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* 수령인 및 연락처 */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">
+                        3. 받는 분 성함 <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={onsiteOrder.receiverName}
+                        onChange={(e) => setOnsiteOrder({ ...onsiteOrder, receiverName: e.target.value })}
+                        placeholder="예: 홍길동"
+                        className="w-full p-2.5 border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-farm-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">
+                        4. 받는 분 연락처 <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={onsiteOrder.receiverPhone}
+                        onChange={(e) => setOnsiteOrder({ ...onsiteOrder, receiverPhone: e.target.value })}
+                        placeholder="예: 010-1234-5678"
+                        className="w-full p-2.5 border border-slate-300 rounded-xl text-slate-900 font-mono focus:ring-2 focus:ring-farm-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 배송지 도로명 주소 & 검색 버튼 */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="font-bold text-slate-700">
+                        5. 배송지 도로명 주소 <span className="text-rose-500">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleOpenAddressModal}
+                        className="text-[11px] bg-slate-900 hover:bg-slate-800 text-white font-bold px-2.5 py-1 rounded-lg transition-all cursor-pointer shadow-xs flex items-center gap-1"
+                      >
+                        <span>🔍 주소 검색</span>
+                      </button>
+                    </div>
+                    <div className="space-y-1.5">
+                      <input
+                        type="text"
+                        required
+                        value={onsiteOrder.roadAddress}
+                        onChange={(e) => setOnsiteOrder({ ...onsiteOrder, roadAddress: e.target.value })}
+                        placeholder="도로명 주소 (검색 또는 직접 입력)"
+                        className="w-full p-2.5 border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-farm-500 focus:outline-none font-medium"
+                      />
+                      <input
+                        type="text"
+                        value={onsiteOrder.detailAddress}
+                        onChange={(e) => setOnsiteOrder({ ...onsiteOrder, detailAddress: e.target.value })}
+                        placeholder="상세주소 (예: 101동 1204호)"
+                        className="w-full p-2.5 border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-farm-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 배송 요청사항 */}
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      6. 배송 요청사항
+                    </label>
+                    <select
+                      value={onsiteOrder.deliveryMemo}
+                      onChange={(e) => setOnsiteOrder({ ...onsiteOrder, deliveryMemo: e.target.value })}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl bg-white text-slate-800 font-medium focus:ring-2 focus:ring-farm-500 focus:outline-none"
+                    >
+                      <option value="문 앞 보관">문 앞 보관 (부재 시 연락)</option>
+                      <option value="경비실에 맡겨주세요">경비실에 맡겨주세요</option>
+                      <option value="배송 전 미리 연락 바랍니다">배송 전 미리 연락 바랍니다</option>
+                      <option value="택배함에 넣어주세요">택배함에 넣어주세요</option>
+                      <option value="직접 입력">직접 입력</option>
+                    </select>
+                    {onsiteOrder.deliveryMemo === '직접 입력' && (
+                      <input
+                        type="text"
+                        value={onsiteOrder.customMemo}
+                        onChange={(e) => setOnsiteOrder({ ...onsiteOrder, customMemo: e.target.value })}
+                        placeholder="배송 요청사항을 직접 입력하세요"
+                        className="w-full p-2.5 border border-slate-300 rounded-xl mt-1.5 text-slate-900 focus:ring-2 focus:ring-farm-500 focus:outline-none"
+                      />
+                    )}
+                  </div>
+
+                  {/* 결제 예정 총액 표시 및 등록 버튼 */}
+                  {(() => {
+                    const prods = currentMerchant?.products || [];
+                    const chosenProd = prods.find(p => (p.id || p.name) === onsiteOrder.productId) || prods[0];
+                    const unit = Number(chosenProd?.salePrice || chosenProd?.price || 55000);
+                    const qty = Number(onsiteOrder.quantity) || 1;
+                    const tot = unit * qty;
+
+                    return (
+                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between">
+                        <div>
+                          <span className="text-[11px] text-slate-500 block">결제 예정 금액</span>
+                          <b className="text-slate-900 text-sm font-black">{chosenProd?.name || '상품'} × {qty}박스</b>
+                        </div>
+                        <span className="font-mono text-base font-black text-emerald-700">
+                          {tot.toLocaleString()}원
+                        </span>
+                      </div>
+                    );
+                  })()}
+
+                  <button
+                    type="submit"
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-black py-3 rounded-xl text-sm transition-all shadow-md shadow-emerald-600/30 flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span>🚀</span>
+                    <span>주문 즉시 등록하기</span>
+                  </button>
+                </form>
+              )}
+
+              {/* 2) [📊 엑셀 대량업로드] 모드 */}
+              {onsiteSubMode === 'BULK' && (
+                <div className="space-y-3.5 text-xs">
+                  <div className="border-2 border-dashed border-purple-200 bg-purple-50/50 rounded-2xl p-6 text-center space-y-2">
+                    <div className="text-3xl">📊</div>
+                    <b className="text-slate-900 block text-sm font-black">엑셀(.xlsx, .xls) 또는 CSV 파일 업로드</b>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      택배주소록 파일을 드래그하거나 선택하면 SheetJS 엔진이 한글 컬럼을 자동 파싱합니다.
+                    </p>
+                    <label className="inline-block bg-purple-600 hover:bg-purple-700 text-white font-black px-4 py-2 rounded-xl cursor-pointer shadow-sm transition-all">
+                      <span>📂 파일 선택하기</span>
+                      <input
+                        type="file"
+                        accept=".xlsx,.xls,.csv"
+                        onChange={handleOnsiteExcelUpload}
+                        className="hidden"
+                      />
+                    </label>
+                    {onsiteBulkFile && (
+                      <p className="text-[11px] text-purple-700 font-bold pt-1">
+                        선택된 파일: {onsiteBulkFile.name}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* 엑셀 파싱 미리보기 테이블 */}
+                  {onsiteBulkRows.length > 0 && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <b className="text-slate-900 font-extrabold flex items-center gap-1">
+                          <span>📋</span> 파싱 완료 배송지 목록 ({onsiteBulkRows.length}건)
+                        </b>
+                        <label className="flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={onsiteBulkIsPaid}
+                            onChange={(e) => setOnsiteBulkIsPaid(e.target.checked)}
+                            className="w-3.5 h-3.5 text-purple-600 rounded"
+                          />
+                          <span className="font-bold text-[11px] text-slate-700">전체 입금완료 처리</span>
+                        </label>
+                      </div>
+
+                      <div className="max-h-56 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100 bg-slate-50">
+                        {onsiteBulkRows.map((r, i) => (
+                          <div key={i} className="p-2.5 flex items-center justify-between text-[11px]">
+                            <div>
+                              <span className="font-mono text-[10px] text-slate-400 mr-1.5">#{i + 1}</span>
+                              <b className="text-slate-900 mr-2">{r.receiver}</b>
+                              <span className="text-slate-500 font-mono mr-2">{r.phone}</span>
+                              <p className="text-slate-600 truncate max-w-[280px] mt-0.5">
+                                {r.address} {r.detailAddress}
+                              </p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="text-purple-700 font-bold">{r.qty}박스</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleSaveOnsiteBulkOrders}
+                        className="w-full bg-purple-600 hover:bg-purple-700 active:scale-98 text-white font-black py-3 rounded-xl text-sm transition-all shadow-md shadow-purple-600/30 flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <span>🚀</span>
+                        <span>총 {onsiteBulkRows.length}건 대량주문 일괄 등록하기</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* [탭 5: 💬 고객 CS] */}
+          {/* ========================================================================= */}
+          {mainTab === 'CS' && (
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden animate-fadeIn">
               <div className="p-4 border-b border-slate-100 flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <span className="text-base">💬</span>
@@ -1325,29 +3421,36 @@
                 )}
               </div>
             </div>
-          </div>
+          )}
+        </div>
 
           {/* 하단 고정 Floating Action Bar (FAB) */}
           <div style={{ maxWidth: '860px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }} className="mobile-container fixed bottom-0 left-0 right-0 mx-auto bg-white/95 backdrop-blur-md border-t border-slate-200 p-3 flex items-center justify-around gap-2 z-40 shadow-2xl">
             <button 
-              onClick={() => showToast('농장 사진 업로드 창이 열립니다.')}
-              className="flex-1 flex flex-col items-center py-2 px-1 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl transition-all"
+              type="button"
+              onClick={() => setOrchardNewsModal(prev => ({ ...prev, isOpen: true }))}
+              className="flex-1 flex flex-col items-center py-2 px-1 bg-slate-50 hover:bg-slate-100 active:scale-95 text-slate-700 rounded-xl transition-all cursor-pointer"
             >
               <span className="text-lg">📸</span>
               <span className="text-[11px] font-bold mt-0.5">과수원 소식</span>
             </button>
 
             <button 
-              onClick={() => showToast('미입금 고객에게 카카오 알림톡 입금 안내를 재전송했습니다.')}
-              className="flex-1 flex flex-col items-center py-2 px-1 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl transition-all"
+              type="button"
+              onClick={() => setPaymentReminderModal({ isOpen: true })}
+              className="flex-1 flex flex-col items-center py-2 px-1 bg-slate-50 hover:bg-slate-100 active:scale-95 text-slate-700 rounded-xl transition-all relative cursor-pointer"
             >
               <span className="text-lg">📋</span>
               <span className="text-[11px] font-bold mt-0.5">입금 독려톡</span>
+              {unpaidOrders.length > 0 && (
+                <span className="absolute top-1.5 right-3 w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+              )}
             </button>
 
             <button 
-              onClick={() => showToast('택배사 Direct API로 송장을 일괄 출력합니다.')}
-              className="flex-1 flex flex-col items-center py-2 px-1 bg-harvest-500 hover:bg-harvest-600 text-white rounded-xl shadow-md shadow-harvest-500/30 transition-all"
+              type="button"
+              onClick={() => setCourierInvoiceModal(prev => ({ ...prev, isOpen: true, matchResults: [], bulkFile: null }))}
+              className="flex-1 flex flex-col items-center py-2 px-1 bg-harvest-500 hover:bg-harvest-600 active:scale-95 text-white rounded-xl shadow-md shadow-harvest-500/30 transition-all cursor-pointer"
             >
               <span className="text-lg">🚚</span>
               <span className="text-[11px] font-black mt-0.5">택배사 송장</span>
@@ -1549,6 +3652,789 @@
             </div>
           )}
 
+          {/* 작기 정식 및 사전예약(Pre-Order) Cap 신규 등록 모달 */}
+          {addPlantingModal.isOpen && (
+            <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 animate-fadeIn">
+              <div className="bg-white rounded-3xl p-5 max-w-sm w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🌱</span>
+                    <h3 className="font-black text-base text-slate-800">작기 정식 및 예약 Cap 등록</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAddPlantingModal({ ...addPlantingModal, isOpen: false })}
+                    className="text-slate-400 hover:text-slate-600 text-sm font-bold cursor-pointer p-1"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <form onSubmit={handleSavePlanting} className="space-y-3.5 text-xs">
+                  {/* 품종 선택 */}
+                  <div>
+                    <label className="block text-slate-600 font-bold mb-1">1. 작물 품종</label>
+                    <select
+                      value={addPlantingModal.cropType}
+                      onChange={(e) => {
+                        const ct = e.target.value;
+                        const autoH = calculateHarvestDate(ct, addPlantingModal.plantedDate);
+                        setAddPlantingModal({
+                          ...addPlantingModal,
+                          cropType: ct,
+                          harvestDate: autoH,
+                          cropName: addPlantingModal.cropName ? addPlantingModal.cropName : `${ct} (햇작기)`
+                        });
+                      }}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white text-slate-800 font-bold"
+                    >
+                      <option value="수박">수박 (생육 90일)</option>
+                      <option value="멜론">멜론 (생육 100일)</option>
+                      <option value="사과">사과 (생육 150일)</option>
+                      <option value="배">배 (생육 160일)</option>
+                      <option value="기타">기타 작물 (생육 90일)</option>
+                    </select>
+                  </div>
+
+                  {/* 관리 명칭 */}
+                  <div>
+                    <label className="block text-slate-600 font-bold mb-1">2. 작기 관리명칭 / 하우스</label>
+                    <input
+                      type="text"
+                      value={addPlantingModal.cropName}
+                      onChange={(e) => setAddPlantingModal({ ...addPlantingModal, cropName: e.target.value })}
+                      placeholder="예: 2026 하미과 1동 (정품 보증)"
+                      className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none text-slate-800"
+                    />
+                  </div>
+
+                  {/* 정식일 & 출하예정일 */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-slate-600 font-bold mb-1">3. 정식일</label>
+                      <input
+                        type="date"
+                        value={addPlantingModal.plantedDate}
+                        onChange={(e) => {
+                          const pDate = e.target.value;
+                          const autoH = calculateHarvestDate(addPlantingModal.cropType, pDate);
+                          setAddPlantingModal({
+                            ...addPlantingModal,
+                            plantedDate: pDate,
+                            harvestDate: autoH
+                          });
+                        }}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none text-slate-800 font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-600 font-bold mb-1">4. 출하예정일</label>
+                      <input
+                        type="date"
+                        value={addPlantingModal.harvestDate || calculateHarvestDate(addPlantingModal.cropType, addPlantingModal.plantedDate)}
+                        onChange={(e) => setAddPlantingModal({ ...addPlantingModal, harvestDate: e.target.value })}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none text-slate-800 font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 정식 포기 수 & 정품 수율 */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-slate-600 font-bold mb-1">5. 정식 포기수</label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="100"
+                        value={addPlantingModal.plantedCount}
+                        onChange={(e) => setAddPlantingModal({ ...addPlantingModal, plantedCount: e.target.value })}
+                        placeholder="예: 5000"
+                        className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none text-slate-800 font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-600 font-bold mb-1">6. 정품 수율(%)</label>
+                      <input
+                        type="number"
+                        min="10"
+                        max="100"
+                        value={addPlantingModal.yieldRate}
+                        onChange={(e) => setAddPlantingModal({ ...addPlantingModal, yieldRate: e.target.value })}
+                        placeholder="85"
+                        className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none text-slate-800 font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 안전 버퍼율 */}
+                  <div>
+                    <label className="block text-slate-600 font-bold mb-1">
+                      7. 예약 안전 버퍼(%) <span className="text-[10px] text-slate-400 font-normal">비축분 20% 추천</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="10"
+                      max="100"
+                      value={addPlantingModal.safetyBuffer}
+                      onChange={(e) => setAddPlantingModal({ ...addPlantingModal, safetyBuffer: e.target.value })}
+                      placeholder="80"
+                      className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none text-slate-800 font-medium"
+                    />
+                  </div>
+
+                  {/* 실시간 계산 결과 미리보기 */}
+                  {(() => {
+                    const p = Number(addPlantingModal.plantedCount) || 0;
+                    const y = Number(addPlantingModal.yieldRate) || 0;
+                    const b = Number(addPlantingModal.safetyBuffer) || 0;
+                    const calcCap = Math.floor(p * (y / 100) * (b / 100));
+                    return (
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs space-y-1">
+                        <div className="flex justify-between items-center text-slate-600 font-bold">
+                          <span>계산 공식:</span>
+                          <span className="font-mono text-[11px] text-slate-500">{p.toLocaleString()} × {y}% × {b}%</span>
+                        </div>
+                        <div className="flex justify-between items-center text-emerald-800 font-black pt-1 border-t border-emerald-200/60">
+                          <span>최종 사전예약 Cap(한도):</span>
+                          <span className="text-base font-extrabold text-emerald-600 font-mono">{calcCap.toLocaleString()} 박스</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* 하단 버튼 */}
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setAddPlantingModal({ ...addPlantingModal, isOpen: false })}
+                      className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl font-bold cursor-pointer transition-all"
+                    >
+                      취소
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-2 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-black shadow-md shadow-emerald-600/30 cursor-pointer transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <span>🌱</span>
+                      <span>정식 등록 완료</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* [행정안전부 연동 및 표준 산지 주소 검색 모달] */}
+          {isAddressModalOpen && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
+              <div className="bg-white rounded-t-3xl sm:rounded-3xl p-5 max-w-md w-full shadow-2xl space-y-3.5 text-xs max-h-[85vh] flex flex-col">
+                <div className="flex justify-between items-center pb-2 border-b border-slate-100 shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-lg">🔍</span>
+                    <div>
+                      <h3 className="font-extrabold text-sm text-slate-900">도로명 주소 검색</h3>
+                      <p className="text-[10px] text-slate-400">행정안전부 표준 연동 및 전국 산지 주소록</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddressModalOpen(false)}
+                    className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 font-bold cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleExecuteAddressSearch();
+                  }}
+                  className="flex gap-2 shrink-0"
+                >
+                  <input
+                    type="text"
+                    value={addressSearchQuery}
+                    onChange={(e) => setAddressSearchQuery(e.target.value)}
+                    placeholder="도로명 또는 지번 입력 (예: 소근로, 송암로 523)"
+                    className="flex-1 p-2.5 border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-farm-500 focus:outline-none"
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    className="bg-slate-900 hover:bg-slate-800 text-white font-bold px-4 py-2.5 rounded-xl cursor-pointer shadow-xs shrink-0"
+                  >
+                    검색
+                  </button>
+                </form>
+
+                {/* 검색 결과 목록 */}
+                <div className="flex-1 overflow-y-auto divide-y divide-slate-100 min-h-[160px] max-h-[300px]">
+                  {addressSearchResults.length > 0 ? (
+                    addressSearchResults.map((item, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => handleSelectAddressItem(item)}
+                        className="py-2.5 px-1 hover:bg-slate-50 cursor-pointer transition-colors space-y-0.5"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-[10px] bg-farm-50 text-farm-700 px-1.5 py-0.2 rounded border border-farm-200">
+                            {item.zonecode}
+                          </span>
+                          <span className="font-extrabold text-slate-900 text-xs">
+                            {item.roadAddress}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 pl-1">
+                          [지번] {item.jibunAddress}
+                        </p>
+                      </div>
+                    ))
+                  ) : addressSearchPerformed ? (
+                    <div className="py-8 text-center text-slate-400 text-xs">
+                      검색 결과가 없습니다. 도로명이나 번지를 다시 확인해주세요.
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center text-slate-400 text-xs">
+                      도로명(예: 소근로, 송암로)을 입력하여 검색하세요.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* [하단 FAB 1: 📸 과수원 소식 모달] */}
+          {/* ========================================================================= */}
+          {orchardNewsModal.isOpen && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
+              <div className="bg-white rounded-t-3xl sm:rounded-3xl p-5 max-w-sm w-full shadow-2xl space-y-3.5 text-xs max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-center pb-2.5 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">📸</span>
+                    <div>
+                      <h3 className="font-extrabold text-sm text-slate-900">과수원 생육 소식 & 당도 등록</h3>
+                      <p className="text-[10px] text-slate-400">고객 사전예약자 및 단골 고객 알림톡</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setOrchardNewsModal(prev => ({ ...prev, isOpen: false }))}
+                    className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 font-bold cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <form onSubmit={handleGenerateAndCopyOrchardNews} className="space-y-3">
+                  {/* 1. 생육 단계 선택 */}
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1.5">
+                      1. 현재 생육 단계 <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {['착과기', '당도응축기', '수확 D-7', '수확당일'].map((stage) => {
+                        const isSelected = orchardNewsModal.stage === stage;
+                        return (
+                          <button
+                            key={stage}
+                            type="button"
+                            onClick={() => setOrchardNewsModal(prev => ({ ...prev, stage }))}
+                            className={`py-2 px-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-farm-600 text-white font-black shadow-xs'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            {stage === '착과기' && '🌱 '}
+                            {stage === '당도응축기' && '☀️ '}
+                            {stage === '수확 D-7' && '⏳ '}
+                            {stage === '수확당일' && '🎉 '}
+                            {stage}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 2. 측정 당도 (Brix) */}
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      2. 현장 측정 당도 (Brix)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={orchardNewsModal.brix}
+                        onChange={(e) => setOrchardNewsModal(prev => ({ ...prev, brix: e.target.value }))}
+                        placeholder="예: 15.5"
+                        className="w-full p-2.5 pr-12 border border-slate-300 rounded-xl focus:ring-2 focus:ring-farm-500 focus:outline-none font-bold font-mono text-slate-800"
+                      />
+                      <span className="absolute right-3 top-2.5 font-bold text-slate-400">Brix</span>
+                    </div>
+                  </div>
+
+                  {/* 3. 농부 한마디 */}
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      3. 농부의 현장 한마디 <span className="text-rose-500">*</span>
+                    </label>
+                    <textarea
+                      rows="3"
+                      required
+                      value={orchardNewsModal.comment}
+                      onChange={(e) => setOrchardNewsModal(prev => ({ ...prev, comment: e.target.value }))}
+                      placeholder="고객님께 전달할 생육 현황을 적어주세요..."
+                      className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-farm-500 focus:outline-none text-slate-800 leading-relaxed font-medium"
+                    />
+                  </div>
+
+                  {/* 4. 과수원 현장 사진 첨부 */}
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      4. 과수원 현장 사진 파일 (선택)
+                    </label>
+                    <label className="flex items-center justify-center p-3 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-farm-500 hover:bg-farm-50/50 transition-all bg-slate-50">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleOrchardPhotoUpload}
+                        className="hidden"
+                      />
+                      <span className="text-xs text-slate-500 font-bold flex items-center gap-1.5">
+                        <span>📷</span>
+                        <span>{orchardNewsModal.fileName ? orchardNewsModal.fileName : '스마트폰 사진 선택하기'}</span>
+                      </span>
+                    </label>
+
+                    {orchardNewsModal.photoUrl && (
+                      <div className="mt-2 relative rounded-xl overflow-hidden border border-slate-200">
+                        <img
+                          src={orchardNewsModal.photoUrl}
+                          alt="과수원 사진 미리보기"
+                          className="w-full h-36 object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setOrchardNewsModal(prev => ({ ...prev, photoUrl: '', fileName: '' }))}
+                          className="absolute top-2 right-2 bg-black/70 hover:bg-black text-white rounded-full p-1 w-6 h-6 flex items-center justify-center text-xs font-bold cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 알림톡 미리보기 박스 */}
+                  <div className="bg-amber-50/90 border border-amber-200/80 rounded-xl p-2.5 text-[11px] text-amber-900 space-y-1">
+                    <p className="font-extrabold flex items-center gap-1 text-amber-800">
+                      <span>💬</span> 알림톡 발송 포맷 자동 구성
+                    </p>
+                    <p className="text-slate-600 line-clamp-2">
+                      "[{currentMerchant?.farmName || '태안 사과농장'}] 현재 생육 단계: [{orchardNewsModal.stage}], 당도: [{orchardNewsModal.brix} Brix 보증]..."
+                    </p>
+                  </div>
+
+                  {/* 하단 버튼 */}
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setOrchardNewsModal(prev => ({ ...prev, isOpen: false }))}
+                      className="flex-1 bg-slate-100 hover:bg-slate-200 active:scale-98 text-slate-700 py-3 rounded-xl font-bold cursor-pointer transition-all"
+                    >
+                      취소
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-2 bg-farm-600 hover:bg-farm-700 active:scale-98 text-white py-3 rounded-xl font-black shadow-md shadow-farm-600/30 cursor-pointer transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <span>📢</span>
+                      <span>소식 알림톡 생성 & 복사</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* [하단 FAB 2: 📋 입금 독려톡 모달] */}
+          {/* ========================================================================= */}
+          {paymentReminderModal.isOpen && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
+              <div className="bg-white rounded-t-3xl sm:rounded-3xl p-5 max-w-md w-full shadow-2xl space-y-3.5 text-xs max-h-[88vh] flex flex-col">
+                <div className="flex justify-between items-center pb-2.5 border-b border-slate-100 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">📋</span>
+                    <div>
+                      <h3 className="font-extrabold text-sm text-slate-900">입금 독려 & 계좌 안내톡</h3>
+                      <p className="text-[10px] text-slate-400">미입금 고객 원클릭 모바일 문자 및 알림 발송</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentReminderModal({ isOpen: false })}
+                    className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 font-bold cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* 농가 입금 계좌 카드 */}
+                <div className="bg-slate-900 text-white p-3 rounded-2xl shrink-0 space-y-1">
+                  <div className="flex items-center justify-between text-[11px] text-slate-400">
+                    <span>농가 지정 입금 계좌</span>
+                    <span className="font-mono text-emerald-400 font-bold">실시간 자동 첨부</span>
+                  </div>
+                  <p className="font-extrabold text-xs text-white tracking-wide">
+                    {farmAccountInfo}
+                  </p>
+                </div>
+
+                {/* 미입금 건수 여부에 따른 분기 */}
+                {unpaidOrders.length === 0 ? (
+                  <div className="py-10 text-center space-y-2 shrink-0">
+                    <div className="text-4xl">🎉</div>
+                    <h4 className="font-black text-slate-800 text-sm">현재 입금 대기 중인 주문이 없습니다!</h4>
+                    <p className="text-slate-500 text-xs">
+                      현재 등록된 전체 <b>{myFarmOrders.length}건</b>의 주문이 모두 정상 입금 완료되었습니다.
+                    </p>
+                    <div className="pt-3">
+                      <button
+                        type="button"
+                        onClick={() => setPaymentReminderModal({ isOpen: false })}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-2.5 rounded-xl cursor-pointer"
+                      >
+                        확인 완료
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between shrink-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-slate-700">미입금 주문 내역</span>
+                        <span className="bg-rose-100 text-rose-700 font-black px-2 py-0.5 rounded-full text-[10px]">
+                          {unpaidOrders.length}건 ({totalUnpaidAmount.toLocaleString()}원)
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleCopyAllUnpaidMsg}
+                        className="bg-slate-800 hover:bg-slate-900 text-white font-bold px-2.5 py-1 rounded-lg text-[10px] cursor-pointer transition-all flex items-center gap-1"
+                      >
+                        <span>📋</span>
+                        <span>전체 일괄 복사</span>
+                      </button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto space-y-2.5 divide-y divide-slate-100 min-h-[140px] pr-0.5">
+                      {unpaidOrders.map((order) => {
+                        const orderId = order.orderId || order.id;
+                        const receiver = order.receiverName || order.receiver?.name || order.senderName || '고객';
+                        const phone = order.receiverPhone || order.receiver?.tel || order.senderPhone || '';
+                        const prod = order.productName || order.product?.name || '상품';
+                        const qty = order.quantity || order.product?.qty || 1;
+                        const amt = Number(order.price) || Number(order.product?.price) || 0;
+
+                        return (
+                          <div key={orderId} className="pt-2 first:pt-0 space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-bold">
+                                  {orderId}
+                                </span>
+                                <span className="font-extrabold text-slate-900 text-xs">
+                                  {receiver}
+                                </span>
+                                <span className="font-mono text-[11px] text-slate-500">
+                                  {phone}
+                                </span>
+                              </div>
+                              <span className="font-black text-rose-600 font-mono text-xs">
+                                {amt.toLocaleString()}원
+                              </span>
+                            </div>
+
+                            <p className="text-[11px] text-slate-600 truncate">
+                              {prod} ({qty}박스)
+                            </p>
+
+                            <div className="flex gap-1.5 pt-0.5">
+                              <button
+                                type="button"
+                                onClick={() => handleSendPaymentSms(order)}
+                                className="flex-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold py-1.5 px-2 rounded-lg text-[11px] cursor-pointer transition-all flex items-center justify-center gap-1 shadow-2xs"
+                              >
+                                <span>📱</span>
+                                <span>문자 전송</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyPaymentMsg(order)}
+                                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-1.5 px-2.5 rounded-lg text-[11px] cursor-pointer transition-all flex items-center gap-1"
+                              >
+                                <span>📋</span>
+                                <span>복사</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => togglePayment(orderId)}
+                                className="bg-farm-100 hover:bg-farm-200 text-farm-800 font-bold py-1.5 px-2 rounded-lg text-[11px] cursor-pointer transition-all"
+                              >
+                                입금확인
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* [하단 FAB 3: 🚚 택배사 송장 모달] */}
+          {/* ========================================================================= */}
+          {courierInvoiceModal.isOpen && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
+              <div className="bg-white rounded-t-3xl sm:rounded-3xl p-5 max-w-md w-full shadow-2xl space-y-3.5 text-xs max-h-[90vh] flex flex-col">
+                <div className="flex justify-between items-center pb-2.5 border-b border-slate-100 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🚚</span>
+                    <div>
+                      <h3 className="font-extrabold text-sm text-slate-900">택배사 송장 일괄 매칭 & 등록</h3>
+                      <p className="text-[10px] text-slate-400">엑셀 일괄 매칭 및 송장 자동 배송중 전환</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCourierInvoiceModal(prev => ({ ...prev, isOpen: false }))}
+                    className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 font-bold cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* 탭 전환 및 택배사 선택 */}
+                <div className="space-y-2 shrink-0">
+                  <div className="flex p-1 bg-slate-100 rounded-xl text-xs font-bold gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setCourierInvoiceModal(prev => ({ ...prev, tab: 'BULK' }))}
+                      className={`flex-1 py-1.5 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                        courierInvoiceModal.tab === 'BULK'
+                          ? 'bg-white text-slate-900 shadow-xs font-black'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      <span>📊</span>
+                      <span>엑셀 일괄 매칭</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCourierInvoiceModal(prev => ({ ...prev, tab: 'DIRECT' }))}
+                      className={`flex-1 py-1.5 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                        courierInvoiceModal.tab === 'DIRECT'
+                          ? 'bg-white text-harvest-700 shadow-xs font-black'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      <span>✍️</span>
+                      <span>간편 수기 등록</span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                    <span className="font-bold text-slate-700">계약 택배사 선택:</span>
+                    <select
+                      value={courierInvoiceModal.courier}
+                      onChange={(e) => setCourierInvoiceModal(prev => ({ ...prev, courier: e.target.value }))}
+                      className="bg-white border border-slate-300 rounded-lg px-2.5 py-1 font-extrabold text-slate-800 focus:ring-1 focus:ring-harvest-500 text-xs"
+                    >
+                      <option value="CJ대한통운">CJ대한통운</option>
+                      <option value="우체국택배">우체국택배</option>
+                      <option value="롯데택배">롯데택배</option>
+                      <option value="한진택배">한진택배</option>
+                      <option value="로젠택배">로젠택배</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* [방식 1: 엑셀 일괄 매칭] */}
+                {courierInvoiceModal.tab === 'BULK' && (
+                  <div className="flex-1 overflow-y-auto space-y-3 min-h-[160px]">
+                    <div className="border-2 border-dashed border-slate-300 hover:border-harvest-500 hover:bg-harvest-50/30 rounded-2xl p-4 text-center transition-all bg-slate-50">
+                      <input
+                        type="file"
+                        accept=".xlsx, .xls, .csv"
+                        onChange={handleCourierExcelUpload}
+                        className="hidden"
+                        id="courierExcelInput"
+                      />
+                      <label htmlFor="courierExcelInput" className="cursor-pointer space-y-1 block">
+                        <span className="text-2xl block">📂</span>
+                        <p className="font-extrabold text-slate-800 text-xs">
+                          {courierInvoiceModal.bulkFile ? courierInvoiceModal.bulkFile.name : '택배사 출력 송장 파일 선택 (.xlsx / .csv)'}
+                        </p>
+                        <p className="text-[10px] text-slate-400">
+                          수령인 성명, 연락처, 송장번호 컬럼 자동 인식 & 매칭
+                        </p>
+                      </label>
+                    </div>
+
+                    {/* 매칭 결과 리스트 */}
+                    {courierInvoiceModal.matchResults.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-700">
+                            매칭 결과: 총 {courierInvoiceModal.matchResults.length}건
+                          </span>
+                          <div className="flex gap-1.5 text-[10px] font-bold">
+                            <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                              성공 {courierInvoiceModal.matchResults.filter(r => r.status === 'SUCCESS').length}건
+                            </span>
+                            <span className="bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full">
+                              실패 {courierInvoiceModal.matchResults.filter(r => r.status === 'FAILED').length}건
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-[160px] overflow-y-auto bg-white">
+                          {courierInvoiceModal.matchResults.map((item, idx) => (
+                            <div key={idx} className="p-2 flex items-center justify-between text-[11px]">
+                              <div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-bold text-slate-800">{item.receiver}</span>
+                                  {item.phone && <span className="text-slate-400 font-mono text-[10px]">({item.phone})</span>}
+                                  {item.matchedOrder && (
+                                    <span className="font-mono text-[9px] bg-blue-50 text-blue-700 px-1 py-0.2 rounded">
+                                      {item.matchedOrder.orderId || item.matchedOrder.id}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="font-mono text-[10px] text-slate-600 mt-0.5">
+                                  송장: <b className="text-blue-700">{item.extractedInvoice || '미인식'}</b>
+                                </p>
+                              </div>
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                item.status === 'SUCCESS' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                              }`}>
+                                {item.status === 'SUCCESS' ? '✓ 매칭' : item.reason}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleApplyBulkInvoices}
+                          className="w-full bg-harvest-500 hover:bg-harvest-600 active:scale-98 text-white font-black py-2.5 rounded-xl cursor-pointer shadow-md shadow-harvest-500/30 transition-all flex items-center justify-center gap-1.5"
+                        >
+                          <span>🚀</span>
+                          <span>일괄 송장 등록 & 배송중 전환 ({courierInvoiceModal.matchResults.filter(r => r.status === 'SUCCESS').length}건)</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* [방식 2: 간편 수기 등록] */}
+                {courierInvoiceModal.tab === 'DIRECT' && (() => {
+                  const pendingOrders = myFarmOrders.filter(o => !o.tracking && !o.invoiceNum);
+                  return (
+                    <div className="flex-1 overflow-y-auto space-y-2.5 min-h-[160px]">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-700">
+                          송장 미등록 주문 ({pendingOrders.length}건)
+                        </span>
+                        {pendingOrders.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleSaveDirectInvoices}
+                            className="bg-harvest-500 hover:bg-harvest-600 text-white font-bold px-2.5 py-1 rounded-lg text-[10px] cursor-pointer shadow-2xs"
+                          >
+                            입력된 송장 일괄 저장
+                          </button>
+                        )}
+                      </div>
+
+                      {pendingOrders.length === 0 ? (
+                        <div className="py-8 text-center text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                          <p>현재 송장이 미등록된 대기 주문이 없습니다.</p>
+                          <p className="text-[10px] text-slate-400 mt-1">모든 주문에 송장이 등록되었거나 신규 주문 대기 중입니다.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {pendingOrders.map((order) => {
+                            const oId = order.orderId || order.id;
+                            const receiver = order.receiverName || order.receiver?.name || order.senderName || '고객';
+                            const prod = order.productName || order.product?.name || '상품';
+                            const inputVal = courierInvoiceModal.directInputs[oId] || '';
+
+                            return (
+                              <div key={oId} className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-1.5">
+                                <div className="flex justify-between items-center text-[11px]">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-mono text-[10px] bg-white px-1.5 py-0.2 rounded border border-slate-200">
+                                      {oId}
+                                    </span>
+                                    <span className="font-extrabold text-slate-800">{receiver}</span>
+                                  </div>
+                                  <span className="text-slate-500">{prod}</span>
+                                </div>
+                                <div className="flex gap-1.5">
+                                  <input
+                                    type="text"
+                                    placeholder="송장번호(숫자 8자리 이상)"
+                                    value={inputVal}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setCourierInvoiceModal(prev => ({
+                                        ...prev,
+                                        directInputs: { ...prev.directInputs, [oId]: val }
+                                      }));
+                                    }}
+                                    className="flex-1 bg-white border border-slate-300 rounded-lg px-2 py-1 font-mono text-slate-800 text-xs focus:ring-1 focus:ring-harvest-500"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (!inputVal || inputVal.trim().length < 8) {
+                                        alert('8자리 이상의 유효한 송장번호를 입력해주세요.');
+                                        return;
+                                      }
+                                      setFarmInvoiceInputs(prev => ({
+                                        ...prev,
+                                        [oId]: { courier: courierInvoiceModal.courier, num: inputVal.trim() }
+                                      }));
+                                      handleSaveFarmInvoice(oId);
+                                      setCourierInvoiceModal(prev => {
+                                        const nextDirect = { ...prev.directInputs };
+                                        delete nextDirect[oId];
+                                        return { ...prev, directInputs: nextDirect };
+                                      });
+                                    }}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1 rounded-lg text-xs cursor-pointer shadow-2xs shrink-0"
+                                  >
+                                    저장
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+
           {/* 토스트 알림 */}
           {toast && (
             <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white text-xs px-4 py-2.5 rounded-full shadow-lg z-50 animate-bounce">
@@ -1559,11 +4445,60 @@
       );
     }
 
+    class ErrorBoundary extends React.Component {
+      constructor(props) {
+        super(props);
+        this.state = { hasError: false, error: null };
+      }
+      static getDerivedStateFromError(error) {
+        return { hasError: true, error };
+      }
+      componentDidCatch(error, errorInfo) {
+        console.error('React ErrorBoundary 포착:', error, errorInfo);
+      }
+      render() {
+        if (this.state.hasError) {
+          return (
+            <div style={{ padding: '40px 20px', textAlign: 'center', fontFamily: 'sans-serif', color: '#334155', maxWidth: '420px', margin: '0 auto' }}>
+              <div style={{ fontSize: '36px', marginBottom: '12px' }}>🌾</div>
+              <h2 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '8px', color: '#0f172a' }}>농가 포털 화면 로딩 안내</h2>
+              <p style={{ fontSize: '13px', color: '#64748b', lineHeight: 1.5, marginBottom: '20px' }}>
+                화면을 구성하는 중 일시적인 오류가 발생했습니다.<br />
+                <code style={{ fontSize: '11px', color: '#ef4444', background: '#fee2e2', padding: '2px 6px', borderRadius: '4px' }}>
+                  {this.state.error?.message || '렌더링 오류'}
+                </code>
+              </p>
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => { sessionStorage.removeItem('ooms_farm_session'); location.reload(); }}
+                  style={{ padding: '10px 16px', background: '#059669', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer' }}
+                >
+                  🔄 세션 초기화 후 재시도
+                </button>
+                <a
+                  href="index.html"
+                  style={{ padding: '10px 16px', background: '#1e293b', color: 'white', textDecoration: 'none', borderRadius: '10px', fontWeight: 'bold', fontSize: '13px', display: 'inline-block' }}
+                >
+                  메인으로 이동
+                </a>
+              </div>
+            </div>
+          );
+        }
+        return this.props.children;
+      }
+    }
+
     function initApp() {
       const rootElem = document.getElementById('farm-root');
       if (rootElem) {
         try {
-          ReactDOM.createRoot(rootElem).render(<FarmPortalApp />);
+          ReactDOM.createRoot(rootElem).render(
+            <ErrorBoundary>
+              <FarmPortalApp />
+            </ErrorBoundary>
+          );
         } catch (err) {
           console.error('React 마운트 오류:', err);
           rootElem.innerHTML = `
@@ -1593,6 +4528,38 @@
     } else {
       initApp();
     }
+  </script>
+  <script>
+    // 전역 휴대전화 번호 실시간 자동 하이픈 및 최대 13자 제한 포매팅 (동적 렌더링 입력창 완벽 지원)
+    document.addEventListener('input', function(e) {
+      var target = e.target;
+      if (!target || target.tagName !== 'INPUT') return;
+      var type = target.getAttribute('type') || '';
+      var id = target.id || '';
+      var name = target.name || '';
+      var placeholder = target.placeholder || '';
+
+      var isPhone = type === 'tel' ||
+                    /phone|tel/i.test(id) ||
+                    /phone|tel/i.test(name) ||
+                    /010|전화|연락처|휴대폰/i.test(placeholder);
+
+      if (isPhone) {
+        target.setAttribute('maxlength', '13');
+        var val = target.value.replace(/[^0-9]/g, '');
+        if (val.length > 11) val = val.slice(0, 11);
+
+        if (val.length >= 11) {
+          target.value = val.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
+        } else if (val.length >= 7) {
+          target.value = val.replace(/(\d{3})(\d{3,4})(\d+)/, '$1-$2-$3');
+        } else if (val.length >= 4) {
+          target.value = val.replace(/(\d{3})(\d+)/, '$1-$2');
+        } else {
+          target.value = val;
+        }
+      }
+    }, true);
   </script>
 </body>
 </html>
