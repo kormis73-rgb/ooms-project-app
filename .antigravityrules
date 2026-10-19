@@ -1,0 +1,20 @@
+# OOMS Project Immutable Development Rules
+
+1. Dynamic Farm Binding Only:
+   - Never hardcode farm codes (e.g. FARM-2026-456) or representative names in URLs, links, or states.
+   - Always resolve farmCode dynamically from URL query params (?farm=...) or active session state.
+
+2. Zero-Touch External Integrations:
+   - Do NOT modify, minify, or alter external service codes:
+     - Kakao SDK & Login authentication
+     - Ministry of the Interior juso.go.kr (jusoPopup.html)
+     - Supabase initialization & schema mappings
+
+3. No Phantom Files or Virtual Routes:
+   - The central entry and authentication gateway is strictly 'index.html'.
+   - Never introduce, redirect to, or assume files that do not exist (e.g., login.html).
+
+4. Surgical Editing & State Isolation:
+   - Modify only the explicitly requested functions or components.
+   - Do not overwrite unaffected state keys (ooms_admin_auth vs ooms_farm_code must stay strictly separate).
+   - Verify file save completion immediately after every edit.

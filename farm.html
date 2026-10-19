@@ -104,13 +104,13 @@
           <div class="grid grid-cols-3 gap-2 text-center">
             <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
               <p class="text-[11px] text-slate-500">총 주문</p>
-              <p class="text-lg font-black text-slate-900 mt-0.5">0건</p>
-              <span class="text-[10px] text-farm-600 font-bold">0박스</span>
+              <p class="text-lg font-black text-slate-900 mt-0.5">8건</p>
+              <span class="text-[10px] text-farm-600 font-bold">10박스</span>
             </div>
             <div class="bg-emerald-50 p-2.5 rounded-xl border border-emerald-100">
               <p class="text-[11px] text-emerald-700">입금 완료</p>
-              <p class="text-lg font-black text-emerald-800 mt-0.5">0건</p>
-              <span class="text-[10px] text-emerald-600 font-bold">0원</span>
+              <p class="text-lg font-black text-emerald-800 mt-0.5">8건</p>
+              <span class="text-[10px] text-emerald-600 font-bold">550,000원</span>
             </div>
             <div class="bg-amber-50 p-2.5 rounded-xl border border-amber-100">
               <p class="text-[11px] text-amber-700">입금 대기</p>
@@ -199,6 +199,7 @@
       address: '충청남도 태안군 소원면 소근로 54-16',
       postOfficeNum: '1092837465',
       status: 'APPROVED',
+      approvalStatus: 'APPROVED',
       brix: '당도 16.5 Brix 보증',
       products: [
         {
@@ -255,23 +256,24 @@
       ]
     };
 
-    // 기본 주문 목업 데이터 (태안 사과농장 FARM-2026-224 8건 정규 주문 데이터)
+    // 기본 주문 목업 데이터 (태안 사과농장 FARM-2026-224 8건 정규 주문 데이터: 총 10박스)
     const DEFAULT_ORDERS = [
       {
         id: 'ORD-BULK-9566-1',
         orderId: 'ORD-BULK-9566-1',
         farmCode: 'FARM-2026-224',
-        createdAt: '2026-10-10 14:20',
-        senderName: '한리라',
-        senderPhone: '010-7733-1122',
+        createdAt: '2026-10-16 09:30',
+        senderName: '김순혜',
+        senderPhone: '010-4455-9513',
         receiverName: '한리라',
-        receiverPhone: '010-7733-1122',
-        address: '경기도 안양시 만안구 안양로 112',
-        detailAddress: '101호',
-        postcode: '14000',
-        productName: '맛있는 꿀사과 10kg',
+        receiverPhone: '010-9116-5088',
+        address: '경기도 안양시 동안구 관평로 68',
+        detailAddress: '706동 602호(평촌동, 꿈마을한신아파트)',
+        postcode: '14068',
+        productName: '맛있는 꿀사과 10kg(20~25개)',
         quantity: 2,
         price: 110000,
+        amount: 110000,
         paid: true,
         paymentStatus: '입금완료',
         shippingStatus: '배송중',
@@ -282,24 +284,25 @@
         channel: '엑셀(대량)',
         source: '엑셀(대량)',
         orderType: '대량주문(엑셀)',
-        memo: '안전 배송 부탁드립니다.',
+        memo: '노랑',
         status: { payment: 'PAID', shipping: 'SHIPPED', staging: 'APPROVED' }
       },
       {
         id: 'ORD-BULK-9566-2',
         orderId: 'ORD-BULK-9566-2',
         farmCode: 'FARM-2026-224',
-        createdAt: '2026-10-10 15:05',
-        senderName: '이약속',
-        senderPhone: '010-4491-0021',
+        createdAt: '2026-10-16 10:15',
+        senderName: '김중근',
+        senderPhone: '010-5372-8823',
         receiverName: '이약속',
-        receiverPhone: '010-4491-0021',
-        address: '경기도 성남시 분당구 판교역로 166',
-        detailAddress: '402호',
-        postcode: '13529',
-        productName: '정품 하미과 4.5kg',
+        receiverPhone: '010-9686-8586',
+        address: '경기도 성남시 분당구 내정로 54',
+        detailAddress: '608동 802호(정자동, 한솔마을주공6단지아파트)',
+        postcode: '13596',
+        productName: '맛있는 꿀사과 10kg(20~25개)',
         quantity: 1,
-        price: 45000,
+        price: 55000,
+        amount: 55000,
         paid: true,
         paymentStatus: '입금완료',
         shippingStatus: '배송중',
@@ -310,24 +313,25 @@
         channel: '엑셀(대량)',
         source: '엑셀(대량)',
         orderType: '대량주문(엑셀)',
-        memo: '배송 전 연락 부탁드립니다.',
+        memo: '노랑',
         status: { payment: 'PAID', shipping: 'SHIPPED', staging: 'APPROVED' }
       },
       {
         id: 'ORD-BULK-9566-3',
         orderId: 'ORD-BULK-9566-3',
         farmCode: 'FARM-2026-224',
-        createdAt: '2026-10-11 11:30',
-        senderName: '최현경',
-        senderPhone: '010-9876-5432',
+        createdAt: '2026-10-16 11:20',
+        senderName: '조국래',
+        senderPhone: '010-8730-2147',
         receiverName: '최현경',
-        receiverPhone: '010-9876-5432',
-        address: '서울특별시 금천구 시흥대로 73',
-        detailAddress: '201동 502호',
-        postcode: '08500',
-        productName: '맛있는 꿀사과 10kg',
+        receiverPhone: '010-2329-8991',
+        address: '서울특별시 금천구 서부샛길 606',
+        detailAddress: 'A동 2610호(가산동, 대성디폴리스지식산업센터)',
+        postcode: '08504',
+        productName: '맛있는 꿀사과 10kg(20~25개)',
         quantity: 1,
         price: 55000,
+        amount: 55000,
         paid: true,
         paymentStatus: '입금완료',
         shippingStatus: '배송중',
@@ -338,24 +342,25 @@
         channel: '엑셀(대량)',
         source: '엑셀(대량)',
         orderType: '대량주문(엑셀)',
-        memo: '문 앞 보관 부탁드립니다.',
+        memo: '노랑+그린',
         status: { payment: 'PAID', shipping: 'SHIPPED', staging: 'APPROVED' }
       },
       {
         id: 'ORD-BULK-9566-4',
         orderId: 'ORD-BULK-9566-4',
         farmCode: 'FARM-2026-224',
-        createdAt: '2026-10-11 14:15',
-        senderName: '김황래',
-        senderPhone: '010-7788-9900',
+        createdAt: '2026-10-16 13:40',
+        senderName: '조국래',
+        senderPhone: '010-8730-2147',
         receiverName: '김황래',
-        receiverPhone: '010-7788-9900',
-        address: '서울특별시 강서구 공항대로 212',
-        detailAddress: '5층',
-        postcode: '07500',
-        productName: '정품 하미과 4.5kg',
+        receiverPhone: '010-8793-1430',
+        address: '서울 강서구 등촌로 55',
+        detailAddress: '부영아파트 106동 506호',
+        postcode: '07662',
+        productName: '맛있는 꿀사과 10kg(20~25개)',
         quantity: 1,
-        price: 45000,
+        price: 55000,
+        amount: 55000,
         paid: true,
         paymentStatus: '입금완료',
         shippingStatus: '배송중',
@@ -366,24 +371,25 @@
         channel: '엑셀(대량)',
         source: '엑셀(대량)',
         orderType: '대량주문(엑셀)',
-        memo: '부재 시 경비실 보관 부탁드립니다.',
+        memo: '노랑+그린',
         status: { payment: 'PAID', shipping: 'SHIPPED', staging: 'APPROVED' }
       },
       {
         id: 'ORD-BULK-9566-5',
         orderId: 'ORD-BULK-9566-5',
         farmCode: 'FARM-2026-224',
-        createdAt: '2026-10-12 10:40',
-        senderName: '안성광',
-        senderPhone: '010-2233-4455',
+        createdAt: '2026-10-16 15:10',
+        senderName: '조국래',
+        senderPhone: '010-8730-2147',
         receiverName: '안성광',
-        receiverPhone: '010-2233-4455',
-        address: '경상남도 밀양시 밀양대로 2047',
-        detailAddress: '102호',
-        postcode: '50400',
-        productName: '맛있는 꿀사과 10kg',
+        receiverPhone: '010-8848-6640',
+        address: '경상남도 밀양시 삼랑진읍 삼랑진로 1268-50',
+        detailAddress: '부산대밀양캠퍼스 생명자원과학관 3438(4층)',
+        postcode: '50463',
+        productName: '맛있는 꿀사과 10kg(20~25개)',
         quantity: 1,
         price: 55000,
+        amount: 55000,
         paid: true,
         paymentStatus: '입금완료',
         shippingStatus: '배송중',
@@ -394,24 +400,25 @@
         channel: '엑셀(대량)',
         source: '엑셀(대량)',
         orderType: '대량주문(엑셀)',
-        memo: '배송 전 연락 요망',
+        memo: '노랑+그린',
         status: { payment: 'PAID', shipping: 'SHIPPED', staging: 'APPROVED' }
       },
       {
         id: 'ORD-BULK-9566-6',
         orderId: 'ORD-BULK-9566-6',
         farmCode: 'FARM-2026-224',
-        createdAt: '2026-10-12 13:20',
-        senderName: '김은하',
-        senderPhone: '010-6677-8899',
+        createdAt: '2026-10-16 16:30',
+        senderName: '조국래',
+        senderPhone: '010-8730-2147',
         receiverName: '김은하',
-        receiverPhone: '010-6677-8899',
-        address: '대구광역시 달서구 달구벌대로 1200',
-        detailAddress: '7층',
-        postcode: '42600',
-        productName: '맛있는 꿀사과 10kg',
-        quantity: 2,
-        price: 110000,
+        receiverPhone: '010-2845-6847',
+        address: '대구광역시 달서구 장산로 10',
+        detailAddress: '105동 906호',
+        postcode: '42630',
+        productName: '맛있는 꿀사과 10kg(20~25개)',
+        quantity: 1,
+        price: 55000,
+        amount: 55000,
         paid: true,
         paymentStatus: '입금완료',
         shippingStatus: '배송중',
@@ -422,64 +429,66 @@
         channel: '엑셀(대량)',
         source: '엑셀(대량)',
         orderType: '대량주문(엑셀)',
-        memo: '문 앞 보관 요망',
+        memo: '노랑+그린2',
         status: { payment: 'PAID', shipping: 'SHIPPED', staging: 'APPROVED' }
       },
       {
         id: 'ORD-1692',
         orderId: 'ORD-1692',
         farmCode: 'FARM-2026-224',
-        createdAt: '2026-10-12 15:30',
-        senderName: '홍길순',
-        senderPhone: '010-3344-5566',
+        createdAt: '2026-10-17 10:15',
+        senderName: '홍길도',
+        senderPhone: '010-3412-8934',
         receiverName: '홍길순',
-        receiverPhone: '010-3344-5566',
+        receiverPhone: '010-3412-8934',
         address: '충청남도 태안군 태안읍 송암로 523',
-        detailAddress: '101호',
+        detailAddress: '2층 201호',
         postcode: '32145',
-        productName: '맛있는 꿀사과 10kg',
+        productName: '맛있는 꿀사과 10kg(20~25개)',
         quantity: 1,
         price: 55000,
+        amount: 55000,
         paid: true,
         paymentStatus: '입금완료',
-        shippingStatus: '배송중',
-        carrier: '롯데택배',
-        courier: '롯데택배',
-        tracking: '111111111',
-        invoiceNum: '111111111',
+        shippingStatus: '준비중',
+        carrier: '',
+        courier: '',
+        tracking: '',
+        invoiceNum: '',
         channel: 'PWA',
         source: '일반주문',
         orderType: '일반주문',
-        memo: '직접 수령',
-        status: { payment: 'PAID', shipping: 'SHIPPED', staging: 'APPROVED' }
+        memo: '배송 전 연락 부탁드립니다.',
+        status: { payment: 'PAID', shipping: 'READY', staging: 'APPROVED' }
       },
       {
-        id: 'ORD-4602',
-        orderId: 'ORD-4602',
+        id: 'ORD-8204',
+        orderId: 'ORD-8204',
         farmCode: 'FARM-2026-224',
-        createdAt: '2026-10-12 17:10',
-        senderName: '엄기철',
-        senderPhone: '010-1212-3434',
-        receiverName: '엄기철',
-        receiverPhone: '010-1212-3434',
-        address: '충청남도 태안군 소원면 소근로 70',
-        detailAddress: '단독주택',
-        postcode: '32130',
-        productName: '정품 하미과 4.5kg',
-        quantity: 1,
-        price: 45000,
+        createdAt: '2026-10-17 14:50',
+        senderName: '강태우',
+        senderPhone: '010-5544-7788',
+        receiverName: '이민정',
+        receiverPhone: '010-3322-1144',
+        address: '부산광역시 해운대구 마린시티2로 33',
+        detailAddress: '101동 2401호',
+        postcode: '48119',
+        productName: '맛있는 꿀사과 10kg(20~25개)',
+        quantity: 2,
+        price: 110000,
+        amount: 110000,
         paid: true,
         paymentStatus: '입금완료',
-        shippingStatus: '배송중',
-        carrier: 'CJ대한통운',
-        courier: 'CJ대한통운',
-        tracking: '6892948122190',
-        invoiceNum: '6892948122190',
+        shippingStatus: '준비중',
+        carrier: '',
+        courier: '',
+        tracking: '',
+        invoiceNum: '',
         channel: 'PWA',
         source: '일반주문',
         orderType: '일반주문',
-        memo: '대문 앞 보관',
-        status: { payment: 'PAID', shipping: 'SHIPPED', staging: 'APPROVED' }
+        memo: '경비실에 맡겨주세요',
+        status: { payment: 'PAID', shipping: 'READY', staging: 'APPROVED' }
       }
     ];
 
@@ -511,13 +520,14 @@
         localStorage.setItem('OOMS_MERCHANTS_DATA', JSON.stringify(cleaned));
       }
 
-      // 2. 주문 데이터 초기화 (ooms_orders가 비어있으면 8건 정규 주문 탑재)
-      const rawOrders = localStorage.getItem('ooms_orders');
+      // 2. 주문 데이터 초기화 (ooms_orders가 비어있거나 8건 미만이면 8건 정규 주문 탑재)
+      const rawOrders = localStorage.getItem('ooms_orders_data') || localStorage.getItem('ooms_orders') || localStorage.getItem('ooms_staging_orders');
       let parsedOrders = [];
       if (rawOrders) {
         try { parsedOrders = JSON.parse(rawOrders); } catch(e){}
       }
-      if (!Array.isArray(parsedOrders) || parsedOrders.length === 0) {
+      if (!Array.isArray(parsedOrders) || parsedOrders.length < 8) {
+        localStorage.setItem('ooms_orders_data', JSON.stringify(DEFAULT_ORDERS));
         localStorage.setItem('ooms_orders', JSON.stringify(DEFAULT_ORDERS));
         localStorage.setItem('ooms_staging_orders', JSON.stringify(DEFAULT_ORDERS));
       }
@@ -746,16 +756,16 @@
         return DEFAULT_FARM;
       });
 
-      // 2. 농가 주문 목록 상태 관리 (localStorage 'ooms_orders' 연동 및 DEFAULT_ORDERS(8건) 보증)
+      // 2. 농가 주문 목록 상태 관리 (localStorage 'ooms_orders_data', 'ooms_orders' 연동: 8건 정규 주문 데이터)
       const [orders, setOrdersState] = useState(() => {
         try {
-          const saved = localStorage.getItem('ooms_orders') || localStorage.getItem('ooms_staging_orders');
+          const saved = localStorage.getItem('ooms_orders_data') || localStorage.getItem('ooms_orders') || localStorage.getItem('ooms_staging_orders');
           if (saved) {
             const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+            if (Array.isArray(parsed) && parsed.length >= 8) return parsed;
           }
-          // 저장된 주문이 없거나 비어있는 경우 8건 표준 주문 시딩
           try {
+            localStorage.setItem('ooms_orders_data', JSON.stringify(DEFAULT_ORDERS));
             localStorage.setItem('ooms_orders', JSON.stringify(DEFAULT_ORDERS));
             localStorage.setItem('ooms_staging_orders', JSON.stringify(DEFAULT_ORDERS));
           } catch(e){}
@@ -771,6 +781,7 @@
         setOrdersState(prev => {
           const next = typeof updater === 'function' ? updater(prev) : updater;
           try {
+            localStorage.setItem('ooms_orders_data', JSON.stringify(next));
             localStorage.setItem('ooms_orders', JSON.stringify(next));
             localStorage.setItem('ooms_staging_orders', JSON.stringify(next));
             window.dispatchEvent(new Event('storage'));
@@ -835,18 +846,52 @@
         });
       };
 
+      // 택배사별 표준 송장 포맷팅 및 플레이스홀더 헬퍼
+      const formatInvoiceNumber = (courier, rawVal) => {
+        const digits = String(rawVal || '').replace(/[^0-9]/g, '');
+        if (!digits) return '';
+        if (courier === '우체국택배') {
+          const clean = digits.slice(0, 13);
+          if (clean.length > 9) return clean.replace(/^(\d{5})(\d{4})(\d{1,4})$/, '$1-$2-$3');
+          if (clean.length > 5) return clean.replace(/^(\d{5})(\d{1,4})$/, '$1-$2');
+          return clean;
+        } else if (courier === '로젠택배') {
+          const clean = digits.slice(0, 11);
+          if (clean.length > 7) return clean.replace(/^(\d{3})(\d{4})(\d{1,4})$/, '$1-$2-$3');
+          if (clean.length > 3) return clean.replace(/^(\d{3})(\d{1,4})$/, '$1-$2');
+          return clean;
+        } else {
+          // CJ대한통운, 롯데택배, 한진택배 (12자리: 4-4-4)
+          const clean = digits.slice(0, 12);
+          if (clean.length > 8) return clean.replace(/^(\d{4})(\d{4})(\d{1,4})$/, '$1-$2-$3');
+          if (clean.length > 4) return clean.replace(/^(\d{4})(\d{1,4})$/, '$1-$2');
+          return clean;
+        }
+      };
+
+      const getInvoicePlaceholder = (courier) => {
+        switch (courier) {
+          case '우체국택배': return '예: 12345-6789-0123';
+          case '롯데택배': return '예: 2345-6789-0123';
+          case '한진택배': return '예: 4567-8901-2345';
+          case '로젠택배': return '예: 987-6543-2109';
+          case 'CJ대한통운':
+          default: return '예: 1234-5678-9012';
+        }
+      };
+
       // 4. 농가 운송장 번호 직접 입력/수정 상태
       const [farmInvoiceInputs, setFarmInvoiceInputs] = useState({});
 
       // 타 창/탭(order.html, back.html 등)에서 신규 주문 및 CS 변경 발생 시 storage 이벤트로 실시간 자동 감지
       useEffect(() => {
         const handleStorageChange = (e) => {
-          if (!e.key || e.key === 'ooms_orders' || e.key === 'ooms_staging_orders') {
+          if (!e.key || e.key === 'ooms_orders' || e.key === 'ooms_orders_data' || e.key === 'ooms_staging_orders') {
             try {
-              const saved = localStorage.getItem('ooms_orders') ?? localStorage.getItem('ooms_staging_orders');
+              const saved = localStorage.getItem('ooms_orders_data') || localStorage.getItem('ooms_orders') || localStorage.getItem('ooms_staging_orders');
               if (saved !== null) {
                 const updated = JSON.parse(saved);
-                if (Array.isArray(updated)) {
+                if (Array.isArray(updated) && updated.length > 0) {
                   setOrdersState(updated);
                 }
               }
@@ -2868,10 +2913,10 @@
 
                             {/* 상태 뱃지 라인 */}
                             <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                              <span className={`text-[10px] px-2 py-0.5 rounded font-black ${paidStatus ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800 animate-pulse'}`}>
-                                {paidStatus ? '✓ 입금완료' : '⏳ 미입금'}
+                              <span className={`text-[10px] px-2 py-0.5 rounded font-black whitespace-nowrap ${paidStatus ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800 animate-pulse'}`}>
+                                {paidStatus ? '✓ 입금완료' : '⏳ 입금전'}
                               </span>
-                              <span className={`text-[10px] px-2 py-0.5 rounded font-black ${
+                              <span className={`text-[10px] px-2 py-0.5 rounded font-black whitespace-nowrap ${
                                 shippingStatus === '배송완료' 
                                   ? 'bg-slate-200 text-slate-700' 
                                   : (shippingStatus === '배송중' || shippingStatus === '배송출발')
@@ -2881,7 +2926,7 @@
                                 🚚 {shippingStatus === '배송출발' ? '배송중' : shippingStatus}
                               </span>
                               {trackingNo && (
-                                <span className="font-mono text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded font-bold">
+                                <span className="font-mono text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded font-bold whitespace-nowrap">
                                   [{order.carrier || order.courier || 'CJ대한통운'}] {trackingNo}
                                 </span>
                               )}
@@ -2930,7 +2975,7 @@
                                         onClick={() => {
                                           setFarmInvoiceInputs(prev => ({
                                             ...prev,
-                                            [orderId]: { courier: curCourier, num: curTracking, isEditing: true }
+                                            [orderId]: { courier: curCourier, num: formatInvoiceNumber(curCourier, curTracking), isEditing: true }
                                           }));
                                         }}
                                         className="text-[10px] text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded font-bold transition-all cursor-pointer"
@@ -2959,7 +3004,7 @@
                                         const val = e.target.value;
                                         setFarmInvoiceInputs(prev => ({
                                           ...prev,
-                                          [orderId]: { ...prev[orderId], courier: val, num: inputNum }
+                                          [orderId]: { ...prev[orderId], courier: val, num: formatInvoiceNumber(val, inputNum) }
                                         }));
                                       }}
                                       className="bg-white border border-slate-300 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:ring-1 focus:ring-farm-500 cursor-pointer"
@@ -2972,13 +3017,13 @@
                                     </select>
                                     <input
                                       type="text"
-                                      placeholder="송장번호 입력"
+                                      placeholder={getInvoicePlaceholder(selectedCourier)}
                                       value={inputNum}
                                       onChange={(e) => {
-                                        const val = e.target.value;
+                                        const formatted = formatInvoiceNumber(selectedCourier, e.target.value);
                                         setFarmInvoiceInputs(prev => ({
                                           ...prev,
-                                          [orderId]: { ...prev[orderId], courier: selectedCourier, num: val }
+                                          [orderId]: { ...prev[orderId], courier: selectedCourier, num: formatted }
                                         }));
                                       }}
                                       onKeyDown={(e) => {
@@ -4252,7 +4297,20 @@
                     <span className="font-bold text-slate-700">계약 택배사 선택:</span>
                     <select
                       value={courierInvoiceModal.courier}
-                      onChange={(e) => setCourierInvoiceModal(prev => ({ ...prev, courier: e.target.value }))}
+                      onChange={(e) => {
+                        const newCourier = e.target.value;
+                        setCourierInvoiceModal(prev => {
+                          const updatedDirect = {};
+                          Object.keys(prev.directInputs || {}).forEach(k => {
+                            updatedDirect[k] = formatInvoiceNumber(newCourier, prev.directInputs[k]);
+                          });
+                          return {
+                            ...prev,
+                            courier: newCourier,
+                            directInputs: updatedDirect
+                          };
+                        });
+                      }}
                       className="bg-white border border-slate-300 rounded-lg px-2.5 py-1 font-extrabold text-slate-800 focus:ring-1 focus:ring-harvest-500 text-xs"
                     >
                       <option value="CJ대한통운">CJ대한통운</option>
@@ -4389,13 +4447,13 @@
                                 <div className="flex gap-1.5">
                                   <input
                                     type="text"
-                                    placeholder="송장번호(숫자 8자리 이상)"
+                                    placeholder={getInvoicePlaceholder(courierInvoiceModal.courier)}
                                     value={inputVal}
                                     onChange={(e) => {
-                                      const val = e.target.value;
+                                      const formatted = formatInvoiceNumber(courierInvoiceModal.courier, e.target.value);
                                       setCourierInvoiceModal(prev => ({
                                         ...prev,
-                                        directInputs: { ...prev.directInputs, [oId]: val }
+                                        directInputs: { ...prev.directInputs, [oId]: formatted }
                                       }));
                                     }}
                                     className="flex-1 bg-white border border-slate-300 rounded-lg px-2 py-1 font-mono text-slate-800 text-xs focus:ring-1 focus:ring-harvest-500"

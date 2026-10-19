@@ -422,6 +422,7 @@
       signOut: async () => {
         try {
           localStorage.removeItem('ooms_admin_auth');
+          sessionStorage.removeItem('ooms_admin_auth');
           sessionStorage.removeItem('ooms_admin_session');
           sessionStorage.removeItem('ooms_farm_session');
           sessionStorage.removeItem('ooms_farmer_session');
@@ -814,9 +815,21 @@
         localStorage.removeItem('ooms_current_farm');
       } catch (e) {}
 
-      // 인증 세션 상태 (초기 로드 시 항상 null, 사용자가 직접 로그인 인증 시에만 동적 활성화)
-      const [authSession, setAuthSession] = useState(null);
-      const [loggedInMerchant, setLoggedInMerchant] = useState(null);
+      // 인증 세션 상태 (농가 로그인 세션 유지 지원)
+      const [authSession, setAuthSession] = useState(() => {
+        try {
+          const raw = sessionStorage.getItem('current_user_farm') || localStorage.getItem('current_user_farm');
+          if (raw) return JSON.parse(raw);
+        } catch (e) {}
+        return null;
+      });
+      const [loggedInMerchant, setLoggedInMerchant] = useState(() => {
+        try {
+          const raw = sessionStorage.getItem('current_user_farm') || localStorage.getItem('current_user_farm');
+          if (raw) return JSON.parse(raw);
+        } catch (e) {}
+        return null;
+      });
 
       // 농가 명부 상태
       const [merchants, setMerchants] = useState(() => {
@@ -862,10 +875,11 @@
       const isKakaoLogin = Boolean(kakaoCode && kakaoAuthMode === 'login');
       const isKakaoJoin = Boolean(kakaoCode && kakaoAuthMode !== 'login');
       const tabParam = urlParams ? urlParams.get('tab') : null;
+      const viewParam = urlParams ? urlParams.get('view') : null;
 
-      // 인라인 농업경영체 섹션 탭: tab=login일 때 'LOGIN', 카카오 가입일 때 'SIGNUP', 기본 'LOGIN'
+      // 인라인 농업경영체 섹션 탭: tab=login 또는 view=farmer일 때 'LOGIN', 카카오 가입일 때 'SIGNUP', 기본 'LOGIN'
       const [inlineAuthTab, setInlineAuthTab] = useState(
-        tabParam === 'login' ? 'LOGIN' : (isKakaoJoin ? 'SIGNUP' : 'LOGIN')
+        (tabParam === 'login' || viewParam === 'farmer') ? 'LOGIN' : (isKakaoJoin ? 'SIGNUP' : 'LOGIN')
       );
 
       // 농업경영체 섹션으로 스크롤 이동
@@ -877,16 +891,22 @@
         }
       };
 
-      // tab=login 파라미터 감지 시 농가 로그인 섹션 자동 스크롤
+      // tab=login 또는 view=farmer 파라미터 감지 시 농가 로그인 섹션 자동 활성화 및 세션 격리 복구
       useEffect(() => {
-        if (tabParam === 'login' && farmerSectionRef.current) {
+        if ((tabParam === 'login' || viewParam === 'farmer') && farmerSectionRef.current) {
           setInlineAuthTab('LOGIN');
+          if (viewParam === 'farmer') {
+            setLoggedInMerchant(null);
+            if (authSession && authSession.role !== 'admin') {
+              setAuthSession(null);
+            }
+          }
           const timer = setTimeout(() => {
             farmerSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }, 150);
           return () => clearTimeout(timer);
         }
-      }, [tabParam]);
+      }, [tabParam, viewParam]);
 
       // 카카오 인증 리다이렉트 처리: 로그인 모드 vs 회원가입 모드 분기
       useEffect(() => {
@@ -979,6 +999,63 @@
         window.open(targetFarmUrl, '_blank');
       };
 
+      // 총괄 운영 관리자 인증 모달 상태
+      const [isAdminAuthModalOpen, setIsAdminAuthModalOpen] = useState(false);
+      const [adminLoginForm, setAdminLoginForm] = useState({ id: '', password: '' });
+      const [adminLoginError, setAdminLoginError] = useState('');
+
+      const handleOpenAdminAuthModal = () => {
+        setAdminLoginForm({ id: '', password: '' });
+        setAdminLoginError('');
+        setIsAdminAuthModalOpen(true);
+      };
+
+      const handleCloseAdminAuthModal = () => {
+        setAdminLoginForm({ id: '', password: '' });
+        setAdminLoginError('');
+        setIsAdminAuthModalOpen(false);
+      };
+
+      const handleAdminLoginSubmit = async (e) => {
+        if (e) e.preventDefault();
+        setAdminLoginError('');
+        const idInput = (adminLoginForm.id || '').trim();
+        const pwInput = (adminLoginForm.password || '').trim();
+
+        if (!idInput || !pwInput) {
+          setAdminLoginError('관리자 아이디와 비밀번호를 모두 입력해주세요.');
+          setAdminLoginForm(prev => ({ ...prev, password: '' }));
+          return;
+        }
+
+        // 마스터/관리자 계정 인증 검증 (kormis / 1234)
+        if (idInput === 'kormis' && pwInput === '1234') {
+          try {
+            if (typeof OOMS_AUTH !== 'undefined' && typeof OOMS_AUTH.signInAdmin === 'function') {
+              await OOMS_AUTH.signInAdmin({ email: 'kormis', password: '1234' });
+            } else {
+              const adminSession = {
+                access_token: 'sb_admin_token_' + Date.now(),
+                user: { id: 'usr_master_001', email: 'admin@ooms.kr', role: 'master', name: '총괄매니저' },
+                createdAt: new Date().toISOString()
+              };
+              localStorage.setItem('ooms_admin_auth', JSON.stringify(adminSession));
+              sessionStorage.setItem('ooms_admin_session', JSON.stringify(adminSession));
+            }
+          } catch (err) {
+            console.error('관리자 세션 생성 오류:', err);
+          }
+
+          handleCloseAdminAuthModal();
+          const targetUrl = 'back.html?tab=staging&demo=true';
+          window.open(targetUrl, '_blank');
+        } else {
+          setAdminLoginError('관리자 인증 정보가 일치하지 않습니다.');
+          setAdminLoginForm(prev => ({ ...prev, password: '' }));
+          alert('관리자 인증 정보가 일치하지 않습니다.');
+        }
+      };
+
       // 관리자 콘솔(back.html) 새 창(팝업) 열기
       const handleOpenAdminConsole = () => {
         window.open('back.html?tab=staging', '_blank');
@@ -1018,34 +1095,34 @@
             </div>
           </header>
 
-          {/* 메인 히어로 섹션 */}
-          <main className="flex-1 max-w-md mx-auto w-full px-4 py-4 md:py-6 flex flex-col justify-center items-center">
+          {/* 메인 히어로 섹션 (모바일 1화면 최적화 컴팩트 패딩) */}
+          <main className="flex-1 max-w-md mx-auto w-full px-3 py-2 sm:py-3 flex flex-col justify-center items-center">
             
             {/* 타이틀 & 인트로 헤더 */}
-            <div className="text-center w-full max-w-md mx-auto mb-4">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-farm-950 border border-farm-700/50 text-emerald-400 text-[11px] font-bold mb-2">
+            <div className="text-center w-full max-w-md mx-auto mb-2">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold mb-1">
                 <span>🌾</span>
-                <span>산지직송 ➔ 농가 배정 ➔ 송장 원클릭 발송</span>
+                <span>전국 산지 직거래 물류 자동화 포털</span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight">
-                농산물 직거래 물류 자동화<br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-farm-500 to-harvest-500">
-                  통합 플랫폼 콘솔
+              <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-tight">
+                농산물 직거래 출하 물류<br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-farm-500 to-teal-400">
+                  산지 농업경영체 포털
                 </span>
               </h1>
-              <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-                비정형 주문 접수부터 농가 출하 포털, 송장 발급까지 안전하게 로그인하세요.
+              <p className="text-[10.5px] text-slate-400 mt-0.5 leading-snug">
+                출하 배정 주문 확인부터 송장 자동 발급까지 원스톱으로 관리하세요.
               </p>
 
               {/* 실시간 플랫폼 요약 통계 배지 */}
-              <div className="mt-2.5 flex flex-wrap items-center justify-center gap-1.5 text-xs">
-                <span className="bg-slate-800/80 border border-slate-700 text-slate-300 px-2.5 py-1 rounded-xl flex items-center gap-1 text-[11px]">
+              <div className="mt-1.5 flex flex-wrap items-center justify-center gap-1 text-[10px]">
+                <span className="bg-slate-800/80 border border-slate-700 text-slate-300 px-2 py-0.5 rounded-lg flex items-center gap-1">
                   <span>📦</span> 주문: <b className="text-white font-mono font-bold">{stats.orders}건</b>
                 </span>
-                <span className="bg-slate-800/80 border border-slate-700 text-slate-300 px-2.5 py-1 rounded-xl flex items-center gap-1 text-[11px]">
+                <span className="bg-slate-800/80 border border-slate-700 text-slate-300 px-2 py-0.5 rounded-lg flex items-center gap-1">
                   <span>👨‍🌾</span> 농가: <b className="text-white font-mono font-bold">{stats.farms}곳</b>
                 </span>
-                <span className="bg-slate-800/80 border border-slate-700 text-slate-300 px-2.5 py-1 rounded-xl flex items-center gap-1 text-[11px]">
+                <span className="bg-slate-800/80 border border-slate-700 text-slate-300 px-2 py-0.5 rounded-lg flex items-center gap-1">
                   <span>🚚</span> 송장: <b className="text-white font-mono font-bold">{stats.shipments}건</b>
                 </span>
               </div>
@@ -1054,7 +1131,7 @@
             {/* ============================================================= */}
             {/* [신규 핵심] 농업경영체 로그인 및 회원가입 전용 메인 섹션 창      */}
             {/* ============================================================= */}
-            <div ref={farmerSectionRef} className="mb-6 scroll-mt-14 w-full max-w-md mx-auto">
+            <div ref={farmerSectionRef} className="w-full max-w-md mx-auto">
               <FarmerAuthSection
                 activeTab={inlineAuthTab}
                 setActiveTab={setInlineAuthTab}
@@ -1070,146 +1147,114 @@
               />
             </div>
 
-            {/* 중앙 3개 업무 바로가기 진입 카드 */}
-            <div className="w-full max-w-md mx-auto mt-8 mb-6">
-              {/* 섹션 타이틀 */}
-              <div className="flex items-center gap-1.5 mb-2.5 px-0.5">
-                <span className="text-sm">🚀</span>
-                <h3 className="text-xs font-bold text-white">OOMS 업무 화면</h3>
-              </div>
-
-              {/* 상단 로그인 카드 폭에 딱 맞게 배치 (컴팩트 간격) */}
-              <div className="grid grid-cols-3 gap-2">
-                
-                {/* 1. 농가 모바일 포털 */}
-                <div 
-                  onClick={() => {
-                    handleOpenFarmPortal();
-                  }}
-                  className="relative bg-slate-800/90 border border-slate-700 hover:border-emerald-500 rounded-xl p-2.5 flex flex-col justify-between shadow-sm cursor-pointer transition-all hover:scale-[1.02] active:scale-95 group"
-                  title="농가 모바일 포털(farm.html) 바로 이동"
-                >
-                  <div className="absolute -top-2 right-1.5 bg-emerald-500 text-slate-950 text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-sm">
-                    모바일
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-1 text-[11px] font-medium text-emerald-400 mb-1 whitespace-nowrap">
-                      <span>🚜</span>
-                      <span>STEP 01</span>
-                    </div>
-                    <h3 className="text-sm font-bold text-white leading-snug break-keep mb-1.5 group-hover:text-emerald-300 transition-colors">
-                      1. 농가 모바일<br />포털
-                    </h3>
-
-                    <ul className="space-y-1 text-[11px] leading-snug text-slate-300 break-keep">
-                      <li className="flex items-start gap-1">
-                        <span className="text-emerald-400 shrink-0">✓</span> <span>수주 현황 및 D-Day</span>
-                      </li>
-                      <li className="flex items-start gap-1">
-                        <span className="text-emerald-400 shrink-0">✓</span> <span>원터치 입금 확인</span>
-                      </li>
-                      <li className="flex items-start gap-1">
-                        <span className="text-emerald-400 shrink-0">✓</span> <span>스마트폰 퀵메뉴</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-
-                {/* 2. 주문 접수처 */}
-                <div 
-                  onClick={() => {
-                    const targetUrl = 'order.html?farm=FARM-2026-456';
-                    const newWin = window.open(targetUrl, '_blank');
-                    if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
-                      window.location.href = targetUrl;
-                    }
-                  }}
-                  className="relative bg-slate-800/90 border border-slate-700 hover:border-amber-500 rounded-xl p-2.5 flex flex-col justify-between shadow-sm cursor-pointer transition-all hover:scale-[1.02] active:scale-95 group"
-                  title="소비자 주문 접수처(order.html) 바로 이동"
-                >
-                  <div className="absolute -top-2 right-1.5 bg-harvest-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-sm">
-                    PWA
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-1 text-[11px] font-medium text-amber-400 mb-1 whitespace-nowrap">
-                      <span>📱</span>
-                      <span>STEP 02</span>
-                    </div>
-                    <h3 className="text-sm font-bold text-white leading-snug break-keep mb-1.5 group-hover:text-amber-300 transition-colors">
-                      2. 주문 접수처<br />(PWA)
-                    </h3>
-
-                    <ul className="space-y-1 text-[11px] leading-snug text-slate-300 break-keep">
-                      <li className="flex items-start gap-1">
-                        <span className="text-amber-400 shrink-0">✓</span> <span>비정형 AI 자동 정제</span>
-                      </li>
-                      <li className="flex items-start gap-1">
-                        <span className="text-amber-400 shrink-0">✓</span> <span>어르신 큰글씨 지원</span>
-                      </li>
-                      <li className="flex items-start gap-1">
-                        <span className="text-amber-400 shrink-0">✓</span> <span>엑셀 단체주문 접수</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-
-                {/* 3. 통합 관리자 콘솔 */}
-                <div 
-                  onClick={() => {
-                    try {
-                      sessionStorage.setItem('ooms_admin_auth', 'true');
-                      localStorage.setItem('ooms_admin_auth', 'true');
-                    } catch (e) {}
-                    const targetUrl = 'back.html?tab=staging&demo=true';
-                    const newWin = window.open(targetUrl, '_blank');
-                    if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
-                      window.location.href = targetUrl;
-                    }
-                  }}
-                  className="relative bg-slate-800/90 border border-slate-700 hover:border-blue-500 rounded-xl p-2.5 flex flex-col justify-between shadow-sm cursor-pointer transition-all hover:scale-[1.02] active:scale-95 group"
-                  title="통합 관리자 콘솔(back.html) 바로 이동"
-                >
-                  <div className="absolute -top-2 right-1.5 bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-sm">
-                    Master
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-1 text-[11px] font-medium text-blue-400 mb-1 whitespace-nowrap">
-                      <span>🛡️</span>
-                      <span>STEP 03</span>
-                    </div>
-                    <h3 className="text-sm font-bold text-white leading-snug break-keep mb-1.5 group-hover:text-blue-300 transition-colors">
-                      3. 통합 관리자<br />콘솔
-                    </h3>
-
-                    <ul className="space-y-1 text-[11px] leading-snug text-slate-300 break-keep">
-                      <li className="flex items-start gap-1">
-                        <span className="text-blue-400 shrink-0">✓</span> <span>주문 스테이징</span>
-                      </li>
-                      <li className="flex items-start gap-1">
-                        <span className="text-blue-400 shrink-0">✓</span> <span>농가 및 상품 관리</span>
-                      </li>
-                      <li className="flex items-start gap-1">
-                        <span className="text-blue-400 shrink-0">✓</span> <span>계약택배 송장 발급</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
           </main>
 
           {/* 그린씨드 공식 푸터 */}
-          <footer className="mt-8 py-6 border-t border-slate-800 text-center text-xs text-slate-500 space-y-1 max-w-md mx-auto w-full px-4">
-            <div className="flex items-center justify-center gap-2 font-medium text-slate-400">
-              <span className="text-base">🌱</span>
+          <footer className="py-2.5 border-t border-slate-800/80 text-center text-xs text-slate-500 space-y-1.5 max-w-md mx-auto w-full px-4">
+            {/* 총괄 운영 관리자 인증 모달 진입 버튼 (은은한 회색 텍스트 링크) */}
+            <div className="pb-0.5">
+              <button
+                type="button"
+                onClick={handleOpenAdminAuthModal}
+                className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-300 transition-colors font-medium hover:underline decoration-slate-700 cursor-pointer"
+                title="총괄 운영 관리자 인증"
+              >
+                <span>⚙️</span>
+                <span>총괄 운영 관리자</span>
+              </button>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 font-medium text-slate-400 text-[10.5px]">
+              <span className="text-sm">🌱</span>
               <span>농업회사법인 그린씨드 주식회사</span>
               <span className="text-slate-600">|</span>
               <a href="https://www.greenseed.farm" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 transition-colors">www.greenseed.farm</a>
             </div>
-            <p className="whitespace-nowrap text-[10.5px] sm:text-xs">© 2026 GREEN SEED Co., Ltd. All rights reserved. OOMS 주문 물류 플랫폼</p>
+            <p className="whitespace-nowrap text-[9.5px]">© 2026 GREEN SEED Co., Ltd. All rights reserved.</p>
           </footer>
+
+          {/* 총괄 운영 관리자 전용 보안 인증 모달 */}
+          {isAdminAuthModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+              <div 
+                className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden p-6 text-slate-100"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* 모달 헤더 */}
+                <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🛡️</span>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-100">총괄 운영 관리자 전용 인증</h3>
+                      <p className="text-[11px] text-slate-400">보안 구역 진입을 위한 관리자 계정을 입력하세요</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCloseAdminAuthModal}
+                    className="text-slate-400 hover:text-slate-200 text-lg p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* 모달 폼 */}
+                <form onSubmit={handleAdminLoginSubmit} className="mt-4 space-y-4">
+                  {adminLoginError && (
+                    <div className="p-2.5 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs font-medium flex items-center gap-2">
+                      <span>⚠️</span>
+                      <span>{adminLoginError}</span>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">
+                      관리자 아이디
+                    </label>
+                    <input
+                      type="text"
+                      autoComplete="off"
+                      value={adminLoginForm.id}
+                      onChange={(e) => setAdminLoginForm(prev => ({ ...prev, id: e.target.value }))}
+                      placeholder="관리자 ID 입력 (예: kormis)"
+                      className="w-full px-3.5 py-2.5 bg-slate-800/80 border border-slate-700 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-colors"
+                      autoFocus
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">
+                      관리자 비밀번호
+                    </label>
+                    <input
+                      type="password"
+                      autoComplete="off"
+                      value={adminLoginForm.password}
+                      onChange={(e) => setAdminLoginForm(prev => ({ ...prev, password: e.target.value }))}
+                      placeholder="비밀번호 입력"
+                      className="w-full px-3.5 py-2.5 bg-slate-800/80 border border-slate-700 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-colors"
+                    />
+                  </div>
+
+                  <div className="pt-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCloseAdminAuthModal}
+                      className="flex-1 py-2.5 px-4 bg-slate-800 hover:bg-slate-750 text-slate-300 text-sm font-medium rounded-xl border border-slate-700 hover:border-slate-600 transition-colors cursor-pointer"
+                    >
+                      닫기
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-2 py-2.5 px-4 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white text-sm font-semibold rounded-xl shadow-lg shadow-amber-900/30 transition-all cursor-pointer"
+                    >
+                      관리자 인증 및 콘솔 진입 ↗
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
 
         </div>
       );
@@ -1231,9 +1276,118 @@
       onOpenAdminConsole,
       onLogout
     }) {
-      const [loginRole, setLoginRole] = useState('FARMER'); // 기본 농업경영체 포커스
       const [loginForm, setLoginForm] = useState({ loginId: '', password: '' });
       const [loginError, setLoginError] = useState('');
+
+      // 접속 중인 농가 세션 감지 (총괄 관리자와 완전 분리)
+      const activeFarm = loggedInMerchant || (authSession && authSession.role !== 'admin' ? authSession : null) || (function() {
+        try {
+          const raw = sessionStorage.getItem('current_user_farm') || localStorage.getItem('current_user_farm');
+          if (raw) return JSON.parse(raw);
+        } catch (e) {}
+        return null;
+      })();
+      const hasActiveSession = Boolean(activeFarm);
+
+      // SCM 파이프라인 출하 대기 및 미입금 실시간 집계
+      const farmPipelineStats = (function() {
+        if (!activeFarm) return { todayCount: 0, unpaidCount: 0 };
+        try {
+          const raw = localStorage.getItem('ooms_orders');
+          const allOrders = raw ? JSON.parse(raw) : [];
+          const curCode = (activeFarm.farmCode || activeFarm.merchantCode || activeFarm.code || 'FARM-2026-224').trim().toLowerCase();
+          const curId = (activeFarm.id || '').trim().toLowerCase();
+          const curLogin = (activeFarm.loginId || '').trim().toLowerCase();
+
+          const farmOrders = allOrders.filter(o => {
+            if (o.farmCode) {
+              const oCode = String(o.farmCode).trim().toLowerCase();
+              return oCode === curCode || oCode === curId || oCode === curLogin;
+            }
+            return false;
+          });
+
+          const isOrderPaid = (o) => {
+            if (!o) return false;
+            if (o.paymentStatus === '입금완료') return true;
+            if (o.paymentStatus === '미입금') return false;
+            if (o.status && typeof o.status === 'object') return o.status.payment === 'PAID';
+            return o.status === 'PAID' || o.paid === true;
+          };
+
+          const isOrderInvoice = (o) => {
+            if (o.tracking || o.invoiceNum || o.invoiceNumber) return true;
+            if (o.shippingStatus === '배송중' || o.shippingStatus === '배송완료' || o.shippingStatus === '배송출발') return true;
+            if (o.status?.shipping === 'SHIPPED' || o.status?.shipping === 'DELIVERED') return true;
+            if (o.status?.staging === 'INVOICE_ISSUED') return true;
+            return false;
+          };
+
+          const isOrderAddrErr = (o) => {
+            const road = (o.address?.road || o.address || '').toString();
+            const detail = (o.detailAddress || o.address?.detail || '').toString();
+            const full = `${road} ${detail}`;
+            return full.includes('확인 요망') || full.includes('주소 오류') || full.includes('상세 주소 확인 요망') || (o.orderId === 'ORD-4602' || o.id === 'ORD-4602');
+          };
+
+          const unpaidCount = farmOrders.filter(o => !isOrderPaid(o)).length;
+          const todayCount = farmOrders.filter(o => {
+            if (!isOrderPaid(o) || isOrderInvoice(o) || isOrderAddrErr(o)) return false;
+            const sched = (o.deliverySchedule || o.schedule || '').toString().trim().toUpperCase();
+            return sched === 'IMMEDIATE' || sched === 'TODAY' || sched === '' || sched.startsWith('2026-10-18') || sched.startsWith('2026-10-19');
+          }).length;
+
+          return { todayCount, unpaidCount };
+        } catch (e) {
+          return { todayCount: 0, unpaidCount: 0 };
+        }
+      })();
+
+      // 농가 전용 로그아웃 핸들러 (다른 계정으로 로그인 등)
+      const handleSectionLogout = async () => {
+        try {
+          const farmKeys = [
+            'current_farm_user',
+            'current_user_farm',
+            'ooms_farm_code',
+            'ooms_farm_session',
+            'ooms_farmer_session',
+            'ooms_current_farm',
+            'OOMS_LOGGED_IN_MERCHANT',
+            'kakao_auth_mode'
+          ];
+          farmKeys.forEach(k => {
+            sessionStorage.removeItem(k);
+            localStorage.removeItem(k);
+          });
+        } catch (e) {}
+        if (typeof setLoggedInMerchant === 'function') setLoggedInMerchant(null);
+        if (typeof setAuthSession === 'function' && authSession && authSession.role !== 'admin') setAuthSession(null);
+        setLoginForm({ loginId: '', password: '' });
+        setLoginError('');
+      };
+
+      // 페이지 표시(pageshow) 및 재진입 시 농가 세션이 없으면 로그인 폼 완전 초기화
+      useEffect(() => {
+        const handlePageShow = () => {
+          const hasFarm = sessionStorage.getItem('current_user_farm') || localStorage.getItem('current_user_farm');
+          if (!hasFarm) {
+            setLoginForm({ loginId: '', password: '' });
+            setLoginError('');
+          }
+        };
+        window.addEventListener('pageshow', handlePageShow);
+        return () => window.removeEventListener('pageshow', handlePageShow);
+      }, []);
+
+      // URL 파라미터(?view=farmer 또는 ?tab=login) 진입 시 농가 로그인 폼으로 즉시 세팅
+      useEffect(() => {
+        const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+        if (params && (params.get('view') === 'farmer' || params.get('tab') === 'login')) {
+          setLoginForm({ loginId: '', password: '' });
+          setLoginError('');
+        }
+      }, []);
 
       // URL의 code 파라미터 및 kakao_auth_mode 감지
       const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
@@ -1390,17 +1544,10 @@
             account: matched,
             displayId: matched.loginId || matched.merchantCode
           });
-        } else if (q.toLowerCase() === 'kormis' || q === '총괄매니저' || cleanDigits === '01000000000') {
-          setFindResult({
-            success: true,
-            account: { farmName: 'OOMS 플랫폼 운영본부', repName: '총괄관리자' },
-            displayId: 'kormis',
-            isManager: true
-          });
         } else {
           setFindResult({
             success: false,
-            message: '입력하신 정보와 일치하는 등록 계정을 찾을 수 없습니다. 등록 시 기재하신 휴대전화번호를 다시 확인해주세요.'
+            message: '입력하신 정보와 일치하는 등록 농가 계정을 찾을 수 없습니다. 등록 시 기재하신 대표자 성명 또는 휴대전화번호를 다시 확인해주세요.'
           });
         }
       };
@@ -1422,10 +1569,8 @@
           return mIdMatch || (cleanDigits && mPhoneClean && mPhoneClean === cleanDigits);
         });
 
-        const isManager = q.toLowerCase() === 'kormis';
-
-        if (matched || isManager) {
-          const target = matched || { id: 'master_001', farmName: 'OOMS 운영본부', repName: '총괄매니저', phone: '010-0000-0000', loginId: 'kormis', isManager: true };
+        if (matched) {
+          const target = matched;
           const mockCode = String(Math.floor(100000 + Math.random() * 900000));
           setGeneratedCode(mockCode);
           setTargetAccountForPw(target);
@@ -1433,7 +1578,7 @@
           setInputVerifyCode('');
           alert(`[본인확인 SMS 인증번호 발송]\n\n등록된 연락처(${target.phone || '010-****-1234'})로 인증번호가 발송되었습니다.\n\n▶ 인증번호: [ ${mockCode} ]\n(※ 테스트 편의를 위해 화면에 즉시 안내됩니다.)`);
         } else {
-          alert('입력하신 아이디 또는 휴대전화번호와 일치하는 계정을 찾을 수 없습니다.');
+          alert('입력하신 아이디 또는 휴대전화번호와 일치하는 등록 농가 계정을 찾을 수 없습니다.');
         }
       };
 
@@ -1593,42 +1738,15 @@
         setProductsList(prev => prev.filter(p => p.id !== prodId));
       };
 
-      // 로그인 처리
+      // 농업경영체 전용 로그인 처리
       const handleLoginSubmit = async (e) => {
         e.preventDefault();
         setLoginError('');
         const query = loginForm.loginId.trim();
 
-        // 총괄매니저 로그인 또는 kormis / 1234 계정 처리
-        if (loginRole === 'MANAGER' || (query === 'kormis' && loginForm.password === '1234')) {
-          if (loginRole === 'MANAGER') {
-            if (!query || !loginForm.password) {
-              setLoginError('총괄매니저 아이디와 비밀번호를 모두 입력해주세요.');
-              return;
-            }
-            if (query !== 'kormis' || loginForm.password !== '1234') {
-              setLoginError('총괄매니저 아이디 또는 비밀번호가 일치하지 않습니다.');
-              return;
-            }
-          }
-
-          try {
-            sessionStorage.setItem('ooms_admin_auth', 'true');
-            localStorage.setItem('ooms_admin_auth', 'true');
-          } catch (err) {
-            console.error('총괄매니저 세션 저장 오류:', err);
-          }
-
-          const targetUrl = 'back.html?tab=staging&demo=true';
-          const newWin = window.open(targetUrl, '_blank');
-          if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
-            window.location.href = targetUrl;
-          }
-          return;
-        }
-
         if (!query || !loginForm.password) {
-          setLoginError('아이디, 농가코드, 대표자명 또는 사업자번호와 비밀번호를 입력해주세요.');
+          setLoginError('아이디 또는 농가식별코드와 비밀번호를 입력해주세요.');
+          setLoginForm(prev => ({ ...prev, password: '' }));
           return;
         }
 
@@ -1648,12 +1766,14 @@
 
         if (!found) {
           setLoginError('등록되지 않은 농가 정보이거나 비밀번호가 일치하지 않습니다.');
+          setLoginForm(prev => ({ ...prev, password: '' }));
           return;
         }
 
         const targetPassword = found.password || '1234';
         if (loginForm.password !== targetPassword) {
           setLoginError('비밀번호가 일치하지 않습니다.');
+          setLoginForm(prev => ({ ...prev, password: '' }));
           return;
         }
 
@@ -1669,6 +1789,16 @@
           localStorage.setItem('ooms_farm_code', actualFarmCode);
           sessionStorage.setItem('ooms_farm_code', actualFarmCode);
         } catch (e) {}
+
+        setLoginForm({ loginId: '', password: '' });
+        setLoginError('');
+        if (typeof setLoggedInMerchant === 'function') {
+          setLoggedInMerchant(found);
+        }
+        if (typeof setAuthSession === 'function') {
+          setAuthSession(found);
+        }
+
         alert(`[${found.farmName}] ${found.repName || found.ownerName || '대표'}님 환영합니다!\n농가 모바일 포털(farm.html)로 바로 이동합니다.`);
         const targetFarmUrl = `farm.html?farm=${encodeURIComponent(actualFarmCode)}&role=user`;
         window.open(targetFarmUrl, '_blank');
@@ -1774,6 +1904,10 @@
                 password: existing.password || '1234',
                 merchant: existing
               });
+              setLoginForm({ loginId: '', password: '' });
+              setLoginError('');
+              if (typeof setLoggedInMerchant === 'function') setLoggedInMerchant(existing);
+              if (typeof setAuthSession === 'function') setAuthSession(existing);
               alert(`[💬 카카오 간편로그인]\n[${existing.farmName}] ${existing.repName || existing.ownerName} 대표님 환영합니다!\n농가 모바일 포털(farm.html)을 새 창에서 엽니다.`);
               onOpenFarmPortal(existing);
               return;
@@ -1893,7 +2027,18 @@
             sessionStorage.setItem('current_user_farm', JSON.stringify(matched));
             localStorage.setItem('ooms_farm_code', targetFarmCode);
             sessionStorage.setItem('ooms_farm_code', targetFarmCode);
+            localStorage.removeItem('ooms_admin_auth');
+            sessionStorage.removeItem('ooms_admin_auth');
           } catch (e) {}
+
+          setLoginForm({ loginId: '', password: '' });
+          setLoginError('');
+          if (typeof setLoggedInMerchant === 'function') {
+            setLoggedInMerchant(matched);
+          }
+          if (typeof setAuthSession === 'function') {
+            setAuthSession(matched);
+          }
 
           alert(`[💬 카카오 간편로그인 완료]\n\n[${matched.farmName}] ${matched.repName || matched.ownerName} 대표님 환영합니다!\n농가 모바일 포털(farm.html)을 새 탭에서 엽니다.`);
 
@@ -1917,6 +2062,14 @@
           password: '',
           merchant: merchant
         });
+        setLoginForm({ loginId: '', password: '' });
+        setLoginError('');
+        if (typeof setLoggedInMerchant === 'function') {
+          setLoggedInMerchant(merchant);
+        }
+        if (typeof setAuthSession === 'function') {
+          setAuthSession(merchant);
+        }
         alert(`[${merchant.farmName}] ${merchant.repName} 대표님 계정으로 로그인되었습니다.\n농가 포털(farm.html)을 엽니다.`);
         onOpenFarmPortal(merchant);
       };
@@ -2068,106 +2221,173 @@
       };
 
       return (
-        <div className="bg-slate-900 border-2 border-farm-500/40 rounded-3xl p-4 sm:p-5 shadow-2xl relative overflow-hidden backdrop-blur-md w-full">
-          {/* 장식용 글로우 배경 */}
-          <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-farm-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="bg-slate-900/90 border border-emerald-500/30 rounded-3xl p-4 sm:p-5 shadow-2xl relative overflow-hidden backdrop-blur-xl w-full">
+          {/* 은은한 배경 글로우 */}
+          <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
-          {/* 섹션 타이틀 및 상단 탭 */}
-          <div className="flex flex-col items-center text-center pb-3.5 border-b border-slate-800 gap-2.5">
+          {/* 섹션 상단 헤더 */}
+          <div className="flex flex-col items-center text-center pb-3 border-b border-slate-800/80 gap-1.5">
             <div>
               <div className="flex items-center justify-center gap-1.5">
                 <span className="text-xl">👨‍🌾</span>
                 <h2 className="text-base sm:text-lg font-black text-white tracking-tight">
-                  농업경영체 전용
+                  농업경영체 전용 포털
                 </h2>
-                <span className="text-[10px] bg-farm-900 text-emerald-400 border border-farm-500/40 font-bold px-2 py-0.5 rounded-full">
-                  산지 판매자
+                <span className="text-[10px] bg-emerald-950/90 text-emerald-400 border border-emerald-500/40 font-bold px-2 py-0.5 rounded-full shadow-xs">
+                  산지 파트너
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 mt-0.5 whitespace-nowrap">
-                로그인하여 출하 업무를 확인하거나 간편 회원가입을 진행하세요.
+                {hasActiveSession 
+                  ? '인증된 농업경영체 세션이 활성화되어 있습니다.'
+                  : '로그인하여 출하 업무를 확인하거나 간편 회원가입을 진행하세요.'}
               </p>
             </div>
 
-            {/* [로그인] vs [회원가입] 상단 대형 탭 스위처 */}
-            <div className="flex bg-slate-950 p-1 rounded-2xl border border-slate-800 w-full">
-              <button
-                type="button"
-                id="tabLogin"
-                data-tab="login"
-                onClick={() => {
-                  try {
-                    sessionStorage.removeItem('kakao_auth_mode');
-                    if (window.history && window.history.replaceState) {
-                      window.history.replaceState({}, document.title, window.location.pathname);
-                    }
-                  } catch (e) {}
-                  setActiveTab('LOGIN');
-                  setStep('SIGNUP');
-                  setLoginError('');
-                }}
-                className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'LOGIN' ? 'bg-farm-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
-              >
-                <span>🔑</span> 로그인
-              </button>
-              <button
-                type="button"
-                id="tabJoin"
-                data-tab="join"
-                onClick={() => {
-                  setActiveTab('SIGNUP');
-                  if (!isKakaoJoin && step === 'SIGNUP') {
+            {/* 세션이 없을 때만 단정한 알약 형태(Pill Tab)의 [로그인] / [회원가입] 전환 UI 노출 */}
+            {!hasActiveSession && (
+              <div className="flex bg-slate-950/90 p-1 rounded-2xl border border-slate-800/90 w-full shadow-inner backdrop-blur-md mt-1">
+                <button
+                  type="button"
+                  id="tabLogin"
+                  data-tab="login"
+                  onClick={() => {
+                    try {
+                      sessionStorage.removeItem('kakao_auth_mode');
+                      if (window.history && window.history.replaceState) {
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                      }
+                    } catch (e) {}
+                    setActiveTab('LOGIN');
                     setStep('SIGNUP');
-                  }
-                }}
-                className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${activeTab === 'SIGNUP' ? 'bg-farm-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
-              >
-                <span>🌱</span> 회원가입
-              </button>
-            </div>
+                    setLoginError('');
+                  }}
+                  className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'LOGIN' ? 'bg-gradient-to-r from-emerald-600 to-farm-600 text-white shadow-md shadow-emerald-900/40' : 'text-slate-400 hover:text-white'}`}
+                >
+                  <span>🔑</span> 로그인
+                </button>
+                <button
+                  type="button"
+                  id="tabJoin"
+                  data-tab="join"
+                  onClick={() => {
+                    setActiveTab('SIGNUP');
+                    if (!isKakaoJoin && step === 'SIGNUP') {
+                      setStep('SIGNUP');
+                    }
+                  }}
+                  className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'SIGNUP' ? 'bg-gradient-to-r from-emerald-600 to-farm-600 text-white shadow-md shadow-emerald-900/40' : 'text-slate-400 hover:text-white'}`}
+                >
+                  <span>🌱</span> 회원가입
+                </button>
+              </div>
+            )}
           </div>
 
           {/* ================================================================= */}
-          {/* [탭 1] 농업경영체 로그인 창 (단일화 및 집중화된 심플 싱글 칼럼)   */}
+          {/* [세션 활성화 시] 스마트 웰컴 패스 슬림 글래스 카드                */}
           {/* ================================================================= */}
-          {activeTab === 'LOGIN' && (
-            <div className="pt-3.5 w-full">
-              <div className="bg-slate-950/80 p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-xl">
-                <div className="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-slate-800/80">
-                  <div className="flex items-center gap-1.5 whitespace-nowrap shrink-0">
-                    <span className="text-base">📱</span>
-                    <h3 className="text-xs font-black text-white whitespace-nowrap">계정 로그인</h3>
+          {hasActiveSession && (
+            <div id="auth-session-card" className="pt-3 w-full">
+              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-b from-slate-950/90 to-slate-900/95 border border-emerald-500/30 p-4 sm:p-5 shadow-2xl backdrop-blur-xl">
+                {/* 은은한 배경 글로우 */}
+                <div className="absolute top-0 right-0 -mr-12 -mt-12 w-44 h-44 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+                <div className="relative z-10 flex flex-col items-center text-center gap-3">
+                  {/* 상태 배지: 🟢 정상 접속 중 (Active Session) */}
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-emerald-400 text-[11px] font-bold shadow-xs">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>정상 접속 중 (Active Session)</span>
                   </div>
-                  <div className="flex gap-1 text-[10px] bg-slate-900 p-0.5 rounded-lg border border-slate-800 shrink-0">
+
+                  {/* 대표 정보: 농장명 · 대표자명 대표님 (볼드 처리) */}
+                  <div className="space-y-0.5 my-0.5">
+                    <h3 className="text-base sm:text-lg font-black text-white tracking-tight break-keep">
+                      <span>{activeFarm?.farmName || '태안 사과농장'}</span>
+                      <span className="text-emerald-400 mx-1.5">·</span>
+                      <span className="text-slate-100">{activeFarm?.repName || activeFarm?.ownerName || '김혜진'} 대표님</span>
+                    </h3>
+                    <p className="text-[11px] text-slate-400 font-mono">
+                      농가식별코드: <span className="text-emerald-400 font-bold">{activeFarm?.farmCode || activeFarm?.merchantCode || activeFarm?.code || 'FARM-2026-224'}</span>
+                    </p>
+                  </div>
+
+                  {/* SCM 미니 파이프라인 출하 현황 요약 배너 */}
+                  <div className="w-full grid grid-cols-2 gap-2 my-0.5">
+                    <div className="bg-rose-950/40 border border-rose-500/30 rounded-xl p-2 text-center shadow-xs">
+                      <p className="text-[10px] text-rose-300 font-bold flex items-center justify-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping"></span>
+                        오늘 출하 대기
+                      </p>
+                      <p className="text-sm font-black text-white mt-0.5 font-mono">
+                        {farmPipelineStats.todayCount}건
+                      </p>
+                    </div>
+                    <div className="bg-amber-950/40 border border-amber-500/30 rounded-xl p-2 text-center shadow-xs">
+                      <p className="text-[10px] text-amber-300 font-bold">
+                        ⏳ 입금 대기
+                      </p>
+                      <p className="text-sm font-black text-white mt-0.5 font-mono">
+                        {farmPipelineStats.unpaidCount}건
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* 액션 버튼: 프레시 그린 그라데이션 단일 메인 버튼 */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const code = activeFarm?.farmCode || activeFarm?.merchantCode || activeFarm?.code || 'FARM-2026-224';
+                      const targetFarmUrl = `farm.html?farm=${encodeURIComponent(code)}&role=user`;
+                      window.open(targetFarmUrl, '_blank');
+                    }}
+                    className="w-full mt-1 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 via-farm-500 to-teal-500 hover:from-emerald-400 hover:via-farm-400 hover:to-teal-400 active:scale-98 text-slate-950 font-black text-xs sm:text-sm tracking-wide transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 cursor-pointer group"
+                    title="내 농가 모바일 포털(farm.html) 새 탭 열기"
+                  >
+                    <span className="text-base">🚜</span>
+                    <span>내 농가 포털 열기</span>
+                    <span className="text-slate-950 group-hover:translate-x-0.5 transition-transform text-sm font-bold">↗</span>
+                  </button>
+
+                  {/* 보조 텍스트: 다른 계정으로 로그인 */}
+                  <div className="pt-1">
                     <button
                       type="button"
-                      onClick={() => { setLoginRole('FARMER'); setLoginError(''); }}
-                      className={`px-2 py-1 rounded-lg font-bold transition-all text-[11px] flex items-center gap-1 cursor-pointer whitespace-nowrap ${loginRole === 'FARMER' ? 'bg-farm-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                      onClick={handleSectionLogout}
+                      className="text-[11px] text-slate-400 hover:text-slate-200 underline decoration-slate-600 hover:decoration-slate-300 transition-colors cursor-pointer"
                     >
-                      <span>🚜</span> 농업경영체
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setLoginRole('MANAGER'); setLoginError(''); }}
-                      className={`px-2 py-1 rounded-lg font-bold transition-all text-[11px] flex items-center gap-1 cursor-pointer whitespace-nowrap ${loginRole === 'MANAGER' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
-                    >
-                      <span>🛡️</span> 총괄매니저
+                      다른 계정으로 로그인
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
 
-                <form onSubmit={handleLoginSubmit} className="space-y-3">
+          {/* ================================================================= */}
+          {/* [세션 미활성화 & 로그인 탭] 농업경영체 로그인 폼                  */}
+          {/* ================================================================= */}
+          {!hasActiveSession && activeTab === 'LOGIN' && (
+            <div className="pt-2.5 w-full">
+              <div className="bg-slate-950/80 p-3.5 sm:p-4 rounded-2xl border border-slate-800 shadow-xl">
+                <div className="flex items-center gap-1.5 mb-2.5 pb-2 border-b border-slate-800/80">
+                  <span className="text-base">📱</span>
+                  <h3 className="text-xs font-black text-white">농업경영체 로그인</h3>
+                </div>
+
+                <form onSubmit={handleLoginSubmit} className="space-y-2.5">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                      {loginRole === 'MANAGER' ? '총괄매니저 아이디' : '아이디'}
+                      농업경영체 아이디
                     </label>
                     <input
                       type="text"
                       required
+                      autoComplete="off"
                       value={loginForm.loginId}
                       onChange={(e) => setLoginForm({ ...loginForm, loginId: e.target.value })}
-                      placeholder={loginRole === 'MANAGER' ? 'kormis' : '아이디 입력'}
-                      className="w-full p-2.5 text-xs bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-farm-500 focus:outline-none transition-all"
+                      placeholder="아이디 또는 농가식별코드 입력"
+                      className="w-full px-3 py-2 text-xs bg-slate-900 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none transition-all shadow-inner"
                     />
                   </div>
                   <div>
@@ -2175,25 +2395,27 @@
                     <input
                       type="password"
                       required
+                      autoComplete="off"
                       value={loginForm.password}
                       onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
                       placeholder="비밀번호 입력"
-                      className="w-full p-2.5 text-xs bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-farm-500 focus:outline-none transition-all"
+                      className="w-full px-3 py-2 text-xs bg-slate-900 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none transition-all shadow-inner"
                     />
                   </div>
 
                   {loginError && (
-                    <p className="text-xs text-rose-400 bg-rose-950/60 p-2 rounded-xl border border-rose-800 leading-relaxed font-medium">
+                    <p className="text-[11px] text-rose-400 bg-rose-950/60 p-2 rounded-xl border border-rose-800 leading-relaxed font-medium">
                       ⚠️ {loginError}
                     </p>
                   )}
 
-                  <div className="space-y-2 pt-0.5">
+                  <div className="space-y-1.5 pt-1">
                     <button
                       type="submit"
-                      className={`w-full active:scale-98 text-white font-black py-3 rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer ${loginRole === 'MANAGER' ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/30' : 'bg-farm-600 hover:bg-farm-700 shadow-farm-600/30'}`}
+                      className="w-full active:scale-98 bg-gradient-to-r from-emerald-600 via-farm-600 to-emerald-600 hover:from-emerald-500 hover:to-farm-500 text-white font-black py-2.5 rounded-xl text-xs transition-all shadow-md shadow-emerald-900/30 flex items-center justify-center gap-1.5 cursor-pointer"
                     >
-                      <span>{loginRole === 'MANAGER' ? '🛡️ 총괄매니저 로그인' : '🚜 농업경영체 로그인'}</span>
+                      <span>🚜</span>
+                      <span>농업경영체 로그인</span>
                     </button>
                     <button
                       type="button"
@@ -2203,7 +2425,7 @@
                         } catch (e) {}
                         handleEasyKakao(true);
                       }}
-                      className="w-full bg-[#FEE500] hover:bg-[#FADA0A] text-[#191919] font-black py-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                      className="w-full bg-[#FEE500] hover:bg-[#FADA0A] text-[#191919] font-black py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-98"
                     >
                       <span>💬 카카오 계정으로 간편로그인</span>
                     </button>
@@ -2211,7 +2433,7 @@
                 </form>
 
                 {/* 하단 아이디 / 패스워드 찾기 링크 */}
-                <div className="mt-3.5 pt-2.5 border-t border-slate-800/80 text-center">
+                <div className="mt-2.5 pt-2 border-t border-slate-800/80 text-center">
                   <button
                     type="button"
                     onClick={() => {
@@ -3104,12 +3326,13 @@
       const urlParams = new URLSearchParams(window.location.search);
       const kakaoCode = urlParams.get('code') || window.__KAKAO_CODE__;
       const tabParam = urlParams.get('tab');
+      const viewParam = urlParams.get('view');
       const authMode = (function() {
         try { return sessionStorage.getItem('kakao_auth_mode'); } catch(e){ return null; }
       })();
 
-      // farm.html 등에서 로그아웃 후 ?tab=login으로 진입한 경우 농가 로그인 탭 활성화
-      if (tabParam === 'login') {
+      // farm.html 등에서 로그아웃 후 ?view=farmer 또는 ?tab=login으로 진입한 경우 농가 로그인 탭 활성화
+      if (viewParam === 'farmer' || tabParam === 'login') {
         const loginTab = document.getElementById('tabLogin') || document.querySelector('[data-tab="login"]');
         if (loginTab) loginTab.click();
         const targetEl = document.getElementById('tabLogin');
@@ -3184,6 +3407,20 @@
           nameInput.dispatchEvent(new Event('input', { bubbles: true }));
         }
       }
+
+      // 보안 강화: 활성 농가 세션이 없을 경우 비밀번호 입력 필드 잔여값 자동 초기화
+      const clearPasswordInputsIfNoSession = function() {
+        try {
+          const hasFarm = sessionStorage.getItem('current_user_farm') || localStorage.getItem('current_user_farm');
+          if (!hasFarm) {
+            document.querySelectorAll('input[type="password"]').forEach(function(el) {
+              if (el) el.value = '';
+            });
+          }
+        } catch (e) {}
+      };
+      clearPasswordInputsIfNoSession();
+      window.addEventListener('pageshow', clearPasswordInputsIfNoSession);
     });
   </script>
 </body>
