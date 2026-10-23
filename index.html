@@ -14,6 +14,9 @@
   <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
   <!-- Kakao JavaScript SDK CDN -->
   <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"></script>
+  <!-- Supabase JS Client CDN & OOMS_DB Client Module -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-client.js"></script>
   <script>
     window.__KAKAO_CODE__ = (function() {
       try {
@@ -947,8 +950,13 @@
       // 통계 업데이트
       const updateStats = () => {
         try {
-          const ordersRaw = localStorage.getItem('ooms_orders') || localStorage.getItem('ooms_staging_orders');
-          const orders = ordersRaw ? JSON.parse(ordersRaw) : [];
+          let orders = window.__OOMS_CACHED_ORDERS__ || [];
+          if (orders.length === 0 && window.OOMS_DB) {
+            window.OOMS_DB.getOrders().then(list => {
+              window.__OOMS_CACHED_ORDERS__ = list;
+              setStats(prev => ({ ...prev, totalOrders: list.length }));
+            }).catch(e => {});
+          }
           const farmsRaw = localStorage.getItem('ooms_farms') || localStorage.getItem('OOMS_MERCHANTS_DATA');
           const farms = farmsRaw ? JSON.parse(farmsRaw) : INITIAL_MERCHANTS;
           const shipmentsRaw = localStorage.getItem('ooms_shipments');
@@ -1293,8 +1301,7 @@
       const farmPipelineStats = (function() {
         if (!activeFarm) return { todayCount: 0, unpaidCount: 0 };
         try {
-          const raw = localStorage.getItem('ooms_orders');
-          const allOrders = raw ? JSON.parse(raw) : [];
+          const allOrders = window.__OOMS_CACHED_ORDERS__ || [];
           const curCode = (activeFarm.farmCode || activeFarm.merchantCode || activeFarm.code || 'FARM-2026-224').trim().toLowerCase();
           const curId = (activeFarm.id || '').trim().toLowerCase();
           const curLogin = (activeFarm.loginId || '').trim().toLowerCase();

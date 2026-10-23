@@ -43,6 +43,8 @@ class ParsedOrderResponse(BaseModel):
     confidence_level: str = Field(..., description="GREEN, YELLOW, RED")
     confidence_flags: Dict[str, Any] = Field(default_factory=dict)
     
+    shipped_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
 
 # 2. Logistics & Courier Invoice Schemas

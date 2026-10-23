@@ -112,6 +112,8 @@ class Order(Base):
     courier_code = Column(String(20), default="POST_OFFICE")
     tracking_number = Column(String(20))
     invoice_issued_at = Column(DateTime(timezone=True))
+    shipped_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
 
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)

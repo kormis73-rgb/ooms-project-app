@@ -10,10 +10,13 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <!-- SheetJS (xlsx) CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- SheetJS 스타일 지원 오픈소스 (xlsx-js-style: 셀 스타일 및 순수 .xlsx 바이너리 완벽 생성) CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  <!-- Supabase JS Client CDN & OOMS_DB Client Module -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-client.js"></script>
   <!-- Daum Postcode API CDN -->
-  <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+  <script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
   <!-- Tesseract.js (한글+영문 OCR) & PDF.js (PDF 텍스트 추출) -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -687,7 +690,7 @@
           const lastOrd = localStorage.getItem('ooms_last_order');
           if (lastOrd) {
             const p = JSON.parse(lastOrd);
-            const savedOrders = JSON.parse(localStorage.getItem('ooms_orders') || '[]');
+            const savedOrders = (ordersList && ordersList.length > 0) ? ordersList : [];
             const matched = savedOrders.find(o => (o.orderId === p.orderId || o.id === p.orderId));
             if (matched) {
               return {
@@ -817,6 +820,7 @@
       const [orderCompleteModal, setOrderCompleteModal] = useState({ isOpen: false, orderId: null, order: null });
       // 주문 접수 완료 확인 영수증 상태 (화면 영구 유지 및 재확인 UX)
       const [completedOrder, setCompletedOrder] = useState(null);
+      const [completedBulkList, setCompletedBulkList] = useState(null);
 
       // OCR 파일 업로드 및 진행률, 토스트 상태
       const [isOcrProcessing, setIsOcrProcessing] = useState(false);
@@ -840,17 +844,39 @@
       const [trackedOrder, setTrackedOrder] = useState(null);
       const [hasSearched, setHasSearched] = useState(false);
 
-      // 전체 주문 목록 상태 (localStorage 'ooms_orders' 영구 동기화)
-      const [ordersList, setOrdersList] = useState(() => {
+      // DB 기반 전체 주문 목록 상태 및 실시간 동기화 (Supabase OOMS_DB 연동)
+      const [ordersList, setOrdersList] = useState([]);
+
+      const loadOrdersFromDb = async () => {
         try {
-          const saved = localStorage.getItem('ooms_orders') || localStorage.getItem('ooms_staging_orders');
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed)) return parsed;
+          let list = [];
+          if (window.supabase && typeof window.supabase.from === 'function') {
+            const { data, error } = await window.supabase.from('orders').select('*').order('created_at', { ascending: false });
+            if (!error && Array.isArray(data)) {
+              list = data.map(window.OOMS_DB ? window.OOMS_DB.mapDbRowToOrder : (row => row));
+            }
           }
-        } catch (e) {}
-        return [];
-      });
+          if (list.length === 0 && window.OOMS_DB) {
+            list = await window.OOMS_DB.getOrders();
+          }
+          setOrdersList(list);
+        } catch (e) {
+          console.error('[order.html] loadOrdersFromDb error:', e);
+        }
+      };
+
+      useEffect(() => {
+        loadOrdersFromDb();
+        let unsubscribe = () => {};
+        if (window.OOMS_DB) {
+          unsubscribe = window.OOMS_DB.subscribe(() => {
+            loadOrdersFromDb();
+          });
+        }
+        return () => {
+          unsubscribe();
+        };
+      }, []);
 
       // 택배사별 표준 실시간 배송조회 URL 맵퍼
       const getTrackingUrl = (courier, invoiceNo) => {
@@ -977,14 +1003,8 @@
       // localStorage storage 이벤트 리스너 (관리자 답변 및 최신 주문 실시간 반영)
       useEffect(() => {
         const handleSync = (e) => {
-          if (!e.key || e.key === 'ooms_orders' || e.key === 'ooms_staging_orders' || e.key === 'ooms_shipments') {
-            try {
-              const saved = localStorage.getItem('ooms_orders') || localStorage.getItem('ooms_staging_orders');
-              if (saved) {
-                const updated = JSON.parse(saved);
-                if (Array.isArray(updated)) setOrdersList(updated);
-              }
-            } catch (err) {}
+          if (!e.key || e.key === 'ooms_orders_data' || e.key === 'ooms_orders' || e.key === 'ooms_staging_orders' || e.key === 'ooms_shipments') {
+            loadOrdersFromDb();
           }
           if ((e.key === 'ooms_cs_inquiries' || e.key === 'ooms_cs_tickets') && e.newValue) {
             try {
@@ -1068,25 +1088,32 @@
         });
       };
 
-      // 주문/배송 검색 실행
+      // 주문/배송 검색 실행 (주문번호, 수령인, 주문자, 전화번호 전방위 정밀 매칭)
       const handleSearchOrder = (e) => {
         if (e) e.preventDefault();
         const q = searchQuery.trim();
         if (!q) {
-          alert('주문번호(예: ORD-101) 또는 주문자 전화번호를 입력해주세요.');
+          alert('주문번호(예: ORD-101) 또는 성명, 전화번호를 입력해주세요.');
           return;
         }
 
         try {
-          const savedOrders = JSON.parse(localStorage.getItem('ooms_orders') || '[]');
-          const cleanQ = q.replace(/[^0-9a-zA-Z]/g, '');
+          const savedOrders = (ordersList && ordersList.length > 0) ? ordersList : [];
+          const cleanQ = q.toLowerCase();
+          const cleanDigits = q.replace(/[^0-9]/g, '');
           
           const found = savedOrders.find(o => {
-            if (o.id && o.id.toLowerCase() === q.toLowerCase()) return true;
-            const oTel = (o.orderer?.tel || o.ordererPhone || '').replace(/[^0-9]/g, '');
-            const rTel = (o.receiver?.tel || o.phone || '').replace(/[^0-9]/g, '');
-            if (cleanQ && (oTel.includes(cleanQ) || rTel.includes(cleanQ))) return true;
-            if (o.orderer?.name === q || o.receiver?.name === q) return true;
+            if (!o) return false;
+            const oId = String(o.id || o.orderId || '').toLowerCase();
+            const rName = String(o.receiverName || o.receiver?.name || (typeof o.receiver === 'string' ? o.receiver : '') || '').toLowerCase();
+            const sName = String(o.senderName || o.orderer?.name || (typeof o.orderer === 'string' ? o.orderer : '') || '').toLowerCase();
+            const rPhone = String(o.receiverPhone || o.receiver?.tel || o.phone || '').replace(/[^0-9]/g, '');
+            const sPhone = String(o.senderPhone || o.orderer?.tel || '').replace(/[^0-9]/g, '');
+            
+            if (oId && (oId === cleanQ || oId.includes(cleanQ))) return true;
+            if (rName && (rName === cleanQ || rName.includes(cleanQ))) return true;
+            if (sName && (sName === cleanQ || sName.includes(cleanQ))) return true;
+            if (cleanDigits && cleanDigits.length >= 4 && (rPhone.includes(cleanDigits) || sPhone.includes(cleanDigits))) return true;
             return false;
           });
 
@@ -1094,17 +1121,18 @@
           setHasSearched(true);
 
           if (found) {
-            const sName = found.orderer?.name || found.receiver?.name || '';
-            const sTel = found.orderer?.tel || found.receiver?.tel || '';
+            const sName = found.orderer?.name || found.receiver?.name || found.receiverName || found.senderName || '';
+            const sTel = found.orderer?.tel || found.receiver?.tel || found.receiverPhone || found.senderPhone || '';
+            const foundId = found.id || found.orderId;
             setDetectedSession({
-              orderId: found.id,
+              orderId: foundId,
               customerName: sName,
               customerPhone: sTel,
               source: 'TRACKING'
             });
             setInquiryForm(prev => ({
               ...prev,
-              orderId: found.id,
+              orderId: foundId,
               customerName: sName || prev.customerName,
               customerPhone: sTel || prev.customerPhone
             }));
@@ -1138,7 +1166,7 @@
         let targetFarmCode = (farmProfile?.merchantCode || farmProfile?.code || 'FARM-2026-088');
         if (effectiveOrderId) {
           try {
-            const savedOrders = JSON.parse(localStorage.getItem('ooms_orders') || '[]');
+            const savedOrders = (ordersList && ordersList.length > 0) ? ordersList : [];
             const matchedOrder = savedOrders.find(o => (o.id === effectiveOrderId || o.orderId === effectiveOrderId));
             if (matchedOrder && (matchedOrder.farmCode || matchedOrder.merchantCode)) {
               targetFarmCode = matchedOrder.farmCode || matchedOrder.merchantCode;
@@ -1374,9 +1402,11 @@
 
           let parsedRows = [];
 
-          // 1) 헤더 행 찾기 및 컬럼 인덱스 매핑
+          // 1) 헤더 행 찾기 및 컬럼 인덱스 매핑 (주문인, 연락처, 수령인, 전화번호 등 10대 항목 지원)
           let headerIdx = -1;
           let colMap = {
+            orderer: -1,
+            ordererPhone: -1,
             receiver: -1,
             phone: -1,
             address: -1,
@@ -1389,35 +1419,61 @@
 
           for (let r = 0; r < Math.min(rows.length, 5); r++) {
             const rowStr = rows[r].map(c => String(c || '').trim());
+            const hasOrderer = rowStr.some(c => /주문인|주문자|보내는\s*분|보낸사람/.test(c));
             const hasReceiver = rowStr.some(c => /수령인|받는\s*분|받는사람|성명|이름|고객명/.test(c));
             const hasAddress = rowStr.some(c => /주소|배송지|도로명|지번/.test(c));
             const hasPhone = rowStr.some(c => /전화|연락처|휴대폰|핸드폰|번호/.test(c));
 
-            if (hasReceiver || hasAddress || hasPhone) {
+            if (hasOrderer || hasReceiver || hasAddress || hasPhone) {
               headerIdx = r;
               rowStr.forEach((colName, cIdx) => {
-                if (/수령인|받는\s*분|받는사람|성명|이름|고객명/.test(colName) && colMap.receiver === -1) colMap.receiver = cIdx;
-                else if (/전화|연락처|휴대폰|핸드폰|번호|tel|phone/i.test(colName) && colMap.phone === -1) colMap.phone = cIdx;
-                else if (/상세주소|동호수|상세/i.test(colName) && colMap.detailAddress === -1) colMap.detailAddress = cIdx;
-                else if (/도로명주소|배송지|주소|도로명/i.test(colName) && colMap.address === -1) colMap.address = cIdx;
-                else if (/우편번호|우편|zonecode|zip/i.test(colName) && colMap.zip === -1) colMap.zip = cIdx;
-                else if (/상품명|품목|상품|품종/i.test(colName) && colMap.product === -1) colMap.product = cIdx;
-                else if (/수량|박스|상자|개수|qty/i.test(colName) && colMap.qty === -1) colMap.qty = cIdx;
-                else if (/배송메모|요청사항|메모|비고|note/i.test(colName) && colMap.note === -1) colMap.note = cIdx;
+                if (/주문인|주문자|보내는\s*분|보낸사람|발송인|주문자명/.test(colName) && colMap.orderer === -1) {
+                  colMap.orderer = cIdx;
+                }
+                else if (/^연락처$|주문인연락처|주문자연락처|주문인\s*전화|보내는분전화/.test(colName) && colMap.ordererPhone === -1) {
+                  colMap.ordererPhone = cIdx;
+                }
+                else if (/수령인|받는\s*분|받는사람|고객명/.test(colName) && colMap.receiver === -1) {
+                  colMap.receiver = cIdx;
+                }
+                else if (/전화|전화번호|휴대폰|핸드폰|수령인전화|받는분전화|tel|phone/i.test(colName) && colMap.phone === -1) {
+                  colMap.phone = cIdx;
+                }
+                else if (/상세주소|동호수|상세/i.test(colName) && colMap.detailAddress === -1) {
+                  colMap.detailAddress = cIdx;
+                }
+                else if (/도로명주소|배송지|주소|도로명/i.test(colName) && colMap.address === -1) {
+                  colMap.address = cIdx;
+                }
+                else if (/우편번호|우편|zonecode|zip/i.test(colName) && colMap.zip === -1) {
+                  colMap.zip = cIdx;
+                }
+                else if (/상품명|품목|상품|품종/i.test(colName) && colMap.product === -1) {
+                  colMap.product = cIdx;
+                }
+                else if (/수량|박스|상자|개수|qty/i.test(colName) && colMap.qty === -1) {
+                  colMap.qty = cIdx;
+                }
+                else if (/배송메모|요청사항|메모|비고|note/i.test(colName) && colMap.note === -1) {
+                  colMap.note = cIdx;
+                }
+                else if (/성명|이름/.test(colName) && colMap.receiver === -1) {
+                  colMap.receiver = cIdx;
+                }
               });
               break;
             }
           }
 
-          // 헤더가 감지되지 않은 경우 기본 표준 인덱스 순서 적용
-          // [수령인, 전화번호, 주소, 상세주소, 우편번호, 상품명, 수량, 배송메모]
+          // 헤더가 감지되지 않은 경우 기본 표준 10개 인덱스 순서 적용
+          // [주문인(0), 연락처(1), 수령인(2), 전화번호(3), 도로명주소(4), 상세주소(5), 우편번호(6), 상품명(7), 수량(8), 배송메모(9)]
           if (headerIdx === -1) {
-            colMap = { receiver: 0, phone: 1, address: 2, detailAddress: 3, zip: 4, product: 5, qty: 6, note: 7 };
+            colMap = { orderer: 0, ordererPhone: 1, receiver: 2, phone: 3, address: 4, detailAddress: 5, zip: 6, product: 7, qty: 8, note: 9 };
           } else {
-            // 미지정 필수 열 순차 보정
-            if (colMap.receiver === -1) colMap.receiver = 0;
-            if (colMap.phone === -1) colMap.phone = 1;
-            if (colMap.address === -1) colMap.address = 2;
+            // 구형 8개 열 서식 호환 (주문인/연락처 없는 서식 보정)
+            if (colMap.receiver === -1 && colMap.orderer === -1) colMap.receiver = 0;
+            if (colMap.phone === -1 && colMap.ordererPhone === -1) colMap.phone = 1;
+            if (colMap.address === -1) colMap.address = colMap.receiver === 0 ? 2 : 4;
           }
 
           const startRow = headerIdx !== -1 ? headerIdx + 1 : 0;
@@ -1426,12 +1482,14 @@
             const row = rows[i];
             if (!row || row.length === 0) continue;
 
-            const receiver = String(row[colMap.receiver] || '').trim();
-            const phoneRaw = String(row[colMap.phone] || '').trim();
-            const address = String(row[colMap.address] || '').trim();
+            const orderer = colMap.orderer !== -1 ? String(row[colMap.orderer] || '').trim() : '';
+            const ordererPhoneRaw = colMap.ordererPhone !== -1 ? String(row[colMap.ordererPhone] || '').trim() : '';
+            const receiver = colMap.receiver !== -1 ? String(row[colMap.receiver] || '').trim() : '';
+            const phoneRaw = colMap.phone !== -1 ? String(row[colMap.phone] || '').trim() : '';
+            const address = colMap.address !== -1 ? String(row[colMap.address] || '').trim() : '';
 
-            // 최소 수령인 또는 주소가 있는 행만 유효 주문으로 인정
-            if (!receiver && !address) continue;
+            // 최소 수령인, 주문자 또는 주소가 있는 행만 유효 주문으로 인정
+            if (!receiver && !address && !orderer) continue;
 
             const detailAddress = colMap.detailAddress !== -1 ? String(row[colMap.detailAddress] || '').trim() : '';
             const zip = colMap.zip !== -1 ? String(row[colMap.zip] || '').trim() : '32145';
@@ -1439,10 +1497,19 @@
             const qtyVal = colMap.qty !== -1 ? parseInt(String(row[colMap.qty]).replace(/[^0-9]/g, ''), 10) : 1;
             const note = colMap.note !== -1 ? String(row[colMap.note] || '').trim() : '부재 시 문 앞 보관';
 
+            const effectiveReceiver = receiver || orderer || `수령인${parsedRows.length + 1}`;
+            const effectivePhone = phoneRaw ? normalizePhone(phoneRaw) : (ordererPhoneRaw ? normalizePhone(ordererPhoneRaw) : '010-0000-0000');
+            const effectiveOrderer = orderer || effectiveReceiver;
+            const effectiveOrdererPhone = ordererPhoneRaw ? normalizePhone(ordererPhoneRaw) : effectivePhone;
+
             parsedRows.push({
               id: parsedRows.length + 1,
-              receiver: receiver || `수령인${parsedRows.length + 1}`,
-              phone: normalizePhone(phoneRaw),
+              ordererName: effectiveOrderer,
+              ordererPhone: effectiveOrdererPhone,
+              senderName: effectiveOrderer,
+              senderPhone: effectiveOrdererPhone,
+              receiver: effectiveReceiver,
+              phone: effectivePhone,
               address: address || '도로명 주소 확인 필요',
               detailAddress: detailAddress,
               zip: zip || '32145',
@@ -1497,22 +1564,68 @@
         }
       };
 
-      // 엑셀 템플릿 다운로드 시뮬레이션 (UTF-8 BOM 지원으로 한글 깨짐 방지)
+      // 엑셀 템플릿 다운로드 (10개 열: 주문인, 연락처, 수령인, 전화번호, 도로명주소, 상세주소, 우편번호, 상품명, 수량, 배송메모)
       const handleDownloadTemplate = () => {
-        const headers = ["수령인", "전화번호", "도로명주소", "상세주소", "우편번호", "상품명", "수량", "배송메모"];
-        const rows = [
-          ["김철수", "010-1234-5678", "충청남도 태안군 태안읍 송암로 523", "1층 기술센터", "32145", farmProfile?.products?.[0]?.name || "하미과메론(노랑)", "2", "부재 시 문 앞 보관"],
-          ["이영희", "010-9876-5432", "서울특별시 강남구 테헤란로 152", "18층", "06236", farmProfile?.products?.[0]?.name || "하미과메론(노랑)", "1", "배송 전 연락 부탁드립니다"]
-        ];
+        const headers = ["주문인", "연락처", "수령인", "전화번호", "도로명주소", "상세주소", "우편번호", "상품명", "수량", "배송메모"];
 
         if (window.XLSX && typeof window.XLSX.utils !== 'undefined') {
-          const ws = window.XLSX.utils.aoa_to_sheet([headers, ...rows]);
+          // 1행 목차(헤더)만 포함하고 2행 이후는 데이터 행이 없는 순수 빈 서식 생성
+          const ws = window.XLSX.utils.aoa_to_sheet([headers]);
+
+          // 열 너비(!cols): 주문인(12), 연락처(16), 수령인(12), 전화번호(16), 도로명주소(35), 상세주소(20), 우편번호(10), 상품명(24), 수량(8), 배송메모(25) 설정
+          ws['!cols'] = [
+            { wch: 12 }, // 주문인
+            { wch: 16 }, // 연락처
+            { wch: 12 }, // 수령인
+            { wch: 16 }, // 전화번호
+            { wch: 35 }, // 도로명주소
+            { wch: 20 }, // 상세주소
+            { wch: 10 }, // 우편번호
+            { wch: 24 }, // 상품명
+            { wch: 8 },  // 수량
+            { wch: 25 }  // 배송메모
+          ];
+
+          // 1행 행 높이 설정 (28pt)
+          ws['!rows'] = [{ hpt: 28 }];
+
+          // 1행 셀 스타일 적용: 소프트 그린 배경(#E8F5E9), 진한 글씨(#1E293B), 가운데 정렬(horizontal: center, vertical: center)
+          const colLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+          colLetters.forEach((col) => {
+            const cellRef = col + '1';
+            if (ws[cellRef]) {
+              ws[cellRef].s = {
+                fill: {
+                  fgColor: { rgb: "E8F5E9" } // 은은한 소프트 그린 배경 (#E8F5E9)
+                },
+                font: {
+                  name: "맑은 고딕",
+                  sz: 11,
+                  bold: true,
+                  color: { rgb: "1E293B" } // 진한 글씨
+                },
+                alignment: {
+                  horizontal: "center",
+                  vertical: "center"
+                },
+                border: {
+                  top: { style: "thin", color: { rgb: "CBD5E1" } },
+                  bottom: { style: "thin", color: { rgb: "CBD5E1" } },
+                  left: { style: "thin", color: { rgb: "CBD5E1" } },
+                  right: { style: "thin", color: { rgb: "CBD5E1" } }
+                }
+              };
+            }
+          });
+
           const wb = window.XLSX.utils.book_new();
           window.XLSX.utils.book_append_sheet(wb, ws, "대량주문명단");
+
+          // 실제 규격에 맞는 순수 바이너리 .xlsx 파일로 다운로드 (보안 경고창 원천 차단)
           window.XLSX.writeFile(wb, "OOMS_대량주문_표준양식_템플릿.xlsx");
         } else {
-          const csvRows = [headers.join(','), ...rows.map(r => r.join(','))];
-          const csvContent = "\uFEFF" + csvRows.join('\n'); // UTF-8 BOM 추가
+          // Fallback: UTF-8 BOM CSV
+          const csvContent = "\uFEFF" + headers.join(',') + "\n";
           const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
           const link = document.createElement("a");
           link.href = URL.createObjectURL(blob);
@@ -1520,10 +1633,13 @@
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(link.href), 1000);
         }
       };
+      const downloadBulkTemplate = handleDownloadTemplate;
+      window.downloadBulkTemplate = handleDownloadTemplate;
 
-      const handleSingleSubmit = (e) => {
+      const handleSingleSubmit = async (e) => {
         e.preventDefault();
         if (!parsedData) {
           alert('먼저 주문 내용을 입력하시고 [⚡ AI 즉시 주소·주문 정제] 버튼을 눌러 정제 결과를 확인해주세요.');
@@ -1534,17 +1650,7 @@
           return;
         }
 
-        // 1. 기존 localStorage 'ooms_orders' 로드 (없으면 기본 샘플과 연계)
-        let existingOrders = [];
-        try {
-          const saved = localStorage.getItem('ooms_orders') || localStorage.getItem('ooms_staging_orders');
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed)) existingOrders = parsed;
-          }
-        } catch (err) {
-          console.error(err);
-        }
+        let existingOrders = ordersList || [];
 
         const currentFarmCode = farmProfile?.merchantCode || farmProfile?.code || 'FARM-2026-224';
         const urlParams = new URLSearchParams(window.location.search);
@@ -1616,13 +1722,19 @@
           createdOrders.push(newOrder);
         });
 
-        // 3. 최상단(unshift) 일괄 추가 및 localStorage 영구 저장
+        // 3. DB 및 로컬 상태 동기화 (Supabase OOMS_DB.createOrders)
+        if (window.OOMS_DB) {
+          try {
+            await window.OOMS_DB.createOrders(createdOrders);
+          } catch (err) {
+            console.error('[OOMS_DB.createOrders AI Error]', err);
+          }
+        }
+        await loadOrdersFromDb();
         existingOrders.unshift(...createdOrders);
         const primaryOrder = createdOrders[0];
 
         try {
-          localStorage.setItem('ooms_orders', JSON.stringify(existingOrders));
-          localStorage.setItem('ooms_staging_orders', JSON.stringify(existingOrders));
           localStorage.setItem('ooms_last_order', JSON.stringify({
             orderId: primaryOrder.orderId,
             customerName: primaryOrder.senderName,
@@ -1848,7 +1960,7 @@
         }
 
         try {
-          const savedOrders = JSON.parse(localStorage.getItem('ooms_orders') || '[]');
+          const savedOrders = (ordersList && ordersList.length > 0) ? ordersList : [];
           // 전화번호로 일치하는 주문 검색 (뒤 8자리 또는 전체 번호 매칭, 최신 주문 우선)
           const matched = savedOrders.find(o => {
             const sPhone = (o.senderPhone || o.orderer?.tel || o.phone || '').replace(/[^0-9]/g, '');
@@ -1913,7 +2025,7 @@
       };
 
       // [📝 일반주문] 원스톱 주문 확정하기 핸들러 (중복 리스트 없이 직관적 확정)
-      const handleDirectConfirmNormalOrder = (e) => {
+      const handleDirectConfirmNormalOrder = async (e) => {
         if (e) e.preventDefault();
 
         // 1. 유효성 검증
@@ -2050,21 +2162,21 @@
           tracking: null
         };
 
-        // 3. 로컬스토리지 저장 및 전파
-        let existingOrders = [];
-        try {
-          const saved = localStorage.getItem('ooms_orders') || localStorage.getItem('ooms_staging_orders');
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed)) existingOrders = parsed;
+        let existingOrders = ordersList || [];
+
+        // DB 및 로컬 상태 동기화 (Supabase OOMS_DB.createOrders)
+        if (window.OOMS_DB) {
+          try {
+            await window.OOMS_DB.createOrders([newOrder]);
+          } catch (err) {
+            console.error('[OOMS_DB.createOrders Single Error]', err);
           }
-        } catch (err) {}
+        }
+        await loadOrdersFromDb();
 
         const mergedOrders = [newOrder, ...existingOrders];
 
         try {
-          localStorage.setItem('ooms_orders', JSON.stringify(mergedOrders));
-          localStorage.setItem('ooms_staging_orders', JSON.stringify(mergedOrders));
           localStorage.setItem('ooms_last_order', JSON.stringify({
             orderId: newOrderId,
             customerName: sName,
@@ -2138,7 +2250,7 @@
         handleDirectConfirmNormalOrder();
       };
 
-      const handleBulkSubmit = (e) => {
+      const handleBulkSubmit = async (e) => {
         if (e) e.preventDefault();
         if (!bulkOrders || bulkOrders.length === 0) {
           alert('업로드된 대량 주문 내역이 없습니다. 먼저 엑셀/CSV 파일을 업로드해주세요.');
@@ -2155,17 +2267,7 @@
           return;
         }
 
-        // 2. 대량 주문 배열을 표준 주문 객체로 변환
-        let existingOrders = [];
-        try {
-          const saved = localStorage.getItem('ooms_orders') || localStorage.getItem('ooms_staging_orders');
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed)) existingOrders = parsed;
-          }
-        } catch (err) {
-          console.error('기존 주문 로드 오류:', err);
-        }
+        let existingOrders = ordersList || [];
 
         // 현재 URL 및 로컬스토리지에서 농가코드(farmCode) 엄격 추출
         const urlParams = new URLSearchParams(window.location.search);
@@ -2175,35 +2277,40 @@
                                urlParams.get('merchantCode') || 
                                localStorage.getItem('ooms_active_farm_code') || 
                                farmProfile?.merchantCode || 
+                               farmProfile?.farmCode || 
                                farmProfile?.code || 
                                'FARM-2026-224';
 
-        const targetFarmName = farmProfile?.farmName || "태안 조이장네";
+        const targetFarmName = farmProfile?.farmName || "태안 사과농장";
         const nowIso = new Date().toISOString();
 
         const baseProd = selectedProduct || (farmProfile?.products && farmProfile.products[0]);
-        const defaultBulkProdName = baseProd?.name || '대표 농산물';
-        const defaultBulkUnitPrice = Number(baseProd?.salePrice || baseProd?.price || 42000);
+        const defaultBulkProdName = baseProd?.name || '맛있는 꿀사과 10kg';
+        const defaultBulkUnitPrice = Number(baseProd?.salePrice || baseProd?.price || 55000);
 
         const createdBulkOrders = bulkOrders.map((item, idx) => {
           const newOrderId = 'ORD-BULK-' + Date.now().toString().slice(-4) + '-' + (idx + 1);
           const receiverName = item.receiver || '고객';
           const receiverPhone = item.phone || '010-0000-0000';
-          const senderName = item.receiver || item.senderName || '대량 주문자';
-          const senderPhone = item.phone || item.senderPhone || '010-0000-0000';
+          const senderName = item.ordererName || item.senderName || item.receiver || '대량 주문자';
+          const senderPhone = item.ordererPhone || item.senderPhone || item.phone || '010-0000-0000';
           const address = item.address || '도로명주소';
           const postcode = item.zip || '06236';
           const productName = item.product || item.productName || defaultBulkProdName;
           const quantity = Number(item.qty || item.quantity) || 1;
-          const price = (Number(item.price) || defaultBulkUnitPrice) * quantity;
-          const memo = item.note || item.memo || '부재 시 경비실 보관';
+          const unitPrice = Number(item.unitPrice || item.price) || defaultBulkUnitPrice;
+          const price = unitPrice * quantity;
+          const memo = item.note || item.memo || '부재 시 문 앞 보관';
 
           return {
             orderId: newOrderId,
-            refId: urlRef, // 링크별 발급된 고객 고유 식별자
+            id: newOrderId,
+            refId: urlRef,
             ref: urlRef,
-            farmCode: targetFarmCode, // ★ 필수 농가코드 연결
+            farmCode: targetFarmCode,
             farmName: targetFarmName,
+            ordererName: senderName,
+            ordererPhone: senderPhone,
             senderName,
             senderPhone,
             receiverName,
@@ -2214,33 +2321,46 @@
             productName,
             quantity,
             price,
+            amount: price,
             memo,
+            status: 'received',
             paymentStatus: '미입금',
+            payment_status: 'unpaid',
             shippingStatus: '준비중',
+            shipping_status: 'preparing',
+            deliveryStatus: 'preparing',
+            channel: '엑셀(대량)',
+            source: '대량주문(엑셀)',
             orderType: '대량주문(엑셀)',
             createdAt: nowIso,
+            paid: false,
+            status: { payment: 'UNPAID', staging: 'PENDING' },
+            tracking: null,
+            invoiceNum: null,
 
             // 하위 호환 객체 필드
-            id: newOrderId,
-            channel: '엑셀(대량)',
-            source: '엑셀(대량)',
-            rawText: `[엑셀대량] ${receiverName} ${receiverPhone} ${address} ${productName} ${quantity}박스`,
+            rawText: `[대량주문(엑셀)] ${receiverName} ${receiverPhone} ${address} ${productName} ${quantity}박스`,
             orderer: { name: senderName, tel: senderPhone },
             receiver: { name: receiverName, tel: receiverPhone },
             product: { name: productName, qty: quantity, price },
-            status: { payment: 'UNPAID', staging: 'PENDING' },
-            paid: false,
-            confidence: '100% (정형데이터)',
-            tracking: null
+            confidence: '100% (정형데이터)'
           };
         });
 
-        // 3. 기존 주문 목록 최상단에 일괄 삽입
+        // 3. DB 일괄 저장 (Supabase OOMS_DB.createOrders)
+        if (window.OOMS_DB) {
+          try {
+            await window.OOMS_DB.createOrders(createdBulkOrders);
+          } catch (err) {
+            console.error('[OOMS_DB.createOrders Bulk Error]', err);
+          }
+        }
+        await loadOrdersFromDb();
+
+        // 기존 주문 목록 최상단에 일괄 삽입
         const mergedOrders = [...createdBulkOrders, ...existingOrders];
 
         try {
-          localStorage.setItem('ooms_orders', JSON.stringify(mergedOrders));
-          localStorage.setItem('ooms_staging_orders', JSON.stringify(mergedOrders));
           if (createdBulkOrders.length > 0) {
             localStorage.setItem('ooms_last_order', JSON.stringify({
               orderId: createdBulkOrders[0].orderId,
@@ -2267,21 +2387,18 @@
           console.error('대량 주문 localStorage 저장 오류:', storageErr);
         }
 
+        const totalQty = createdBulkOrders.reduce((sum, o) => sum + (Number(o.quantity) || 1), 0);
+        const totalAmount = createdBulkOrders.reduce((sum, o) => sum + (Number(o.price) || 0), 0);
+
+        setCompletedBulkList(createdBulkOrders);
+        setCompletedOrder(null);
         setBulkOrderComplete(true);
-        if (createdBulkOrders.length > 0) {
-          setCompletedOrder(createdBulkOrders[0]);
-          setJustPlacedOrderId(createdBulkOrders[0].orderId);
-          setTrackedOrder(createdBulkOrders[0]);
-          setHasSearched(true);
-          setSearchQuery(createdBulkOrders[0].orderId);
-          setDetectedSession({
-            orderId: createdBulkOrders[0].orderId,
-            customerName: createdBulkOrders[0].senderName,
-            customerPhone: createdBulkOrders[0].senderPhone,
-            source: 'SESSION'
-          });
-        }
+        setOrdersList(mergedOrders);
+        setSearchQuery('');
+        setTrackedOrder(null);
+        setHasSearched(false);
         setOrderMode('TRACKING');
+        setToastMessage(`✅ 총 ${createdBulkOrders.length}건(${totalQty}박스 / ${totalAmount.toLocaleString()}원) 대량 주문 접수가 완료되었습니다.`);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       };
 
@@ -2370,7 +2487,85 @@
           </div>
 
           {/* 주문 접수 완료 확인 영수증 (상태 유지 및 재확인 UX) */}
-          {completedOrder && (
+          {/* 대량 주문 접수 완료 슬림 요약 카드 (총 2건 / 3박스 / 165,000원 대량 주문 접수 완료) */}
+          {completedBulkList && completedBulkList.length > 0 && (() => {
+            const totalBoxes = completedBulkList.reduce((sum, o) => sum + (Number(o.quantity) || 1), 0);
+            const totalAmount = completedBulkList.reduce((sum, o) => sum + (Number(o.price) || 0), 0);
+
+            return (
+              <div className="mx-3 mt-3.5 bg-white rounded-3xl p-5 shadow-lg border-2 border-emerald-500/50 animate-fadeIn space-y-4">
+                <div className="text-center pb-2 border-b border-slate-100">
+                  <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-2 text-xl font-black shadow-inner">
+                    ✓
+                  </div>
+                  <span className="inline-block bg-emerald-100 text-emerald-800 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full mb-1">
+                    📊 대량 엑셀 주문 접수완료
+                  </span>
+                  <h3 className="text-base sm:text-lg font-black text-slate-900">
+                    총 {completedBulkList.length}건({totalBoxes}박스 / {totalAmount.toLocaleString()}원) 대량 주문 접수 완료
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    접수된 대량 주문 내역입니다. 아래 주문 정보 확인 완료 버튼을 누르면 닫힙니다.
+                  </p>
+                </div>
+
+                {/* 슬림 요약 목록 */}
+                <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200 divide-y divide-slate-200/70 text-xs font-medium">
+                  {completedBulkList.map((item, idx) => {
+                    const rName = item.receiverName || item.receiver?.name || '고객';
+                    const rPhone = item.receiverPhone || item.receiver?.tel || item.phone || '-';
+                    const pName = item.productName || item.product?.name || '꿀사과 10kg';
+                    const qty = item.quantity || item.product?.qty || 1;
+                    const price = item.price || item.product?.price || 0;
+
+                    return (
+                      <div key={item.orderId || idx} className="py-2.5 first:pt-1 last:pb-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-slate-900">{rName}</span>
+                          <span className="text-slate-400">|</span>
+                          <span className="font-mono text-slate-600 text-[11px]">{rPhone}</span>
+                          <span className="text-slate-400">|</span>
+                          <span className="text-slate-800">{pName} ({qty}박스)</span>
+                          <span className="text-slate-400">|</span>
+                          <span className="font-mono font-black text-harvest-600">{Number(price).toLocaleString()}원</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          {item.orderId}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* 하단 버튼: 확인 완료 클릭 시 카드가 깔끔하게 닫히도록 처리 */}
+                <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentUrl = window.location.pathname + (window.location.search || '');
+                      window.location.href = currentUrl;
+                    }}
+                    className="flex-1 py-3 px-3 bg-white hover:bg-slate-50 active:scale-98 border-2 border-slate-300 rounded-2xl font-bold text-xs text-slate-800 flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                  >
+                    <span>🔄</span> 다른 상품 추가 주문하기
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCompletedBulkList(null);
+                      setToastMessage('✅ 주문 정보 확인이 완료되었습니다.');
+                    }}
+                    className="flex-1 py-3 px-3 bg-farm-600 hover:bg-farm-700 active:scale-98 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-farm-600/30 cursor-pointer"
+                  >
+                    <span>📋</span> 주문 정보 확인 완료
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* 단일 일반 주문 접수 완료 확인 영수증 */}
+          {!completedBulkList && completedOrder && (
             <div className="mx-3 mt-3.5 bg-white rounded-3xl p-5 shadow-lg border-2 border-emerald-500/50 animate-fadeIn space-y-4">
               <div className="text-center pb-3 border-b border-slate-100">
                 <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-2 text-2xl font-black shadow-inner">
@@ -2468,7 +2663,8 @@
                 <button
                   type="button"
                   onClick={() => {
-                    setToastMessage('✅ 주문 정보 확인이 완료되었습니다. 영수증이 화면에 계속 유지됩니다.');
+                    setCompletedOrder(null);
+                    setToastMessage('✅ 주문 정보 확인이 완료되었습니다.');
                   }}
                   className="flex-1 py-3 px-3 bg-farm-600 hover:bg-farm-700 active:scale-98 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-farm-600/30 cursor-pointer"
                   title="주문 정보 확인 완료"
@@ -3429,6 +3625,9 @@
                     </p>
                     <p className="text-[11px] text-slate-400 mt-1">
                       (수령인, 연락처, 주소, 상품명, 수량, 배송메모 열 포함)
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-1 bg-slate-100/80 px-2.5 py-1 rounded-lg">
+                      💡 작성 예시: 김철수 | 010-1234-5678 | 충남 태안군 송암로 523 | 1층 | 32145 | 꿀사과 10kg | 1 | 문 앞 보관
                     </p>
                   </div>
                 </div>

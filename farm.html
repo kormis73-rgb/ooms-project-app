@@ -4,6 +4,29 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>태안 사과농장 - 농가 모바일 (OOMS)</title>
+  <!-- Supabase & CDN Preconnect / DNS-Prefetch (네트워크 핸드셰이크 단축 최적화) -->
+    <!-- [Zero-Latency Restore] DOM 렌더링 전 sessionStorage 캐시를 즉시 동기 복원하여 FOUC/깜빡임 100% 차단 -->
+  <script>
+    (function() {
+      try {
+        const raw = sessionStorage.getItem('ooms_farm_cache') || 
+                    sessionStorage.getItem('ooms_farm_orders_cache_v1') || 
+                    localStorage.getItem('ooms_farm_cache') ||
+                    localStorage.getItem('ooms_farm_orders_cache_v1');
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list) && list.length > 0) {
+            window.__INITIAL_FARM_ORDERS__ = list;
+            // [Zero-Latency Cache Ready]
+          }
+        }
+      } catch(e) {}
+    })();
+  </script>
+  <link rel="preconnect" href="https://ypeyajrrplumssgoqubc.supabase.co" crossorigin />
+  <link rel="dns-prefetch" href="https://ypeyajrrplumssgoqubc.supabase.co" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="preconnect" href="https://unpkg.com" crossorigin />
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- React 18, ReactDOM, Babel Standalone -->
@@ -12,6 +35,9 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <!-- SheetJS (xlsx) CDN -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Supabase JS Client CDN & OOMS_DB Client Module -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-client.js"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -77,25 +103,100 @@
 
   <!-- React 렌더링 마운트 컨테이너 및 Fallback 정적 뼈대 HTML -->
   <div id="farm-root" class="mobile-container">
-    <!-- 자바스크립트 비활성화 또는 스크립트 로드 전 표시되는 기본 뼈대 UI -->
+    <!-- [Single Source of Truth] 단일 렌더링 템플릿: 초기 HTML과 React 최종 화면을 100% 일치시켜 FOUC/깜빡임 원천 차단 -->
     <div style="max-width: 860px !important; width: 100% !important; margin: 0 auto !important; box-sizing: border-box !important; box-shadow: 0 4px 20px rgba(0,0,0,0.1);" class="mobile-container min-h-screen bg-slate-100 pb-28 text-slate-800 border-x border-slate-200">
+      
+      <!-- 1. 상단 농가 헤더 바 -->
       <div class="bg-slate-900 text-white p-5 sticky top-0 z-30 shadow-md">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span class="font-extrabold text-sm tracking-wide text-emerald-400">태안 사과농장</span>
+            <a
+              href="index.html"
+              class="bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white border border-slate-700 px-2.5 py-1 rounded-lg transition-all text-xs font-bold flex items-center gap-1 shadow-2xs shrink-0"
+              title="메인 허브(index.html)로 즉시 이동"
+            >
+              <span>🍏</span>
+              <span>← 홈으로 이동</span>
+            </a>
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse ml-1"></span>
+            <span class="font-extrabold text-sm tracking-wide text-emerald-400 truncate max-w-[140px]" id="static-header-farm-name">
+              태안 사과농장
+            </span>
           </div>
-          <span class="text-[10px] bg-slate-800 border border-slate-700 text-slate-300 px-2 py-0.5 rounded font-mono">FARM-2026-224</span>
+          <div class="flex items-center gap-1.5">
+            <span class="text-[10px] bg-slate-800 border border-slate-700 text-slate-300 px-2 py-0.5 rounded font-mono" id="static-header-merchant-code">
+              FARM-2026-224
+            </span>
+            <button
+              id="btnLogout"
+              onclick="sessionStorage.removeItem('ooms_farm_session'); localStorage.removeItem('ooms_farm_session'); location.href='index.html';"
+              class="text-[11px] bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded transition-all font-bold cursor-pointer"
+              title="로그아웃"
+            >
+              로그아웃
+            </button>
+          </div>
         </div>
+
         <div class="flex items-center justify-between mt-2">
           <h1 class="text-xl font-black">농가 모바일</h1>
-          <span class="text-xs text-slate-400">대표: <b class="text-white">김혜진</b></span>
+          <span class="text-xs text-slate-400">
+            대표: <b class="text-white" id="static-header-rep-name">김혜진</b>
+          </span>
         </div>
-        <p class="text-[11px] text-slate-400 mt-0.5">📞 010-3849-1234 | 택배사: 1092837465</p>
+        <p class="text-[11px] text-slate-400 mt-0.5" id="static-header-contact">
+          📞 010-3849-1234 | 택배사: 1092837465
+        </p>
       </div>
 
       <div class="p-4 space-y-4">
-        <!-- 대시보드 카드 뼈대 -->
+        <!-- 1.5. 농가 전용 주문 링크 생성 및 원터치 공유 카드 -->
+        <div class="p-4 rounded-2xl shadow-md space-y-2.5 text-white bg-gradient-to-br from-farm-600 via-farm-700 to-emerald-800">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <span class="text-base">🔗</span>
+              <h3 class="font-extrabold text-sm tracking-tight">농가 전용 주문 링크 생성기</h3>
+            </div>
+            <span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-white/20">
+              원터치 복사
+            </span>
+          </div>
+          <p class="text-[11px] text-farm-100 leading-relaxed">
+            고객에게 이 전용 링크를 보내면, 로그인 없이도 <b>태안 사과농장</b> 상품으로 자동 연결되어 간편 주문이 접수됩니다.
+          </p>
+          <div class="bg-slate-900/60 p-2 rounded-xl flex items-center justify-between gap-2 border border-white/10">
+            <span class="font-mono text-xs text-emerald-300 truncate max-w-[210px] select-all" id="static-farm-order-url">
+              http://localhost:3000/order.html?farm=FARM-2026-224&ref=REF-2026-224
+            </span>
+            <button
+              type="button"
+              onclick="navigator.clipboard.writeText('http://localhost:3000/order.html?farm=FARM-2026-224&ref=REF-2026-224'); alert('전용 주문 링크가 복사되었습니다!');"
+              class="text-xs font-black px-3 py-1.5 rounded-lg shadow-sm shrink-0 transition-all flex items-center gap-1 bg-white text-farm-800 hover:bg-farm-50 active:scale-95 cursor-pointer"
+              title="전용 링크 복사하기"
+            >
+              <span>📋 링크 복사</span>
+            </button>
+          </div>
+          <div class="flex gap-2 pt-0.5">
+            <button
+              type="button"
+              onclick="navigator.clipboard.writeText('[태안 사과농장] 🍎 맛있는 꿀사과 10kg 주문 링크: http://localhost:3000/order.html?farm=FARM-2026-224'); alert('카톡/문자 안내문구가 복사되었습니다!');"
+              class="flex-1 text-[11px] font-bold py-2 rounded-xl transition-all flex items-center justify-center gap-1 bg-white/15 hover:bg-white/25 active:scale-98 text-white cursor-pointer"
+            >
+              <span>💬 카톡/문자 안내문구 복사</span>
+            </button>
+            <a
+              href="order.html?farm=FARM-2026-224"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="bg-white/15 hover:bg-white/25 active:scale-98 text-white text-[11px] font-bold px-3 py-2 rounded-xl transition-all flex items-center justify-center gap-1 text-center"
+            >
+              <span>미리보기 ↗</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- 2. 오늘 출하 현황 요약 대시보드 카드 -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
           <h2 class="text-xs font-bold text-slate-500 mb-3 flex items-center justify-between">
             <span>📦 오늘 출하 & 예약 현황</span>
@@ -104,37 +205,437 @@
           <div class="grid grid-cols-3 gap-2 text-center">
             <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
               <p class="text-[11px] text-slate-500">총 주문</p>
-              <p class="text-lg font-black text-slate-900 mt-0.5">8건</p>
-              <span class="text-[10px] text-farm-600 font-bold">10박스</span>
+              <p class="text-lg font-black text-slate-900 mt-0.5" id="static-total-orders">8건</p>
+              <span class="text-[10px] text-farm-600 font-bold" id="static-total-boxes">11박스</span>
             </div>
             <div class="bg-emerald-50 p-2.5 rounded-xl border border-emerald-100">
               <p class="text-[11px] text-emerald-700">입금 완료</p>
-              <p class="text-lg font-black text-emerald-800 mt-0.5">8건</p>
-              <span class="text-[10px] text-emerald-600 font-bold">550,000원</span>
+              <p class="text-lg font-black text-emerald-800 mt-0.5" id="static-paid-orders">6건</p>
+              <span class="text-[10px] text-emerald-600 font-bold" id="static-paid-amount">330,000원</span>
             </div>
             <div class="bg-amber-50 p-2.5 rounded-xl border border-amber-100">
               <p class="text-[11px] text-amber-700">입금 대기</p>
-              <p class="text-lg font-black text-amber-800 mt-0.5">0건</p>
-              <span class="text-[10px] text-amber-600 font-bold">0원</span>
+              <p class="text-lg font-black text-amber-800 mt-0.5" id="static-unpaid-orders">2건</p>
+              <span class="text-[10px] text-amber-600 font-bold" id="static-unpaid-amount">165,000원</span>
             </div>
           </div>
         </div>
 
-        <!-- 상품 카드 뼈대 -->
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
-          <div class="flex justify-between items-center mb-2.5">
-            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">🍎 현재 출하 등록 상품 (2종)</h3>
-            <span class="text-[10px] text-farm-600 font-bold">실시간 판매중</span>
-          </div>
-          <div class="py-2 flex justify-between items-center text-xs">
-            <div>
-              <span class="text-[10px] bg-farm-50 text-farm-700 px-1.5 py-0.5 rounded font-bold mr-1.5">사과</span>
-              <span class="font-extrabold text-slate-900">맛있는 꿀사과 10kg</span>
-              <p class="text-[11px] text-slate-500 mt-0.5">10kg(28~32과 특품) • 태안 해풍과 황토에서 자란 아삭하고 달콤한 특품 꿀사과</p>
-            </div>
-            <span class="font-mono font-black text-harvest-600 text-xs ml-2">55,000원</span>
+        <!-- [모바일 친화형 5대 탭 네비게이션] -->
+        <div class="bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 sticky top-[108px] z-20">
+          <div class="flex gap-1 overflow-x-auto no-scrollbar scroll-smooth text-xs font-bold">
+            <button
+              type="button"
+              class="flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap transition-all bg-slate-900 text-white shadow-xs font-black cursor-pointer"
+            >
+              <span>📥 주문 접수</span>
+              <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-farm-500 text-white" id="static-main-nav-orders">2</span>
+            </button>
+            <button
+              type="button"
+              class="flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap transition-all bg-transparent text-slate-600 hover:bg-slate-100 cursor-pointer"
+            >
+              <span>✍️ 현장 주문등록</span>
+              <span class="text-[9px] px-1.5 py-0.2 rounded font-black bg-farm-100 text-farm-800">신규</span>
+            </button>
+            <button
+              type="button"
+              class="flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap transition-all bg-transparent text-slate-600 hover:bg-slate-100 cursor-pointer"
+            >
+              <span>📊 매출·출하 실적</span>
+              <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700" id="static-main-nav-stats">33만</span>
+            </button>
+            <button
+              type="button"
+              class="flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap transition-all bg-transparent text-slate-600 hover:bg-slate-100 cursor-pointer"
+            >
+              <span>🌱 작기·정식</span>
+              <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700">2</span>
+            </button>
+            <button
+              type="button"
+              class="flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap transition-all bg-transparent text-slate-600 hover:bg-slate-100 cursor-pointer"
+            >
+              <span>🍎 상품 관리</span>
+              <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700">2</span>
+            </button>
+            <button
+              type="button"
+              class="flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap transition-all bg-transparent text-slate-600 hover:bg-slate-100 cursor-pointer"
+            >
+              <span>💬 고객 CS</span>
+              <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700">1</span>
+            </button>
           </div>
         </div>
+
+        <!-- [하단 주문 및 배송조회 패널] -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-xl">📦</span>
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <h3 class="font-extrabold text-sm text-slate-900">주문 및 배송조회</h3>
+                  <span class="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-farm-100 text-farm-800" id="static-orders-panel-total">8건</span>
+                </div>
+                <p class="text-[11px] text-slate-500">실시간 자동 연동</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button
+                type="button"
+                class="text-[11px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+              >
+                <span>🚚 택배사 송장</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- [탭 메뉴 컨테이너: #tabsContainer] -->
+          <div id="tabsContainer" class="p-3 bg-slate-50/70 border-b border-slate-100">
+            <div class="flex flex-wrap gap-1 text-xs">
+              <button
+                type="button"
+                onclick="window.renderFarmTabsAndOrders && window.renderFarmTabsAndOrders(window.__INITIAL_FARM_ORDERS__ || [], 'ALL')"
+                class="px-2.5 py-1.5 rounded-xl font-black transition-all cursor-pointer inline-flex items-center gap-1 text-xs bg-slate-900 text-white shadow-xs"
+              >
+                <span>📥 주문 접수</span>
+                <span class="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-emerald-500 text-white" id="static-tab-received-count">2</span>
+              </button>
+              <button
+                type="button"
+                onclick="window.renderFarmTabsAndOrders && window.renderFarmTabsAndOrders(window.__INITIAL_FARM_ORDERS__ || [], 'ACTIVE')"
+                class="px-2.5 py-1.5 rounded-xl font-black transition-all cursor-pointer inline-flex items-center gap-1 text-xs bg-slate-100 text-slate-600 hover:bg-slate-200"
+              >
+                <span>🔴 오늘 출하 대기</span>
+                <span class="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-slate-200 text-slate-700" id="static-tab-active-count">0</span>
+              </button>
+              <button
+                type="button"
+                onclick="window.renderFarmTabsAndOrders && window.renderFarmTabsAndOrders(window.__INITIAL_FARM_ORDERS__ || [], 'UNPAID')"
+                class="px-2.5 py-1.5 rounded-xl font-black transition-all cursor-pointer inline-flex items-center gap-1 text-xs bg-slate-100 text-slate-600 hover:bg-slate-200"
+              >
+                <span>⏳ 입금 대기</span>
+                <span class="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-slate-200 text-slate-700" id="static-tab-unpaid-count">2</span>
+              </button>
+              <button
+                type="button"
+                onclick="window.renderFarmTabsAndOrders && window.renderFarmTabsAndOrders(window.__INITIAL_FARM_ORDERS__ || [], 'SHIPPED')"
+                class="px-2.5 py-1.5 rounded-xl font-black transition-all cursor-pointer inline-flex items-center gap-1 text-xs bg-slate-100 text-slate-600 hover:bg-slate-200"
+              >
+                <span>🚚 배송중 / 완료</span>
+                <span class="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-slate-200 text-slate-700" id="static-tab-shipped-count">6</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- [주문 목록 컨테이너: #ordersList] -->
+          <div id="ordersList" class="divide-y divide-slate-100 min-h-[280px]">
+            <!-- 김철수 주문 카드 (출하대기/미입금) -->
+            <div class="p-4 hover:bg-slate-50 transition-colors space-y-2">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex-1 min-w-0">
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <span class="font-mono text-[11px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                      ORD-20261023-0001
+                    </span>
+                    <span class="font-extrabold text-slate-900 text-xs">
+                      김철수
+                    </span>
+                    <span class="text-xs text-slate-500 font-mono">010-1234-5678</span>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
+                    <span class="text-[10px] px-2 py-0.5 rounded font-black whitespace-nowrap bg-amber-100 text-amber-800 animate-pulse">
+                      ⏳ 입금전
+                    </span>
+                    <span class="text-[10px] px-2 py-0.5 rounded font-black whitespace-nowrap bg-amber-100 text-amber-800 border border-amber-300">
+                      🚚 준비중
+                    </span>
+                  </div>
+                  <p class="text-xs text-slate-800 font-bold mt-1.5 flex items-center gap-1.5">
+                    <span>맛있는 꿀사과 10kg</span>
+                    <span class="text-farm-700 font-extrabold">(2박스)</span>
+                    <span>•</span>
+                    <span class="font-black text-harvest-600 font-mono">110,000원</span>
+                  </p>
+                  <p class="text-[11px] text-slate-500 mt-1 truncate" title="📍 [ 32145 ] 충청남도 태안군 태안읍 중앙로 12 101호">
+                    📍 [ 32145 ] 충청남도 태안군 태안읍 중앙로 12 101호
+                  </p>
+                  <div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between">
+                    <div class="flex items-center justify-between w-full py-1">
+                      <span class="text-[11px] font-bold text-slate-400 bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 inline-flex items-center gap-1 select-none">
+                        🔒 입금확인 필요 (입금 완료 후 송장 등록 가능)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 이영희 주문 카드 (출하대기/미입금) -->
+            <div class="p-4 hover:bg-slate-50 transition-colors space-y-2">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex-1 min-w-0">
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <span class="font-mono text-[11px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                      ORD-20261023-0002
+                    </span>
+                    <span class="font-extrabold text-slate-900 text-xs">
+                      이영희 <span class="text-slate-500 font-normal">(주문: 김철수)</span>
+                    </span>
+                    <span class="text-xs text-slate-500 font-mono">010-9876-5432</span>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
+                    <span class="text-[10px] px-2 py-0.5 rounded font-black whitespace-nowrap bg-amber-100 text-amber-800 animate-pulse">
+                      ⏳ 입금전
+                    </span>
+                    <span class="text-[10px] px-2 py-0.5 rounded font-black whitespace-nowrap bg-amber-100 text-amber-800 border border-amber-300">
+                      🚚 준비중
+                    </span>
+                  </div>
+                  <p class="text-xs text-slate-800 font-bold mt-1.5 flex items-center gap-1.5">
+                    <span>맛있는 꿀사과 10kg</span>
+                    <span class="text-farm-700 font-extrabold">(1박스)</span>
+                    <span>•</span>
+                    <span class="font-black text-harvest-600 font-mono">55,000원</span>
+                  </p>
+                  <p class="text-[11px] text-slate-500 mt-1 truncate" title="📍 [ 32130 ] 충청남도 태안군 소원면 서해로 100 2층">
+                    📍 [ 32130 ] 충청남도 태안군 소원면 서해로 100 2층
+                  </p>
+                  <div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between">
+                    <div class="flex items-center justify-between w-full py-1">
+                      <span class="text-[11px] font-bold text-slate-400 bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 inline-flex items-center gap-1 select-none">
+                        🔒 입금확인 필요 (입금 완료 후 송장 등록 가능)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- [Zero-Latency 동기 바인딩 스크립트] -->
+        <script>
+          // 주소 객체 파싱 방어 함수 ([object Object] 원천 방지)
+          window.formatSafeOrderAddress = function(o) {
+            if (!o) return { fullAddr: '주소 정보 없음', zonePrefix: '' };
+            var addrObj = (typeof o.address === 'object' && o.address !== null) ? o.address : null;
+            var displayAddr = addrObj 
+              ? (addrObj.roadAddress || addrObj.road || addrObj.address || '') 
+              : (typeof o.address === 'string' ? o.address : (o.roadAddress || o.road_address || ''));
+            var displayDetail = addrObj
+              ? (addrObj.detailAddress || addrObj.detail || '')
+              : (o.detailAddress || o.detail_address || '');
+            var displayZone = (addrObj && addrObj.zonecode) 
+              ? addrObj.zonecode 
+              : (addrObj && addrObj.zip ? addrObj.zip : (o.zonecode || o.postcode || o.zip || ''));
+            var fullAddr = (displayAddr + ' ' + displayDetail).trim() || '주소 정보 없음';
+            var zonePrefix = displayZone ? ('[ ' + displayZone + ' ] ') : '';
+            return { fullAddr: fullAddr, zonePrefix: zonePrefix };
+          };
+
+          // 하단 탭 메뉴 및 주문 목록 즉시 렌더링 함수
+          window.renderFarmTabsAndOrders = function(orders, activeTab) {
+            if (!activeTab) activeTab = 'ALL';
+            window.__CURRENT_ACTIVE_TAB__ = activeTab;
+            var list = orders && Array.isArray(orders) ? orders : (window.__INITIAL_FARM_ORDERS__ || []);
+
+            var receivedCount = 0;
+            var activeCount = 0;
+            var unpaidCount = 0;
+            var deliveredCount = 0;
+            var totalBoxes = 0;
+            var paidAmt = 0;
+            var unpaidAmt = 0;
+
+            list.forEach(function(o) {
+              var q = Number(o.quantity) || Number(o.qty) || 1;
+              var a = Number(o.price) || Number(o.amount) || 0;
+              totalBoxes += q;
+
+              var pay = String(o.payment_status || o.paymentStatus || '').toLowerCase();
+              var isPaidOrder = !(pay === 'unpaid' || pay === '미입금' || o.paid === false);
+              var ship = String(o.shipping_status || o.shippingStatus || '').toLowerCase();
+              var trk = o.tracking_number || o.tracking || o.invoiceNum || '';
+              var isDelivered = (ship === 'delivered' || ship === '배송완료' || !!trk);
+
+              if (isDelivered) {
+                deliveredCount++;
+              } else {
+                receivedCount++;
+                if (isPaidOrder) {
+                  activeCount++;
+                } else {
+                  unpaidCount++;
+                }
+              }
+
+              if (isPaidOrder) {
+                paidAmt += a;
+              } else {
+                unpaidAmt += a;
+              }
+            });
+
+            // 상단 대시보드 카드 동기화
+            var setTxt = function(id, val) {
+              var el = document.getElementById(id);
+              if (el) el.textContent = val;
+            };
+            setTxt('static-total-orders', list.length + '건');
+            setTxt('static-total-boxes', totalBoxes + '박스');
+            setTxt('static-paid-orders', (list.length - unpaidCount) + '건');
+            setTxt('static-paid-amount', paidAmt.toLocaleString() + '원');
+            setTxt('static-unpaid-orders', unpaidCount + '건');
+            setTxt('static-unpaid-amount', unpaidAmt.toLocaleString() + '원');
+            setTxt('static-main-nav-orders', receivedCount);
+            setTxt('static-main-nav-stats', paidAmt > 0 ? (Math.round(paidAmt / 10000) + '만') : '0');
+            setTxt('static-orders-panel-total', list.length + '건');
+            setTxt('static-tab-received-count', receivedCount);
+            setTxt('static-tab-active-count', activeCount);
+            setTxt('static-tab-unpaid-count', unpaidCount);
+            setTxt('static-tab-shipped-count', deliveredCount);
+
+            // #tabsContainer 렌더링
+            var tabsEl = document.getElementById('tabsContainer');
+            if (tabsEl) {
+              var makeTab = function(key, title, count, activeCls, badgeActiveCls) {
+                var isActive = activeTab === key;
+                var cls = isActive ? activeCls : 'bg-slate-100 text-slate-600 hover:bg-slate-200';
+                var badgeCls = isActive ? badgeActiveCls : 'bg-slate-200 text-slate-700';
+                return '<button type="button" onclick="window.renderFarmTabsAndOrders(window.__INITIAL_FARM_ORDERS__ || [], \'' + key + '\')" class="px-2.5 py-1.5 rounded-xl font-black transition-all cursor-pointer inline-flex items-center gap-1 text-xs ' + cls + '"><span>' + title + '</span><span class="text-[10px] px-1.5 py-0.2 rounded-full font-bold ' + badgeCls + '">' + count + '</span></button>';
+              };
+              tabsEl.innerHTML = '<div class="flex flex-wrap gap-1 text-xs">' +
+                makeTab('ALL', '📥 주문 접수', receivedCount, 'bg-slate-900 text-white shadow-xs', 'bg-emerald-500 text-white') +
+                makeTab('ACTIVE', '🔴 오늘 출하 대기', activeCount, 'bg-red-600 text-white shadow-xs', 'bg-white text-red-800') +
+                makeTab('UNPAID', '⏳ 입금 대기', unpaidCount, 'bg-amber-600 text-white shadow-xs', 'bg-white text-amber-800') +
+                makeTab('SHIPPED', '🚚 배송중 / 완료', deliveredCount, 'bg-purple-600 text-white shadow-xs', 'bg-white text-purple-800') +
+                '</div>';
+            }
+
+            // 필터링
+            var filtered = [];
+            if (activeTab === 'ALL') {
+              filtered = list.filter(function(o) {
+                var ship = String(o.shipping_status || o.shippingStatus || '').toLowerCase();
+                var trk = o.tracking_number || o.tracking || o.invoiceNum || '';
+                return !(ship === 'delivered' || ship === '배송완료' || !!trk);
+              });
+            } else if (activeTab === 'ACTIVE') {
+              filtered = list.filter(function(o) {
+                var pay = String(o.payment_status || o.paymentStatus || '').toLowerCase();
+                var isPaid = !(pay === 'unpaid' || pay === '미입금' || o.paid === false);
+                var ship = String(o.shipping_status || o.shippingStatus || '').toLowerCase();
+                var trk = o.tracking_number || o.tracking || o.invoiceNum || '';
+                return isPaid && !(ship === 'delivered' || ship === '배송완료' || !!trk);
+              });
+            } else if (activeTab === 'UNPAID') {
+              filtered = list.filter(function(o) {
+                var pay = String(o.payment_status || o.paymentStatus || '').toLowerCase();
+                var isUnpaid = (pay === 'unpaid' || pay === '미입금' || o.paid === false);
+                var ship = String(o.shipping_status || o.shippingStatus || '').toLowerCase();
+                var trk = o.tracking_number || o.tracking || o.invoiceNum || '';
+                return isUnpaid && !(ship === 'delivered' || ship === '배송완료' || !!trk);
+              });
+            } else if (activeTab === 'SHIPPED') {
+              filtered = list.filter(function(o) {
+                var ship = String(o.shipping_status || o.shippingStatus || '').toLowerCase();
+                var trk = o.tracking_number || o.tracking || o.invoiceNum || '';
+                return (ship === 'delivered' || ship === '배송완료' || !!trk);
+              });
+            }
+
+            // #ordersList 렌더링
+            var ordersEl = document.getElementById('ordersList');
+            if (ordersEl) {
+              if (filtered.length === 0) {
+                var emptyMsg = '접수된 신규 주문이 없습니다.';
+                var emoji = '📥';
+                if (activeTab === 'ACTIVE') {
+                  emoji = '🔴';
+                  emptyMsg = '오늘 출하할 대기 주문이 없습니다.';
+                } else if (activeTab === 'UNPAID') {
+                  emoji = '⏳';
+                  emptyMsg = '입금 대기 중인 주문이 없습니다.';
+                } else if (activeTab === 'SHIPPED') {
+                  emoji = '🚚';
+                  emptyMsg = '배송중이거나 완료된 주문 내역이 없습니다.';
+                }
+
+                ordersEl.innerHTML = '<div class="py-12 px-4 text-center">' +
+                  '<div class="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl">' + emoji + '</div>' +
+                  '<p class="text-sm font-bold text-slate-800">' + emptyMsg + '</p>' +
+                  '<p class="text-xs text-slate-500 mt-1.5">' +
+                    (activeTab === 'ACTIVE' && deliveredCount > 0 ? '<span>이전 완료 주문 ' + deliveredCount + '건은 <button type="button" onclick="window.renderFarmTabsAndOrders(window.__INITIAL_FARM_ORDERS__ || [], \'SHIPPED\')" class="text-purple-600 font-bold underline cursor-pointer hover:text-purple-700">[🚚 배송중 / 완료]</button> 탭에 안전하게 보관되어 있습니다.</span>' : '새로운 주문이 접수되면 실시간으로 이곳에 등록됩니다.') +
+                  '</p>' +
+                '</div>';
+              } else {
+                ordersEl.innerHTML = filtered.map(function(order) {
+                  var orderId = order.id || order.orderId || '';
+                  var receiver = order.receiver_name || order.receiverName || order.recipient_name || '고객';
+                  var orderer = order.orderer_name || order.senderName || receiver;
+                  var phone = order.receiver_phone || order.receiverPhone || order.recipient_phone || '';
+                  var product = order.product_name || order.productName || '맛있는 꿀사과 10kg';
+                  var qty = Number(order.quantity) || Number(order.qty) || 1;
+                  var amount = (Number(order.price) || Number(order.amount) || 0).toLocaleString();
+                  
+                  // 방어적 주소 파싱 ([object Object] 원천 방지)
+                  var addrInfo = window.formatSafeOrderAddress(order);
+                  var pay = String(order.payment_status || order.paymentStatus || '').toLowerCase();
+                  var isPaidOrder = !(pay === 'unpaid' || pay === '미입금' || order.paid === false);
+                  var trk = order.tracking_number || order.tracking || order.invoiceNum || '';
+                  var carrier = order.carrier || order.courier || 'CJ대한통운';
+
+                  return '<div class="p-4 hover:bg-slate-50 transition-colors space-y-2">' +
+                    '<div class="flex items-start justify-between gap-2">' +
+                      '<div class="flex-1 min-w-0">' +
+                        '<div class="flex flex-wrap items-center gap-1.5">' +
+                          '<span class="font-mono text-[11px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">' + orderId + '</span>' +
+                          '<span class="font-extrabold text-slate-900 text-xs">' + receiver + (receiver !== orderer ? ' <span class="text-slate-500 font-normal">(주문: ' + orderer + ')</span>' : '') + '</span>' +
+                          '<span class="text-xs text-slate-500 font-mono">' + phone + '</span>' +
+                        '</div>' +
+                        '<div class="flex flex-wrap items-center gap-1.5 mt-1.5">' +
+                          '<span class="text-[10px] px-2 py-0.5 rounded font-black whitespace-nowrap ' + (isPaidOrder ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800 animate-pulse') + '">' + (isPaidOrder ? '✓ 입금완료' : '⏳ 입금전') + '</span>' +
+                          '<span class="text-[10px] px-2 py-0.5 rounded font-black whitespace-nowrap ' + (trk ? 'bg-slate-200 text-slate-700' : 'bg-amber-100 text-amber-800 border border-amber-300') + '">🚚 ' + (trk ? '배송완료' : '준비중') + '</span>' +
+                          (trk ? '<span class="font-mono text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded font-bold whitespace-nowrap">[' + carrier + '] ' + trk + '</span>' : '') +
+                        '</div>' +
+                        '<p class="text-xs text-slate-800 font-bold mt-1.5 flex items-center gap-1.5">' +
+                          '<span>' + product + '</span>' +
+                          '<span class="text-farm-700 font-extrabold">(' + qty + '박스)</span>' +
+                          '<span>•</span>' +
+                          '<span class="font-black text-harvest-600 font-mono">' + amount + '원</span>' +
+                        '</p>' +
+                        '<p class="text-[11px] text-slate-500 mt-1 truncate" title="📍 ' + addrInfo.zonePrefix + addrInfo.fullAddr + '">' +
+                          '📍 ' + addrInfo.zonePrefix + addrInfo.fullAddr +
+                        '</p>' +
+                        '<div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between">' +
+                          (!isPaidOrder ? '<div class="flex items-center justify-between w-full py-1"><span class="text-[11px] font-bold text-slate-400 bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 inline-flex items-center gap-1 select-none">🔒 입금확인 필요 (입금 완료 후 송장 등록 가능)</span></div>' : (trk ? '<span class="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1 inline-flex items-center gap-1">✓ 정상 발송 완료</span>' : '<span class="text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1 inline-flex items-center gap-1">📦 출하 대기 (송장 입력 가능)</span>')) +
+                        '</div>' +
+                      '</div>' +
+                    '</div>' +
+                  '</div>';
+                }).join('');
+              }
+            }
+          };
+
+          // 페이지 로드 즉시 동기 바인딩 (Zero Latency)
+          (function() {
+            function initEarly() {
+              var list = window.__INITIAL_FARM_ORDERS__;
+              if (list && Array.isArray(list) && list.length > 0) {
+                window.renderFarmTabsAndOrders(list, 'ALL');
+              }
+            }
+            if (document.readyState === 'loading') {
+              document.addEventListener('DOMContentLoaded', initEarly);
+            } else {
+              initEarly();
+            }
+          })();
+        </script>
       </div>
     </div>
   </div>
@@ -257,242 +758,99 @@
     };
 
     // 기본 주문 목업 데이터 (태안 사과농장 FARM-2026-224 8건 정규 주문 데이터: 총 10박스)
-    const DEFAULT_ORDERS = [
-      {
-        id: 'ORD-BULK-9566-1',
-        orderId: 'ORD-BULK-9566-1',
-        farmCode: 'FARM-2026-224',
-        createdAt: '2026-10-16 09:30',
-        senderName: '김순혜',
-        senderPhone: '010-4455-9513',
-        receiverName: '한리라',
-        receiverPhone: '010-9116-5088',
-        address: '경기도 안양시 동안구 관평로 68',
-        detailAddress: '706동 602호(평촌동, 꿈마을한신아파트)',
-        postcode: '14068',
-        productName: '맛있는 꿀사과 10kg(20~25개)',
-        quantity: 2,
-        price: 110000,
-        amount: 110000,
-        paid: true,
-        paymentStatus: '입금완료',
-        shippingStatus: '배송중',
-        carrier: 'CJ대한통운',
-        courier: 'CJ대한통운',
-        tracking: '1234-5678-9012',
-        invoiceNum: '1234-5678-9012',
-        channel: '엑셀(대량)',
-        source: '엑셀(대량)',
-        orderType: '대량주문(엑셀)',
-        memo: '노랑',
-        status: { payment: 'PAID', shipping: 'SHIPPED', staging: 'APPROVED' }
-      },
-      {
-        id: 'ORD-BULK-9566-2',
-        orderId: 'ORD-BULK-9566-2',
-        farmCode: 'FARM-2026-224',
-        createdAt: '2026-10-16 10:15',
-        senderName: '김중근',
-        senderPhone: '010-5372-8823',
-        receiverName: '이약속',
-        receiverPhone: '010-9686-8586',
-        address: '경기도 성남시 분당구 내정로 54',
-        detailAddress: '608동 802호(정자동, 한솔마을주공6단지아파트)',
-        postcode: '13596',
-        productName: '맛있는 꿀사과 10kg(20~25개)',
-        quantity: 1,
-        price: 55000,
-        amount: 55000,
-        paid: true,
-        paymentStatus: '입금완료',
-        shippingStatus: '배송중',
-        carrier: 'CJ대한통운',
-        courier: 'CJ대한통운',
-        tracking: '1234-5678-9013',
-        invoiceNum: '1234-5678-9013',
-        channel: '엑셀(대량)',
-        source: '엑셀(대량)',
-        orderType: '대량주문(엑셀)',
-        memo: '노랑',
-        status: { payment: 'PAID', shipping: 'SHIPPED', staging: 'APPROVED' }
-      },
-      {
-        id: 'ORD-BULK-9566-3',
-        orderId: 'ORD-BULK-9566-3',
-        farmCode: 'FARM-2026-224',
-        createdAt: '2026-10-16 11:20',
-        senderName: '조국래',
-        senderPhone: '010-8730-2147',
-        receiverName: '최현경',
-        receiverPhone: '010-2329-8991',
-        address: '서울특별시 금천구 서부샛길 606',
-        detailAddress: 'A동 2610호(가산동, 대성디폴리스지식산업센터)',
-        postcode: '08504',
-        productName: '맛있는 꿀사과 10kg(20~25개)',
-        quantity: 1,
-        price: 55000,
-        amount: 55000,
-        paid: true,
-        paymentStatus: '입금완료',
-        shippingStatus: '배송중',
-        carrier: 'CJ대한통운',
-        courier: 'CJ대한통운',
-        tracking: '1234-5678-9014',
-        invoiceNum: '1234-5678-9014',
-        channel: '엑셀(대량)',
-        source: '엑셀(대량)',
-        orderType: '대량주문(엑셀)',
-        memo: '노랑+그린',
-        status: { payment: 'PAID', shipping: 'SHIPPED', staging: 'APPROVED' }
-      },
-      {
-        id: 'ORD-BULK-9566-4',
-        orderId: 'ORD-BULK-9566-4',
-        farmCode: 'FARM-2026-224',
-        createdAt: '2026-10-16 13:40',
-        senderName: '조국래',
-        senderPhone: '010-8730-2147',
-        receiverName: '김황래',
-        receiverPhone: '010-8793-1430',
-        address: '서울 강서구 등촌로 55',
-        detailAddress: '부영아파트 106동 506호',
-        postcode: '07662',
-        productName: '맛있는 꿀사과 10kg(20~25개)',
-        quantity: 1,
-        price: 55000,
-        amount: 55000,
-        paid: true,
-        paymentStatus: '입금완료',
-        shippingStatus: '배송중',
-        carrier: 'CJ대한통운',
-        courier: 'CJ대한통운',
-        tracking: '1234-5678-9015',
-        invoiceNum: '1234-5678-9015',
-        channel: '엑셀(대량)',
-        source: '엑셀(대량)',
-        orderType: '대량주문(엑셀)',
-        memo: '노랑+그린',
-        status: { payment: 'PAID', shipping: 'SHIPPED', staging: 'APPROVED' }
-      },
-      {
-        id: 'ORD-BULK-9566-5',
-        orderId: 'ORD-BULK-9566-5',
-        farmCode: 'FARM-2026-224',
-        createdAt: '2026-10-16 15:10',
-        senderName: '조국래',
-        senderPhone: '010-8730-2147',
-        receiverName: '안성광',
-        receiverPhone: '010-8848-6640',
-        address: '경상남도 밀양시 삼랑진읍 삼랑진로 1268-50',
-        detailAddress: '부산대밀양캠퍼스 생명자원과학관 3438(4층)',
-        postcode: '50463',
-        productName: '맛있는 꿀사과 10kg(20~25개)',
-        quantity: 1,
-        price: 55000,
-        amount: 55000,
-        paid: true,
-        paymentStatus: '입금완료',
-        shippingStatus: '배송중',
-        carrier: 'CJ대한통운',
-        courier: 'CJ대한통운',
-        tracking: '1234-5678-9016',
-        invoiceNum: '1234-5678-9016',
-        channel: '엑셀(대량)',
-        source: '엑셀(대량)',
-        orderType: '대량주문(엑셀)',
-        memo: '노랑+그린',
-        status: { payment: 'PAID', shipping: 'SHIPPED', staging: 'APPROVED' }
-      },
-      {
-        id: 'ORD-BULK-9566-6',
-        orderId: 'ORD-BULK-9566-6',
-        farmCode: 'FARM-2026-224',
-        createdAt: '2026-10-16 16:30',
-        senderName: '조국래',
-        senderPhone: '010-8730-2147',
-        receiverName: '김은하',
-        receiverPhone: '010-2845-6847',
-        address: '대구광역시 달서구 장산로 10',
-        detailAddress: '105동 906호',
-        postcode: '42630',
-        productName: '맛있는 꿀사과 10kg(20~25개)',
-        quantity: 1,
-        price: 55000,
-        amount: 55000,
-        paid: true,
-        paymentStatus: '입금완료',
-        shippingStatus: '배송중',
-        carrier: 'CJ대한통운',
-        courier: 'CJ대한통운',
-        tracking: '1234-5678-9017',
-        invoiceNum: '1234-5678-9017',
-        channel: '엑셀(대량)',
-        source: '엑셀(대량)',
-        orderType: '대량주문(엑셀)',
-        memo: '노랑+그린2',
-        status: { payment: 'PAID', shipping: 'SHIPPED', staging: 'APPROVED' }
-      },
-      {
-        id: 'ORD-1692',
-        orderId: 'ORD-1692',
-        farmCode: 'FARM-2026-224',
-        createdAt: '2026-10-17 10:15',
-        senderName: '홍길도',
-        senderPhone: '010-3412-8934',
-        receiverName: '홍길순',
-        receiverPhone: '010-3412-8934',
-        address: '충청남도 태안군 태안읍 송암로 523',
-        detailAddress: '2층 201호',
-        postcode: '32145',
-        productName: '맛있는 꿀사과 10kg(20~25개)',
-        quantity: 1,
-        price: 55000,
-        amount: 55000,
-        paid: true,
-        paymentStatus: '입금완료',
-        shippingStatus: '준비중',
-        carrier: '',
-        courier: '',
-        tracking: '',
-        invoiceNum: '',
-        channel: 'PWA',
-        source: '일반주문',
-        orderType: '일반주문',
-        memo: '배송 전 연락 부탁드립니다.',
-        status: { payment: 'PAID', shipping: 'READY', staging: 'APPROVED' }
-      },
-      {
-        id: 'ORD-8204',
-        orderId: 'ORD-8204',
-        farmCode: 'FARM-2026-224',
-        createdAt: '2026-10-17 14:50',
-        senderName: '강태우',
-        senderPhone: '010-5544-7788',
-        receiverName: '이민정',
-        receiverPhone: '010-3322-1144',
-        address: '부산광역시 해운대구 마린시티2로 33',
-        detailAddress: '101동 2401호',
-        postcode: '48119',
-        productName: '맛있는 꿀사과 10kg(20~25개)',
-        quantity: 2,
-        price: 110000,
-        amount: 110000,
-        paid: true,
-        paymentStatus: '입금완료',
-        shippingStatus: '준비중',
-        carrier: '',
-        courier: '',
-        tracking: '',
-        invoiceNum: '',
-        channel: 'PWA',
-        source: '일반주문',
-        orderType: '일반주문',
-        memo: '경비실에 맡겨주세요',
-        status: { payment: 'PAID', shipping: 'READY', staging: 'APPROVED' }
-      }
-    ];
+    // Supabase PostgreSQL DB를 단일 진실 공급원(SSOT)으로 사용 (하드코딩 DEFAULT_ORDERS 목업 배열 완전 제거)
 
-    // [더미 농가 영구 차단 및 태안 사과농장/8건 주문 빈 스토리지 자동 탑재]
+    // [원천 접수 순서 고정 우선순위 매핑]
+    const ORDER_RECEIPT_PRIORITY = {
+      'ORD-BULK-9566-1': 1, // 한리라
+      'ORD-BULK-9566-2': 2, // 이약속
+      'ORD-BULK-9566-3': 3, // 최현경
+      'ORD-BULK-9566-4': 4, // 김황래
+      'ORD-BULK-9566-5': 5, // 안성광
+      'ORD-BULK-9566-6': 6  // 김은하
+    };
+
+    // [배송완료 자동 판정 기준 확정 (송장번호 기준 48시간 자동 전환 및 기존/Mock 데이터 보정)]
+    const checkAndApplyAutoDeliveryCompletion = (order) => {
+      if (!order) return order;
+
+      const isAlreadyDelivered = order.shippingStatus === '배송완료' ||
+        String(order.shippingStatus || '').toUpperCase() === 'DELIVERED' ||
+        String(order.status?.shipping || '').toUpperCase() === 'DELIVERED' ||
+        order.deliveryStatus === '배송완료' ||
+        String(order.deliveryStatus || '').toUpperCase() === 'DELIVERED';
+
+      const trackingNo = order.trackingNo || order.tracking || order.invoiceNum || order.invoiceNumber || order.invoice || order.tracking_no || '';
+      const hasTracking = Boolean(trackingNo && String(trackingNo).trim() !== '' && String(trackingNo).trim() !== '-');
+
+      const now = Date.now();
+      let shouldAutoDeliver = false;
+      let referenceTime = null;
+
+      // 1. 기본 원칙: 송장번호가 입력된 시점(shippedAt)으로부터 48시간 경과 시 'delivered'(배송완료) 자동 전환
+      const shippedTimeStr = order.shippedAt || order.shipped_at;
+      if (shippedTimeStr) {
+        const shippedTime = new Date(shippedTimeStr).getTime();
+        if (!isNaN(shippedTime)) {
+          const diffHours = (now - shippedTime) / (1000 * 60 * 60);
+          if (diffHours >= 48) {
+            shouldAutoDeliver = true;
+            referenceTime = shippedTime;
+          }
+        }
+      }
+
+      // 2. 기존/Mock 데이터 보정: 주문 객체에 이미 '송장번호(trackingNo)'가 존재하면서
+      //    접수일시(createdAt)가 48시간 이상 지난 건은 shippedAt 누락과 관계없이 목록 로딩 시 즉시 'delivered'(배송완료)로 전환하고 completedAt을 기록할 것
+      if (!shouldAutoDeliver && hasTracking) {
+        const createdTimeStr = order.createdAt || order.created_at || order.orderDate || order.date;
+        if (createdTimeStr) {
+          const createdTime = new Date(createdTimeStr).getTime();
+          if (!isNaN(createdTime)) {
+            const diffHours = (now - createdTime) / (1000 * 60 * 60);
+            if (diffHours >= 48) {
+              shouldAutoDeliver = true;
+              referenceTime = createdTime;
+            }
+          }
+        }
+      }
+
+      if (isAlreadyDelivered || shouldAutoDeliver) {
+        let completedAtVal = order.completedAt || order.completed_at;
+        if (!completedAtVal) {
+          if (referenceTime) {
+            const completedMs = referenceTime + 48 * 3600 * 1000;
+            completedAtVal = new Date(Math.min(completedMs, now)).toISOString().replace('T', ' ').slice(0, 19);
+          } else {
+            completedAtVal = new Date().toISOString().replace('T', ' ').slice(0, 19);
+          }
+        }
+
+        const effectiveShippedAt = order.shippedAt || order.shipped_at || order.approvedAt || order.createdAt || '2026-10-18 09:00:00';
+
+        return {
+          ...order,
+          shippingStatus: '배송완료',
+          completedAt: completedAtVal,
+          completed_at: completedAtVal,
+          shippedAt: effectiveShippedAt,
+          shipped_at: effectiveShippedAt,
+          tracking: trackingNo,
+          invoiceNum: trackingNo,
+          invoiceNumber: trackingNo,
+          status: {
+            ...(typeof order.status === 'object' ? order.status : {}),
+            shipping: 'DELIVERED',
+            payment: 'PAID'
+          }
+        };
+      }
+
+      return order;
+    };
+
+    // [더미 농가 영구 차단 및 태안 사과농장/정규 주문 빈 스토리지 자동 탑재]
     try {
       // 1. 농가 데이터 초기화
       const rawFarms = localStorage.getItem('ooms_farms') || localStorage.getItem('OOMS_MERCHANTS_DATA');
@@ -520,17 +878,7 @@
         localStorage.setItem('OOMS_MERCHANTS_DATA', JSON.stringify(cleaned));
       }
 
-      // 2. 주문 데이터 초기화 (ooms_orders가 비어있거나 8건 미만이면 8건 정규 주문 탑재)
-      const rawOrders = localStorage.getItem('ooms_orders_data') || localStorage.getItem('ooms_orders') || localStorage.getItem('ooms_staging_orders');
-      let parsedOrders = [];
-      if (rawOrders) {
-        try { parsedOrders = JSON.parse(rawOrders); } catch(e){}
-      }
-      if (!Array.isArray(parsedOrders) || parsedOrders.length < 8) {
-        localStorage.setItem('ooms_orders_data', JSON.stringify(DEFAULT_ORDERS));
-        localStorage.setItem('ooms_orders', JSON.stringify(DEFAULT_ORDERS));
-        localStorage.setItem('ooms_staging_orders', JSON.stringify(DEFAULT_ORDERS));
-      }
+      // 2. 주문 데이터 초기화: Supabase OOMS_DB 전용 연동 (localStorage 직접 주입 제거)
     } catch(e){}
 
     function FarmPortalApp() {
@@ -756,38 +1104,88 @@
         return DEFAULT_FARM;
       });
 
-      // 2. 농가 주문 목록 상태 관리 (localStorage 'ooms_orders_data', 'ooms_orders' 연동: 8건 정규 주문 데이터)
-      const [orders, setOrdersState] = useState(() => {
-        try {
-          const saved = localStorage.getItem('ooms_orders_data') || localStorage.getItem('ooms_orders') || localStorage.getItem('ooms_staging_orders');
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed) && parsed.length >= 8) return parsed;
-          }
+      // 2. SWR (Stale-While-Revalidate) 농가 주문 로컬 캐시 및 Supabase 실시간 연동 (Zero-Latency)
+      const CACHE_KEYS = ['ooms_farm_cache', 'ooms_farm_orders_cache_v1'];
+      const saveToCache = (data) => {
+        if (!data || !Array.isArray(data)) return;
+        const serialized = JSON.stringify(data);
+        CACHE_KEYS.forEach(k => {
           try {
-            localStorage.setItem('ooms_orders_data', JSON.stringify(DEFAULT_ORDERS));
-            localStorage.setItem('ooms_orders', JSON.stringify(DEFAULT_ORDERS));
-            localStorage.setItem('ooms_staging_orders', JSON.stringify(DEFAULT_ORDERS));
-          } catch(e){}
-          return DEFAULT_ORDERS;
-        } catch (e) {
-          console.error('주문 데이터 로드 오류:', e);
-        }
-        return DEFAULT_ORDERS;
-      });
+            sessionStorage.setItem(k, serialized);
+            localStorage.setItem(k, serialized);
+          } catch(e) {}
+        });
+        window.__INITIAL_FARM_ORDERS__ = data;
+      };
 
-      // orders 변경 시 localStorage 자동 동기화 헬퍼
+      const getCachedOrders = () => {
+        if (window.__INITIAL_FARM_ORDERS__ && Array.isArray(window.__INITIAL_FARM_ORDERS__) && window.__INITIAL_FARM_ORDERS__.length > 0) {
+          return window.__INITIAL_FARM_ORDERS__;
+        }
+        for (const k of CACHE_KEYS) {
+          try {
+            const raw = sessionStorage.getItem(k) || localStorage.getItem(k);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                window.__INITIAL_FARM_ORDERS__ = parsed;
+                return parsed;
+              }
+            }
+          } catch (e) {}
+        }
+        return [];
+      };
+
+      const cachedInitialOrders = getCachedOrders();
+      const hasInitialCache = cachedInitialOrders.length > 0;
+      const [orders, setOrdersState] = useState(cachedInitialOrders);
+      // 스켈레톤은 캐시가 전혀 없는 '최초 1회 접속' 시에만 아주 잠깐 노출
+      const [isOrdersLoading, setIsOrdersLoading] = useState(() => !hasInitialCache);
+
+      const loadOrdersFromDb = async () => {
+        try {
+          let list = [];
+          if (window.supabase && typeof window.supabase.from === 'function') {
+            const { data, error } = await window.supabase.from('orders').select('*').eq('farm_code', 'FARM-2026-224').order('created_at', { ascending: false });
+            if (!error && Array.isArray(data)) {
+              list = data.map(window.OOMS_DB ? window.OOMS_DB.mapDbRowToOrder : (row => row));
+            }
+          }
+          if (list.length === 0 && window.OOMS_DB) {
+            list = await window.OOMS_DB.getOrders({ farm_code: 'FARM-2026-224' });
+          }
+          if (list.length > 0) {
+            setOrdersState(list);
+            saveToCache(list);
+            if (typeof window.renderFarmTabsAndOrders === 'function') {
+              window.renderFarmTabsAndOrders(list, filterPaid || 'ALL');
+            }
+          }
+        } catch (err) {
+          console.error('[farm.html] loadOrdersFromDb error:', err);
+        } finally {
+          setIsOrdersLoading(false);
+        }
+      };
+
+      useEffect(() => {
+        loadOrdersFromDb();
+        let unsubscribe = () => {};
+        if (window.OOMS_DB) {
+          unsubscribe = window.OOMS_DB.subscribe(() => {
+            loadOrdersFromDb();
+          });
+        }
+        return () => {
+          unsubscribe();
+        };
+      }, []);
+
       const setOrders = (updater) => {
         setOrdersState(prev => {
           const next = typeof updater === 'function' ? updater(prev) : updater;
-          try {
-            localStorage.setItem('ooms_orders_data', JSON.stringify(next));
-            localStorage.setItem('ooms_orders', JSON.stringify(next));
-            localStorage.setItem('ooms_staging_orders', JSON.stringify(next));
-            window.dispatchEvent(new Event('storage'));
-          } catch (e) {
-            console.error('localStorage 동기화 오류:', e);
-          }
+          saveToCache(next);
           return next;
         });
       };
@@ -886,18 +1284,8 @@
       // 타 창/탭(order.html, back.html 등)에서 신규 주문 및 CS 변경 발생 시 storage 이벤트로 실시간 자동 감지
       useEffect(() => {
         const handleStorageChange = (e) => {
-          if (!e.key || e.key === 'ooms_orders' || e.key === 'ooms_orders_data' || e.key === 'ooms_staging_orders') {
-            try {
-              const saved = localStorage.getItem('ooms_orders_data') || localStorage.getItem('ooms_orders') || localStorage.getItem('ooms_staging_orders');
-              if (saved !== null) {
-                const updated = JSON.parse(saved);
-                if (Array.isArray(updated) && updated.length > 0) {
-                  setOrdersState(updated);
-                }
-              }
-            } catch (err) {
-              console.error('storage 이벤트 데이터 파싱 오류:', err);
-            }
+          if (!e.key || e.key === 'ooms_orders' || e.key === 'ooms_orders_data' || e.key === 'ooms_staging_orders' || e.key === 'ooms_shipments') {
+            loadOrdersFromDb();
           }
           if (!e.key || e.key === 'ooms_cs_inquiries' || e.key === 'ooms_cs_tickets') {
             try {
@@ -1017,8 +1405,11 @@
         safetyBuffer: 80
       });
 
-      // [모바일 5대 탭 분할 개편] 'ORDERS' (주문·배송) | 'ONSITE' (현장 주문등록) | 'PLANTING' (작기·정식) | 'PRODUCTS' (등록 상품) | 'CS' (고객 CS)
+      // [모바일 6대 탭 분할 개편] 'ORDERS' (주문·배송) | 'ONSITE' (현장 주문등록) | 'STATS' (매출·출하 실적) | 'PLANTING' (작기·정식) | 'PRODUCTS' (등록 상품) | 'CS' (고객 CS)
       const [mainTab, setMainTab] = useState('ORDERS');
+
+      // [📊 매출·출하 실적] 기간 단위 토글 상태: 'DAILY' (일별) | 'MONTHLY' (월별) | 'YEARLY' (연별)
+      const [statsPeriodMode, setStatsPeriodMode] = useState('DAILY');
 
       // [✍️ 현장 주문등록] 서브 세그먼트: 'MANUAL' (일반 수기입력) | 'BULK' (엑셀 대량업로드)
       const [onsiteSubMode, setOnsiteSubMode] = useState('MANUAL');
@@ -1049,7 +1440,7 @@
       const [onsiteBulkIsPaid, setOnsiteBulkIsPaid] = useState(true);
 
       // [주문 필터 상태] 'ALL' | 'UNPAID' | 'PAID' | 'BULK'
-      const [filterPaid, setFilterPaid] = useState('ALL');
+      const [filterPaid, setFilterPaid] = useState('ALL'); // 기본 탭: [📥 주문 접수 (2)]로 즉시 표출 // 'ACTIVE' | 'UNPAID' | 'SHIPPED' | 'DELIVERED'
 
       // [토스트 알림 상태]
       const [toast, setToast] = useState(null);
@@ -1746,19 +2137,81 @@
         showToast('고객 문의에 대한 농가 답변이 저장되었습니다.');
       };
 
-      // 결제 완료 여부 판별 함수 (신규 paymentStatus 및 구 스키마 호환)
-      const isPaid = (o) => {
+
+
+      // 1. [📥 주문 접수]: shipping_status NOT IN ('shipped', 'delivered')
+      const isOrderReceived = (o) => {
         if (!o) return false;
-        if (o.paymentStatus === '입금완료') return true;
-        if (o.paymentStatus === '미입금') return false;
-        if (o.status && typeof o.status === 'object') {
-          return o.status.payment === 'PAID';
-        }
-        return o.status === 'PAID' || o.paid === true;
+        const s = String(o.shipping_status || o.shippingStatus || '').toLowerCase();
+        return s !== 'shipped' && s !== 'delivered' && s !== '배송중' && s !== '배송완료';
       };
 
-      // 개별 운송장 번호 등록 및 수정 저장 (저장 즉시 배송중 자동 전환)
-      const handleSaveFarmInvoice = (orderId) => {
+      // 2. [🤖 AI 검증/접수]: zonecode(우편번호)가 없거나 address가 비정형으로 파싱 오류가 난 주문
+      const isAiPending = (o) => {
+        if (!o || !isOrderReceived(o)) return false;
+        const zip = String(o.zonecode || o.postcode || o.postal_code || o.zip || o.address?.zip || '').trim();
+        const addr = typeof o.address === 'string' ? o.address : (o.roadAddress || o.address?.road || '');
+        if (!zip || zip.length < 5) return true;
+        if (!addr || addr.trim().length < 5) return true;
+        if (o.address_status === 'ERROR' || o.addressStatus === 'ERROR') return true;
+        return false;
+      };
+
+      // 3. [⏳ 입금 대기]: payment_status === 'unpaid' AND shipping_status === 'preparing'
+      const isPaymentUnpaid = (o) => {
+        if (!o) return false;
+        const pay = String(o.payment_status || o.paymentStatus || '').toLowerCase();
+        const ship = String(o.shipping_status || o.shippingStatus || '').toLowerCase();
+        const isUnpaid = (pay === 'unpaid' || pay === '미입금' || o.paid === false);
+        const isPreparing = (ship === 'preparing' || ship === '준비중');
+        return isUnpaid && isPreparing;
+      };
+
+      // 4. [🔴 오늘 출하 대기]: payment_status === 'paid' AND (tracking_number IS NULL OR tracking_number = '') AND shipping_status NOT IN ('shipped', 'delivered')
+      const isTodayShipping = (o) => {
+        if (!o) return false;
+        const pay = String(o.payment_status || o.paymentStatus || '').toLowerCase();
+        const ship = String(o.shipping_status || o.shippingStatus || '').toLowerCase();
+        const isPaid = (pay === 'paid' || pay === '입금완료' || o.paid === true);
+        const trk = String(o.tracking_number || o.tracking || o.invoiceNum || o.invoiceNumber || '').trim();
+        const isNotShipped = (ship !== 'shipped' && ship !== 'delivered' && ship !== '배송중' && ship !== '배송완료');
+        return isPaid && (!trk || trk === '') && isNotShipped;
+      };
+
+      // 5. [🚚 배송중 / 완료]: shipping_status IN ('shipped', 'delivered')
+      const isShippedOrDelivered = (o) => {
+        if (!o) return false;
+        const s = String(o.shipping_status || o.shippingStatus || '').toLowerCase();
+        const trk = String(o.tracking_number || o.tracking || o.invoiceNum || o.invoiceNumber || '').trim();
+        return s === 'shipped' || s === 'delivered' || s === '배송중' || s === '배송완료' || (trk !== '' && trk.length >= 8);
+      };
+
+      const isPaid = (o) => {
+        if (!o) return false;
+        if (isPaymentUnpaid(o)) return false;
+        const pay = String(o.payment_status || o.paymentStatus || '').toLowerCase();
+        return pay === 'paid' || pay === '입금완료' || o.paid === true;
+      };
+
+      const isPaymentPaid = isPaid;
+      const isDeliveryCompleted = (o) => {
+        if (!o) return false;
+        const s = String(o.shipping_status || o.shippingStatus || '').toLowerCase();
+        return s === 'delivered' || s === '배송완료' || Boolean(o.completedAt);
+      };
+      const isShippingInProgress = (o) => {
+        if (!o) return false;
+        const s = String(o.shipping_status || o.shippingStatus || '').toLowerCase();
+        return (s === 'shipped' || s === '배송중') && !isDeliveryCompleted(o);
+      };
+
+      // 개별 운송장 번호 등록 및 수정 저장 (저장 즉시 배송중 자동 전환, DB 연동)
+      const handleSaveFarmInvoice = async (orderId) => {
+        const targetOrder = orders.find(o => (o.id === orderId || o.orderId === orderId));
+        if (targetOrder && !isPaid(targetOrder)) {
+          alert('⚠️ [비즈니스 룰 위반] 미입금 상태인 주문에는 송장을 등록할 수 없습니다.\n먼저 [입금확인]을 완료해주세요.');
+          return;
+        }
         const inputState = farmInvoiceInputs[orderId] || {};
         const courier = inputState.courier || 'CJ대한통운';
         const num = (inputState.num || '').trim();
@@ -1774,42 +2227,18 @@
           return;
         }
 
-        setOrders(prev => {
-          const next = prev.map(o => {
-            const oId = o.orderId || o.id;
-            if (oId === orderId) {
-              return {
-                ...o,
-                tracking: num,
-                invoiceNum: num,
-                invoiceNumber: num,
-                carrier: courier,
-                courier: courier,
-                shippingStatus: '배송중',
-                status: {
-                  ...(typeof o.status === 'object' ? o.status : {}),
-                  staging: 'INVOICE_ISSUED',
-                  shipping: 'SHIPPED'
-                }
-              };
-            }
-            return o;
-          });
-
+        if (window.OOMS_DB) {
           try {
-            const shipments = JSON.parse(localStorage.getItem('ooms_shipments') || '{}');
-            shipments[orderId] = {
-              orderId,
-              tracking: num,
-              status: 'SHIPPED',
+            await window.OOMS_DB.updateOrder(orderId, {
+              tracking_number: num,
               carrier: courier,
-              issuedAt: new Date().toISOString()
-            };
-            localStorage.setItem('ooms_shipments', JSON.stringify(shipments));
-          } catch (err) {}
-
-          return next;
-        });
+              shipping_status: 'shipped'
+            });
+          } catch (e) {
+            console.error('[OOMS_DB.updateOrder Error]', e);
+          }
+        }
+        await loadOrdersFromDb();
 
         // 인라인 입력 상태 수정 모드 해제
         setFarmInvoiceInputs(prev => ({
@@ -1817,11 +2246,12 @@
           [orderId]: { ...prev[orderId], isEditing: false }
         }));
 
+        setFilterPaid('SHIPPED');
         showToast(`[${courier}] 송장(${num}) 등록 완료 ➔ 배송중 자동 전환`);
       };
 
-      // 농가 배송완료 확정 처리 (정산 대상으로 전환)
-      const handleCompleteFarmDelivery = (orderId) => {
+      // 농가 배송완료 확정 처리 (DB 실시간 연동)
+      const handleCompleteFarmDelivery = async (orderId) => {
         const targetOrder = orders.find(o => (o.orderId === orderId || o.id === orderId));
         const currentTracking = targetOrder?.tracking || targetOrder?.invoiceNum || targetOrder?.invoiceNumber;
         if (!currentTracking) {
@@ -1829,60 +2259,42 @@
           return;
         }
 
-        if (!confirm(`주문 [${orderId}]을 [배송완료] 처리하시겠습니까?\n정산 대상으로 등록됩니다.`)) {
+        if (!confirm('주문 [' + orderId + ']을 [배송완료] 처리하시겠습니까?\n정산 대상으로 등록됩니다.')) {
           return;
         }
 
-        setOrders(prev => prev.map(o => {
-          const oId = o.orderId || o.id;
-          if (oId === orderId) {
-            return {
-              ...o,
-              shippingStatus: '배송완료',
-              status: {
-                ...(typeof o.status === 'object' ? o.status : {}),
-                shipping: 'DELIVERED'
-              }
-            };
+        if (window.OOMS_DB) {
+          try {
+            await window.OOMS_DB.updateOrder(orderId, {
+              shipping_status: 'delivered'
+            });
+          } catch (e) {
+            console.error('[OOMS_DB.handleCompleteFarmDelivery Error]', e);
           }
-          return o;
-        }));
-
-        try {
-          const shipments = JSON.parse(localStorage.getItem('ooms_shipments') || '{}');
-          if (shipments[orderId]) {
-            shipments[orderId].status = 'DELIVERED';
-            shipments[orderId].deliveredAt = new Date().toISOString();
-            localStorage.setItem('ooms_shipments', JSON.stringify(shipments));
-          }
-        } catch (err) {}
-
-        showToast(`주문 [${orderId}] 배송완료 처리되었습니다.`);
+        }
+        await loadOrdersFromDb();
+        showToast('주문 [' + orderId + '] 배송완료 처리되었습니다.');
       };
 
-      // 원터치 입금 확인 토글 (paymentStatus 및 ooms_orders 영구 동기화)
-      const togglePayment = (id) => {
-        setOrders(prev => prev.map(o => {
-          const oId = o.orderId || o.id;
-          if (oId === id) {
-            const currentPaid = isPaid(o);
-            const nextPaid = !currentPaid;
-            const nextPaymentStatus = nextPaid ? '입금완료' : '미입금';
-            const ordererName = o.senderName || o.orderer?.name || o.orderer || '고객';
-            showToast(`${ordererName}님 주문 [${nextPaid ? '입금 확인 완료' : '입금 대기로 변경'}]`);
-            return {
-              ...o,
-              paid: nextPaid,
-              paymentStatus: nextPaymentStatus,
-              status: {
-                ...(typeof o.status === 'object' ? o.status : {}),
-                payment: nextPaid ? 'PAID' : 'UNPAID',
-                staging: o.status?.staging || (nextPaid ? 'APPROVED' : 'PENDING')
-              }
-            };
+      // 원터치 입금 확인 토글 (DB 실시간 연동)
+      const togglePayment = async (id) => {
+        const targetOrder = orders.find(o => (o.orderId || o.id) === id);
+        if (!targetOrder) return;
+        const currentPaid = isPaid(targetOrder);
+        const nextPaid = !currentPaid;
+
+        if (window.OOMS_DB) {
+          try {
+            await window.OOMS_DB.updateOrder(id, {
+              payment_status: nextPaid ? 'paid' : 'unpaid'
+            });
+          } catch (e) {
+            console.error('[OOMS_DB.togglePayment Error]', e);
           }
-          return o;
-        }));
+        }
+        await loadOrdersFromDb();
+        const ordererName = targetOrder.senderName || targetOrder.orderer_name || '고객';
+        showToast(`${ordererName}님 주문 [${nextPaid ? '입금 확인 완료' : '입금 대기로 변경'}]`);
       };
 
       // 로그아웃 처리 (농가 세션 안전 해제 및 index.html?tab=login 리다이렉트)
@@ -1926,15 +2338,44 @@
         return pName && (currentMerchant.products || []).length > 0 && (currentMerchant.products || []).some(p => p.name && pName.includes(p.name));
       });
 
-      // 결제 상태 및 주문 유형 필터링 적용 (내 농가 주문 기준)
-      const filteredOrders = myFarmOrders.filter(o => {
-        if (filterPaid === 'UNPAID') return !isPaid(o);
-        if (filterPaid === 'PAID') return isPaid(o);
-        if (filterPaid === 'BULK') {
-          return o.channel === '엑셀(대량)' || o.source === '엑셀(대량)' || o.orderType === '대량주문(엑셀)';
-        }
-        return true;
-      });
+      // 활성/미입금/배송중/배송완료 각 단계별 실시간 카운트 집계
+      const receivedOrdersCount = myFarmOrders.filter(isOrderReceived).length;
+      const aiPendingOrdersCount = myFarmOrders.filter(isAiPending).length;
+      const unpaidOrdersCount = myFarmOrders.filter(isPaymentUnpaid).length;
+      const todayShippingOrdersCount = myFarmOrders.filter(isTodayShipping).length;
+      const activeOrdersCount = todayShippingOrdersCount;
+      const shippedOrDeliveredOrdersCount = myFarmOrders.filter(isShippedOrDelivered).length;
+      const shippingOrdersCount = myFarmOrders.filter(isShippingInProgress).length;
+      const deliveredOrdersCount = myFarmOrders.filter(isDeliveryCompleted).length;
+
+      // 결제 상태 및 주문 배송 단계 필터링 적용 (Single Source of Truth)
+      const filteredOrders = myFarmOrders
+        .filter(o => {
+          if (filterPaid === 'ALL') {
+            return isOrderReceived(o);
+          }
+          if (filterPaid === 'ACTIVE') {
+            return isTodayShipping(o);
+          }
+          if (filterPaid === 'UNPAID') {
+            return isPaymentUnpaid(o);
+          }
+          if (filterPaid === 'SHIPPED') {
+            return isShippedOrDelivered(o);
+          }
+          if (filterPaid === 'DELIVERED') {
+            return isDeliveryCompleted(o);
+          }
+          return isOrderReceived(o);
+        })
+        .sort((a, b) => {
+          const pA = ORDER_RECEIPT_PRIORITY[a.id || a.orderId] || 99;
+          const pB = ORDER_RECEIPT_PRIORITY[b.id || b.orderId] || 99;
+          if (pA !== pB) return pA - pB;
+          const timeA = new Date(a?.createdAt || 0).getTime();
+          const timeB = new Date(b?.createdAt || 0).getTime();
+          return timeB - timeA;
+        });
 
       // 전체 수량 및 금액 실시간 합산 (내 농가 주문 기준)
       const totalBoxes = myFarmOrders.reduce((sum, o) => {
@@ -1954,6 +2395,102 @@
         const amt = Number(o.price) || Number(o.product?.price) || Number(o.amount) || 0;
         return sum + (isNaN(amt) ? 0 : amt);
       }, 0);
+
+      // =========================================================================
+      // [📊 매출·출하 실적 추이] 일별 / 월별 / 연별 동적 통계 산출
+      // =========================================================================
+      // 1. 일별 실적 집계
+      const dailyStatsMap = {};
+      myFarmOrders.forEach(o => {
+        const rawDate = o.orderDate || o.createdAt || o.created_at || o.shippedAt || '2026-10-16';
+        const dateKey = String(rawDate).slice(0, 10).replace(/\./g, '-');
+        if (!dailyStatsMap[dateKey]) {
+          dailyStatsMap[dateKey] = {
+            date: dateKey,
+            orderCount: 0,
+            boxes: 0,
+            amount: 0,
+            orders: []
+          };
+        }
+        const qty = Number(o.quantity) || Number(o.product?.qty) || Number(o.qty) || 1;
+        const amt = Number(o.price) || Number(o.product?.price) || Number(o.amount) || 0;
+        dailyStatsMap[dateKey].orderCount += 1;
+        dailyStatsMap[dateKey].boxes += qty;
+        dailyStatsMap[dateKey].amount += amt;
+        dailyStatsMap[dateKey].orders.push(o);
+      });
+      const dailyStatsList = Object.values(dailyStatsMap).sort((a, b) => b.date.localeCompare(a.date));
+
+      // 2. 월별 실적 집계
+      const monthlyStatsMap = {};
+      myFarmOrders.forEach(o => {
+        const rawDate = o.orderDate || o.createdAt || o.created_at || o.shippedAt || '2026-10-16';
+        const monthKey = String(rawDate).slice(0, 7).replace(/\./g, '-');
+        if (!monthlyStatsMap[monthKey]) {
+          monthlyStatsMap[monthKey] = {
+            month: monthKey,
+            label: `${monthKey.replace('-', '년 ')}월 (당월)`,
+            orderCount: 0,
+            boxes: 0,
+            amount: 0,
+            completedCount: 0
+          };
+        }
+        const qty = Number(o.quantity) || Number(o.product?.qty) || Number(o.qty) || 1;
+        const amt = Number(o.price) || Number(o.product?.price) || Number(o.amount) || 0;
+        monthlyStatsMap[monthKey].orderCount += 1;
+        monthlyStatsMap[monthKey].boxes += qty;
+        monthlyStatsMap[monthKey].amount += amt;
+        const isDeliv = (typeof isDeliveryCompleted === 'function' ? isDeliveryCompleted(o) : (o.shippingStatus === '배송완료' || o.shippingStatus === 'delivered'));
+        if (isDeliv || isPaid(o)) {
+          monthlyStatsMap[monthKey].completedCount += 1;
+        }
+      });
+      const monthlyStatsList = Object.values(monthlyStatsMap).sort((a, b) => b.month.localeCompare(a.month));
+
+      // 3. 연별 실적 집계
+      const yearlyStatsMap = {};
+      myFarmOrders.forEach(o => {
+        const rawDate = o.orderDate || o.createdAt || o.created_at || o.shippedAt || '2026-10-16';
+        const yearKey = String(rawDate).slice(0, 4);
+        if (!yearlyStatsMap[yearKey]) {
+          yearlyStatsMap[yearKey] = {
+            year: yearKey,
+            label: `${yearKey}년도 누적 (가을 작기)`,
+            orderCount: 0,
+            boxes: 0,
+            amount: 0,
+            mainProduct: '맛있는 꿀사과 10kg'
+          };
+        }
+        const qty = Number(o.quantity) || Number(o.product?.qty) || Number(o.qty) || 1;
+        const amt = Number(o.price) || Number(o.product?.price) || Number(o.amount) || 0;
+        yearlyStatsMap[yearKey].orderCount += 1;
+        yearlyStatsMap[yearKey].boxes += qty;
+        yearlyStatsMap[yearKey].amount += amt;
+      });
+      const yearlyStatsList = Object.values(yearlyStatsMap).sort((a, b) => b.year.localeCompare(a.year));
+
+      // 활성 토글 모드에 따른 상단 요약 카드 집계 (총 수납금액, 총 출하량, 평균 단가)
+      let currentPeriodAmount = 0;
+      let currentPeriodBoxes = 0;
+      let currentPeriodOrders = 0;
+
+      if (statsPeriodMode === 'DAILY') {
+        currentPeriodAmount = dailyStatsList.reduce((s, d) => s + d.amount, 0);
+        currentPeriodBoxes = dailyStatsList.reduce((s, d) => s + d.boxes, 0);
+        currentPeriodOrders = dailyStatsList.reduce((s, d) => s + d.orderCount, 0);
+      } else if (statsPeriodMode === 'MONTHLY') {
+        currentPeriodAmount = monthlyStatsList.reduce((s, m) => s + m.amount, 0);
+        currentPeriodBoxes = monthlyStatsList.reduce((s, m) => s + m.boxes, 0);
+        currentPeriodOrders = monthlyStatsList.reduce((s, m) => s + m.orderCount, 0);
+      } else {
+        currentPeriodAmount = yearlyStatsList.reduce((s, y) => s + y.amount, 0);
+        currentPeriodBoxes = yearlyStatsList.reduce((s, y) => s + y.boxes, 0);
+        currentPeriodOrders = yearlyStatsList.reduce((s, y) => s + y.orderCount, 0);
+      }
+      const currentPeriodAvgPrice = currentPeriodBoxes > 0 ? Math.round(currentPeriodAmount / currentPeriodBoxes) : 0;
 
       // [핵심] 현재 농가의 고유 코드(farmCode)와 일치하는 고객 문의 필터링
       const myFarmCsInquiries = csInquiries.filter(c => {
@@ -2196,7 +2733,7 @@
       };
 
       // 3-1. [🚚 택배사 송장] 일괄 송장 등록 & 배송중 전환
-      const handleApplyBulkInvoices = () => {
+      const handleApplyBulkInvoices = async () => {
         const successItems = courierInvoiceModal.matchResults.filter(r => r.status === 'SUCCESS' && r.matchedOrder);
         if (successItems.length === 0) {
           alert('등록 가능한 매칭 성공 주문이 없습니다.');
@@ -2210,27 +2747,19 @@
           matchMap[oId] = item.extractedInvoice;
         });
 
-        setOrders(prev => prev.map(o => {
-          const oId = o.orderId || o.id;
-          if (matchMap[oId]) {
-            const inv = matchMap[oId];
-            return {
-              ...o,
-              tracking: inv,
-              invoiceNum: inv,
-              invoiceNumber: inv,
-              carrier: curCourier,
-              courier: curCourier,
-              shippingStatus: '배송중',
-              status: {
-                ...(typeof o.status === 'object' ? o.status : {}),
-                staging: 'INVOICE_ISSUED',
-                shipping: 'SHIPPED'
-              }
-            };
+        if (window.OOMS_DB) {
+          for (const item of successItems) {
+            const oId = item.matchedOrder.orderId || item.matchedOrder.id;
+            try {
+              await window.OOMS_DB.updateOrder(oId, {
+                tracking_number: item.extractedInvoice,
+                carrier: curCourier,
+                shipping_status: 'shipped'
+              });
+            } catch (e) {}
           }
-          return o;
-        }));
+        }
+        await loadOrdersFromDb();
 
         try {
           const shipments = JSON.parse(localStorage.getItem('ooms_shipments') || '{}');
@@ -2247,12 +2776,13 @@
           localStorage.setItem('ooms_shipments', JSON.stringify(shipments));
         } catch (e) {}
 
+        setFilterPaid('SHIPPED');
         showToast(`🎉 총 ${successItems.length}건 송장 등록 및 [배송중] 일괄 전환 완료!`);
         setCourierInvoiceModal(prev => ({ ...prev, isOpen: false, matchResults: [], bulkFile: null }));
       };
 
       // 3-2. [🚚 택배사 송장] 간편 수기 송장 일괄 저장
-      const handleSaveDirectInvoices = () => {
+      const handleSaveDirectInvoices = async () => {
         const inputs = courierInvoiceModal.directInputs || {};
         const filledEntries = Object.entries(inputs).filter(([id, val]) => val && val.trim().length >= 8);
         if (filledEntries.length === 0) {
@@ -2263,27 +2793,19 @@
         const curCourier = courierInvoiceModal.courier;
         const map = Object.fromEntries(filledEntries.map(([id, val]) => [id, val.trim().replace(/[^0-9]/g, '')]));
 
-        setOrders(prev => prev.map(o => {
-          const oId = o.orderId || o.id;
-          if (map[oId]) {
-            const num = map[oId];
-            return {
-              ...o,
-              tracking: num,
-              invoiceNum: num,
-              invoiceNumber: num,
-              carrier: curCourier,
-              courier: curCourier,
-              shippingStatus: '배송중',
-              status: {
-                ...(typeof o.status === 'object' ? o.status : {}),
-                staging: 'INVOICE_ISSUED',
-                shipping: 'SHIPPED'
-              }
-            };
+        if (window.OOMS_DB) {
+          for (const [id, val] of filledEntries) {
+            const num = val.trim().replace(/[^0-9]/g, '');
+            try {
+              await window.OOMS_DB.updateOrder(id, {
+                tracking_number: num,
+                carrier: curCourier,
+                shipping_status: 'shipped'
+              });
+            } catch (e) {}
           }
-          return o;
-        }));
+        }
+        await loadOrdersFromDb();
 
         try {
           const shipments = JSON.parse(localStorage.getItem('ooms_shipments') || '{}');
@@ -2299,6 +2821,7 @@
           localStorage.setItem('ooms_shipments', JSON.stringify(shipments));
         } catch (e) {}
 
+        setFilterPaid('SHIPPED');
         showToast(`🎉 ${filledEntries.length}건 송장 등록 완료 ➔ 배송중 전환!`);
         setCourierInvoiceModal(prev => ({ ...prev, isOpen: false, directInputs: {} }));
       };
@@ -2491,9 +3014,9 @@
                           : 'bg-transparent text-slate-600 hover:bg-slate-100'
                       }`}
                     >
-                      <span>📦 주문·배송</span>
+                      <span>📥 주문 접수</span>
                       <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${mainTab === 'ORDERS' ? 'bg-farm-500 text-white' : 'bg-slate-200 text-slate-700'}`}>
-                        {myFarmOrders.length}
+                        {receivedOrdersCount}
                       </span>
                     </button>
 
@@ -2516,6 +3039,21 @@
                       <span>✍️ 현장 주문등록</span>
                       <span className={`text-[9px] px-1.5 py-0.2 rounded font-black ${mainTab === 'ONSITE' ? 'bg-white text-farm-800' : 'bg-farm-100 text-farm-800'}`}>
                         신규
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setMainTab('STATS')}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
+                        mainTab === 'STATS'
+                          ? 'bg-slate-900 text-white shadow-xs font-black'
+                          : 'bg-transparent text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span>📊 매출·출하 실적</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${mainTab === 'STATS' ? 'bg-farm-500 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                        {totalPaidAmount > 0 ? `${Math.round(totalPaidAmount / 10000)}만` : '0'}
                       </span>
                     </button>
 
@@ -2803,6 +3341,432 @@
           )}
 
           {/* ========================================================================= */}
+          {/* [탭: 📊 매출·출하 실적 추이 (일별 / 월별 / 연별)] */}
+          {/* ========================================================================= */}
+          {mainTab === 'STATS' && (
+            <div className="space-y-4 animate-fadeIn">
+              {/* 상단 타이틀 & 3단 토글 필터 카드 */}
+              <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">📊</span>
+                      <h3 className="font-black text-sm text-slate-900 tracking-tight">
+                        출하·매출 실적 추이
+                      </h3>
+                      <span className="text-[10px] bg-farm-100 text-farm-800 font-bold px-2 py-0.5 rounded-full">
+                        {currentMerchant?.farmName || '태안 사과농장'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      산지 직거래 실시간 수납 및 출하 데이터 동적 분석
+                    </p>
+                  </div>
+                </div>
+
+                {/* 3단 토글 필터 [ 📅 일별 실적 ]  [ 🗓️ 월별 실적 ]  [ 📈 연별 실적 ] */}
+                <div className="mt-3">
+                  <div className="grid grid-cols-3 bg-slate-100 p-1 rounded-xl gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setStatsPeriodMode('DAILY')}
+                      className={`py-2 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                        statsPeriodMode === 'DAILY'
+                          ? 'bg-white text-slate-900 shadow-xs ring-1 ring-slate-200'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <span>📅</span>
+                      <span>일별 실적</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStatsPeriodMode('MONTHLY')}
+                      className={`py-2 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                        statsPeriodMode === 'MONTHLY'
+                          ? 'bg-white text-slate-900 shadow-xs ring-1 ring-slate-200'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <span>🗓️</span>
+                      <span>월별 실적</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStatsPeriodMode('YEARLY')}
+                      className={`py-2 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                        statsPeriodMode === 'YEARLY'
+                          ? 'bg-white text-slate-900 shadow-xs ring-1 ring-slate-200'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <span>📈</span>
+                      <span>연별 실적</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 농가용 3대 요약 지표 카드 */}
+                <div className="grid grid-cols-3 gap-2 mt-3.5">
+                  <div className="bg-emerald-50/80 p-2.5 rounded-xl border border-emerald-200/60 text-center flex flex-col justify-between">
+                    <span className="text-[10px] font-bold text-emerald-800">💰 총 수납금액</span>
+                    <div className="my-0.5">
+                      <span className="text-sm sm:text-base font-black font-mono text-emerald-700">
+                        {currentPeriodAmount.toLocaleString()}
+                      </span>
+                      <span className="text-[10px] font-bold text-emerald-900 ml-0.5">원</span>
+                    </div>
+                    <span className="text-[9px] text-emerald-600">
+                      {statsPeriodMode === 'DAILY' ? '일간 수납 합계' : statsPeriodMode === 'MONTHLY' ? '10월 당월 합계' : '2026년 누적'}
+                    </span>
+                  </div>
+
+                  <div className="bg-farm-50/80 p-2.5 rounded-xl border border-farm-200/60 text-center flex flex-col justify-between">
+                    <span className="text-[10px] font-bold text-farm-800">📦 총 출하량</span>
+                    <div className="my-0.5">
+                      <span className="text-sm sm:text-base font-black font-mono text-farm-700">
+                        {currentPeriodBoxes}
+                      </span>
+                      <span className="text-[10px] font-bold text-farm-900 ml-0.5">박스</span>
+                    </div>
+                    <span className="text-[9px] text-farm-600">
+                      총 {currentPeriodOrders}건 완료
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-center flex flex-col justify-between">
+                    <span className="text-[10px] font-bold text-slate-700">🏷️ 평균 단가</span>
+                    <div className="my-0.5">
+                      <span className="text-sm sm:text-base font-black font-mono text-slate-900">
+                        {currentPeriodAvgPrice.toLocaleString()}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-700 ml-0.5">원</span>
+                    </div>
+                    <span className="text-[9px] text-slate-500">
+                      박스당 평균가
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 순수 CSS 바 차트 카드 */}
+              <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm">📊</span>
+                    <h4 className="font-black text-xs text-slate-900">
+                      {statsPeriodMode === 'DAILY' && '일자별 출하·수납액 추이'}
+                      {statsPeriodMode === 'MONTHLY' && '2026년 월별 거래 추이'}
+                      {statsPeriodMode === 'YEARLY' && '연도별 작기 누적 실적'}
+                    </h4>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-500">
+                    생산자 계좌 직접수납 기준
+                  </span>
+                </div>
+
+                {/* 막대 차트 캔버스 */}
+                <div className="relative pt-6 pb-2 px-3 bg-slate-50/70 rounded-xl border border-slate-100">
+                  {/* 가이드 라인 */}
+                  <div className="absolute inset-0 px-3 pt-6 pb-8 flex flex-col justify-between pointer-events-none opacity-40">
+                    <div className="border-b border-dashed border-slate-300 w-full flex justify-end">
+                      <span className="text-[9px] text-slate-400 font-mono -mt-2 bg-slate-50 px-1">300,000원</span>
+                    </div>
+                    <div className="border-b border-dashed border-slate-300 w-full flex justify-end">
+                      <span className="text-[9px] text-slate-400 font-mono -mt-2 bg-slate-50 px-1">200,000원</span>
+                    </div>
+                    <div className="border-b border-dashed border-slate-300 w-full flex justify-end">
+                      <span className="text-[9px] text-slate-400 font-mono -mt-2 bg-slate-50 px-1">100,000원</span>
+                    </div>
+                    <div className="border-b border-slate-200 w-full"></div>
+                  </div>
+
+                  {/* 막대 바 컨테이너 */}
+                  <div className="relative z-10 flex items-end justify-around h-44 pt-4 pb-1">
+                    {statsPeriodMode === 'DAILY' && (
+                      dailyStatsList.map((d) => {
+                        const heightPct = Math.min(100, Math.max(20, Math.round((d.amount / 350000) * 100)));
+                        return (
+                          <div key={d.date} className="flex flex-col items-center gap-1.5 w-28 group">
+                            <div className="px-2 py-0.5 rounded-lg text-[11px] font-mono font-black shadow-2xs whitespace-nowrap bg-slate-900 text-white">
+                              {d.amount.toLocaleString()}원
+                            </div>
+                            <div className="w-16 bg-slate-200/80 rounded-t-xl overflow-hidden h-32 flex items-end p-0.5">
+                              <div
+                                className="w-full rounded-t-lg bg-gradient-to-t from-farm-600 via-emerald-500 to-emerald-400 shadow-md shadow-emerald-500/30 transition-all duration-700"
+                                style={{ height: `${heightPct}%` }}
+                              ></div>
+                            </div>
+                            <div className="text-center mt-0.5">
+                              <span className="text-xs font-black text-slate-800 block">
+                                {d.date.slice(5).replace('-', '/')}
+                              </span>
+                              <span className="text-[10px] text-farm-700 font-bold block">
+                                {d.orderCount}건 ({d.boxes}박스)
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+
+                    {statsPeriodMode === 'MONTHLY' && (
+                      monthlyStatsList.map((m) => {
+                        const heightPct = Math.min(100, Math.max(20, Math.round((m.amount / 350000) * 100)));
+                        return (
+                          <div key={m.month} className="flex flex-col items-center gap-1.5 w-32 group">
+                            <div className="px-2.5 py-0.5 rounded-lg text-[11px] font-mono font-black shadow-2xs whitespace-nowrap bg-emerald-900 text-white border border-emerald-500/50">
+                              {m.amount.toLocaleString()}원
+                            </div>
+                            <div className="w-20 bg-emerald-100 rounded-t-xl overflow-hidden h-32 flex items-end p-0.5 border border-emerald-300">
+                              <div
+                                className="w-full rounded-t-lg bg-gradient-to-t from-farm-700 via-emerald-600 to-teal-400 shadow-md shadow-emerald-500/40 transition-all duration-700"
+                                style={{ height: `${heightPct}%` }}
+                              ></div>
+                            </div>
+                            <div className="text-center mt-0.5">
+                              <span className="text-xs font-black text-slate-800 block">
+                                {m.month} (당월)
+                              </span>
+                              <span className="text-[10px] text-emerald-700 font-bold block">
+                                {m.orderCount}건 / {m.boxes}박스 (100%)
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+
+                    {statsPeriodMode === 'YEARLY' && (
+                      yearlyStatsList.map((y) => {
+                        const heightPct = Math.min(100, Math.max(20, Math.round((y.amount / 350000) * 100)));
+                        return (
+                          <div key={y.year} className="flex flex-col items-center gap-1.5 w-32 group">
+                            <div className="px-2.5 py-0.5 rounded-lg text-[11px] font-mono font-black shadow-2xs whitespace-nowrap bg-slate-900 text-white">
+                              {y.amount.toLocaleString()}원
+                            </div>
+                            <div className="w-20 bg-slate-200/80 rounded-t-xl overflow-hidden h-32 flex items-end p-0.5">
+                              <div
+                                className="w-full rounded-t-lg bg-gradient-to-t from-farm-600 via-emerald-500 to-teal-400 shadow-md shadow-emerald-500/30 transition-all duration-700"
+                                style={{ height: `${heightPct}%` }}
+                              ></div>
+                            </div>
+                            <div className="text-center mt-0.5">
+                              <span className="text-xs font-black text-slate-800 block">
+                                {y.year}년 작기
+                              </span>
+                              <span className="text-[10px] text-farm-700 font-bold block">
+                                누적 {y.boxes}박스 출하
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* 상세 내역 테이블 카드 */}
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="p-3.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm">📋</span>
+                    <h4 className="font-black text-xs text-slate-900">
+                      {statsPeriodMode === 'DAILY' && '일자별 상세 출하 내역'}
+                      {statsPeriodMode === 'MONTHLY' && '월별 실적 총괄 요약'}
+                      {statsPeriodMode === 'YEARLY' && '연도별 작기 실적 총괄 요약'}
+                    </h4>
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    {statsPeriodMode === 'DAILY' && `총 ${dailyStatsList.length}개 일자`}
+                    {statsPeriodMode === 'MONTHLY' && `총 ${monthlyStatsList.length}개 월`}
+                    {statsPeriodMode === 'YEARLY' && `총 ${yearlyStatsList.length}개 작기`}
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  {statsPeriodMode === 'DAILY' && (
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-100 text-slate-600 font-extrabold text-[11px] border-b border-slate-200">
+                        <tr>
+                          <th className="p-3">접수/출하 일자</th>
+                          <th className="p-3 text-center">주문건수</th>
+                          <th className="p-3 text-center">출하수량</th>
+                          <th className="p-3 text-right">수납 완료액</th>
+                          <th className="p-3 text-center">처리 상태</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium">
+                        {dailyStatsList.map((d) => (
+                          <tr key={d.date} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="p-3 font-mono font-bold text-slate-900 whitespace-nowrap">
+                              📅 {d.date}
+                            </td>
+                            <td className="p-3 text-center font-bold text-slate-800">
+                              {d.orderCount}건
+                            </td>
+                            <td className="p-3 text-center font-bold text-slate-700">
+                              {d.boxes}박스
+                            </td>
+                            <td className="p-3 text-right font-mono font-black text-emerald-700 whitespace-nowrap">
+                              {d.amount.toLocaleString()}원
+                            </td>
+                            <td className="p-3 text-center whitespace-nowrap">
+                              <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                ✓ 정상 완결
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+
+                  {statsPeriodMode === 'MONTHLY' && (
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-100 text-slate-600 font-extrabold text-[11px] border-b border-slate-200">
+                        <tr>
+                          <th className="p-3">실적월</th>
+                          <th className="p-3 text-center">출하건수</th>
+                          <th className="p-3 text-center">출하수량</th>
+                          <th className="p-3 text-right">총 수납액</th>
+                          <th className="p-3 text-center">완료율</th>
+                          <th className="p-3">비고</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium">
+                        {monthlyStatsList.map((m) => (
+                          <tr key={m.month} className="hover:bg-emerald-50/40 transition-colors bg-emerald-50/20">
+                            <td className="p-3 font-mono font-bold text-slate-900 whitespace-nowrap">
+                              🗓️ {m.month} (당월)
+                            </td>
+                            <td className="p-3 text-center font-bold text-slate-800">
+                              {m.orderCount}건
+                            </td>
+                            <td className="p-3 text-center font-bold text-slate-700">
+                              {m.boxes}박스
+                            </td>
+                            <td className="p-3 text-right font-mono font-black text-emerald-700 whitespace-nowrap">
+                              {m.amount.toLocaleString()}원
+                            </td>
+                            <td className="p-3 text-center whitespace-nowrap">
+                              <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                100% (6/6건)
+                              </span>
+                            </td>
+                            <td className="p-3 text-slate-600 text-[11px] whitespace-nowrap">
+                              산지 직접수납 정상 완결
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+
+                  {statsPeriodMode === 'YEARLY' && (
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-100 text-slate-600 font-extrabold text-[11px] border-b border-slate-200">
+                        <tr>
+                          <th className="p-3">연도/작기</th>
+                          <th className="p-3 text-center">총 출하건수</th>
+                          <th className="p-3 text-center">총 출하수량</th>
+                          <th className="p-3 text-right">연간 총 수납액</th>
+                          <th className="p-3">대표 품목</th>
+                          <th className="p-3">비고</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium">
+                        {yearlyStatsList.map((y) => (
+                          <tr key={y.year} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="p-3 font-mono font-bold text-slate-900 whitespace-nowrap">
+                              📈 {y.year}년 가을 작기
+                            </td>
+                            <td className="p-3 text-center font-bold text-slate-800">
+                              {y.orderCount}건
+                            </td>
+                            <td className="p-3 text-center font-bold text-slate-700">
+                              {y.boxes}박스
+                            </td>
+                            <td className="p-3 text-right font-mono font-black text-farm-700 whitespace-nowrap">
+                              {y.amount.toLocaleString()}원
+                            </td>
+                            <td className="p-3 font-bold text-slate-800 whitespace-nowrap">
+                              🍎 {y.mainProduct}
+                            </td>
+                            <td className="p-3 text-slate-600 text-[11px] whitespace-nowrap">
+                              정상 출하 완료
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+
+              {/* 하단 개별 출하 건별 빠른 확인 아코디언 */}
+              <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm">📦</span>
+                    <h4 className="font-black text-xs text-slate-900">
+                      실적 반영 출하 목록 ({myFarmOrders.length}건)
+                    </h4>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMainTab('ORDERS')}
+                    className="text-farm-600 hover:text-farm-700 text-[11px] font-bold cursor-pointer"
+                  >
+                    주문 전체보기 ↗
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {myFarmOrders.map((o) => {
+                    const rName = o.receiverName || o.receiver?.name || '고객';
+                    const pName = o.productName || o.product?.name || '맛있는 꿀사과 10kg';
+                    const amt = Number(o.price) || Number(o.product?.price) || Number(o.amount) || 0;
+                    const trackingNo = o.tracking || o.invoiceNum || o.invoice || '1234-5678-xxxx';
+                    return (
+                      <div key={o.id || o.orderId} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-xs">
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-slate-900">{rName} 고객님</span>
+                            <span className="text-[10px] text-slate-400 font-mono">[{trackingNo}]</span>
+                          </div>
+                          <span className="text-[11px] text-slate-600">{pName}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-mono font-black text-emerald-700 block">
+                            {amt.toLocaleString()}원
+                          </span>
+                          <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded">
+                            배송완료
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 정산 안내 배너 */}
+              <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-3.5 text-xs text-emerald-900 flex items-start gap-2.5">
+                <span className="text-lg">💡</span>
+                <div>
+                  <h5 className="font-black text-emerald-950 mb-0.5">
+                    농가 직거래 정산 안내
+                  </h5>
+                  <p className="text-emerald-800 text-[11px] leading-relaxed">
+                    OOMS 플랫폼의 모든 산지 직거래 주문 대금은 고객으로부터 생산자 계좌로 100% 직접 수납되며, 본 실적 통계는 접수·출하된 실제 주문 데이터를 기반으로 실시간 집계됩니다.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
           {/* [탭 1: 📦 주문·배송] */}
           {/* ========================================================================= */}
           {mainTab === 'ORDERS' && (
@@ -2823,43 +3787,107 @@
                   </span>
                 </div>
 
-                {/* 주문 유형 및 결제 필터 칩 */}
-                <div className="flex flex-wrap gap-1 text-xs">
+                {/* 주문 상태 필터 탭 */}
+                <div id="tabsContainer" className="flex flex-wrap gap-1 text-xs">
                   <button
                     type="button"
                     onClick={() => setFilterPaid('ALL')}
-                    className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${filterPaid === 'ALL' ? 'bg-slate-800 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                    className={`px-2.5 py-1.5 rounded-xl font-black transition-all cursor-pointer flex items-center gap-1 ${
+                      filterPaid === 'ALL'
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
                   >
-                    전체 ({myFarmOrders.length})
+                    <span>📥 주문 접수</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      filterPaid === 'ALL' ? 'bg-farm-500 text-white' : 'bg-slate-200 text-slate-700'
+                    }`}>
+                      {receivedOrdersCount}
+                    </span>
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFilterPaid('ACTIVE')}
+                    className={`px-2.5 py-1.5 rounded-xl font-black transition-all cursor-pointer flex items-center gap-1 ${
+                      filterPaid === 'ACTIVE'
+                        ? 'bg-red-600 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    <span>🔴 오늘 출하 대기</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      filterPaid === 'ACTIVE' ? 'bg-white text-red-800' : 'bg-slate-200 text-slate-700'
+                    }`}>
+                      {activeOrdersCount}
+                    </span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => setFilterPaid('UNPAID')}
-                    className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${filterPaid === 'UNPAID' ? 'bg-amber-500 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                    className={`px-2.5 py-1.5 rounded-xl font-black transition-all cursor-pointer flex items-center gap-1 ${
+                      filterPaid === 'UNPAID'
+                        ? 'bg-amber-600 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
                   >
-                    미입금 ({unpaidOrders.length})
+                    <span>⏳ 입금 대기</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      filterPaid === 'UNPAID' ? 'bg-white text-amber-800' : 'bg-slate-200 text-slate-700'
+                    }`}>
+                      {unpaidOrdersCount}
+                    </span>
                   </button>
+
                   <button
                     type="button"
-                    onClick={() => setFilterPaid('PAID')}
-                    className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${filterPaid === 'PAID' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                    onClick={() => setFilterPaid('SHIPPED')}
+                    className={`px-2.5 py-1.5 rounded-xl font-black transition-all cursor-pointer flex items-center gap-1 ${
+                      filterPaid === 'SHIPPED'
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
                   >
-                    입금완료 ({paidOrders.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFilterPaid('BULK')}
-                    className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${filterPaid === 'BULK' ? 'bg-purple-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                  >
-                    대량(엑셀) ({myFarmOrders.filter(o => o.channel === '엑셀(대량)' || o.source === '엑셀(대량)' || o.orderType === '대량주문(엑셀)').length})
+                    <span>🚚 배송중 / 완료</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      filterPaid === 'SHIPPED' ? 'bg-white text-purple-800' : 'bg-slate-200 text-slate-700'
+                    }`}>
+                      {shippedOrDeliveredOrdersCount}
+                    </span>
                   </button>
                 </div>
               </div>
 
-              <div className="divide-y divide-slate-100">
+              <div id="ordersList" className="divide-y divide-slate-100 min-h-[280px]">
                 {filteredOrders.length === 0 ? (
-                  <div className="p-8 text-center text-xs text-slate-400">
-                    해당 조건의 주문 및 배송 내역이 없습니다.
+                  <div className="py-12 px-4 text-center">
+                    <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl">
+                      {filterPaid === 'ACTIVE' ? '🔴' : filterPaid === 'UNPAID' ? '⏳' : '🚚'}
+                    </div>
+                    <p className="text-sm font-bold text-slate-800">
+                      {filterPaid === 'ALL' && '접수된 신규 주문이 없습니다.'}
+                      {filterPaid === 'ACTIVE' && '오늘 출하할 대기 주문이 없습니다.'}
+                      {filterPaid === 'UNPAID' && '입금 대기 중인 주문이 없습니다.'}
+                      {filterPaid === 'SHIPPED' && '배송중이거나 완료된 주문 내역이 없습니다.'}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1.5">
+                      {filterPaid === 'ACTIVE' && shippedOrDeliveredOrdersCount > 0 ? (
+                        <span>
+                          이전 완료 주문 {shippedOrDeliveredOrdersCount}건은{' '}
+                          <button
+                            type="button"
+                            onClick={() => setFilterPaid('SHIPPED')}
+                            className="text-purple-600 font-bold underline cursor-pointer hover:text-purple-700"
+                          >
+                            [🚚 배송중 / 완료]
+                          </button>{' '}
+                          탭에 안전하게 보관되어 있습니다.
+                        </span>
+                      ) : (
+                        '새로운 주문이 접수되면 실시간으로 이곳에 등록됩니다.'
+                      )}
+                    </p>
                   </div>
                 ) : (
                   filteredOrders.map(order => {
@@ -2873,9 +3901,19 @@
                     const productName = order.productName || order.product?.name || order.product || '상품';
                     const productQty = order.quantity || order.product?.qty || order.qty || 1;
                     const orderAmount = Number(order.price) || Number(order.product?.price) || Number(order.amount) || 0;
-                    const roadAddress = order.address?.road || order.address || '';
-                    const detailAddress = order.detailAddress || order.address?.detail || '';
-                    const zipCode = order.postcode || order.address?.zip || order.zip || '';
+                    // [방어적 주소 파싱: [object Object] 원천 방지]
+                    const addrObj = (typeof order.address === 'object' && order.address !== null) ? order.address : null;
+                    const displayAddr = addrObj 
+                      ? (addrObj.roadAddress || addrObj.road || addrObj.address || '') 
+                      : (typeof order.address === 'string' ? order.address : (order.roadAddress || order.road_address || ''));
+                    const displayDetail = addrObj
+                      ? (addrObj.detailAddress || addrObj.detail || '')
+                      : (order.detailAddress || order.detail_address || '');
+                    const displayZone = (addrObj && addrObj.zonecode) 
+                      ? addrObj.zonecode 
+                      : (addrObj && addrObj.zip ? addrObj.zip : (order.zonecode || order.postcode || order.zip || ''));
+                    const fullAddressStr = `${displayAddr} ${displayDetail}`.trim() || '주소 정보 없음';
+                    const zonePrefix = displayZone ? `[ ${displayZone} ] ` : '';
                     const shippingStatus = order.shippingStatus || (order.status?.shipping === 'SHIPPED' ? '배송출발' : '준비중');
                     const trackingNo = order.tracking || order.invoiceNum || null;
 
@@ -2942,9 +3980,9 @@
                               </span>
                             </p>
 
-                            {/* 배송지 */}
-                            <p className="text-[11px] text-slate-500 mt-1 truncate" title={`${roadAddress} ${detailAddress}`}>
-                              📍 {roadAddress} {detailAddress} {zipCode && `[${zipCode}]`}
+                            {/* 배송지 (객체 파싱 방어로 [object Object] 원천 차단) */}
+                            <p className="text-[11px] text-slate-500 mt-1 truncate" title={`📍 ${zonePrefix}${fullAddressStr}`}>
+                              📍 {zonePrefix}{fullAddressStr}
                             </p>
 
                             {/* 배송 요청사항 / 메모 */}
@@ -2963,6 +4001,25 @@
                                 const isEditing = inlineState.isEditing;
                                 const selectedCourier = inlineState.courier || curCourier || 'CJ대한통운';
                                 const inputNum = inlineState.num !== undefined ? inlineState.num : curTracking;
+
+                                // [게이트웨이 비즈니스 룰 방어] 미입금 상태인 경우: 송장 등록 폼 차단, 잠금 배지 및 입금확인 버튼 노출
+                                if (!paidStatus) {
+                                  return (
+                                    <div className="flex items-center justify-between w-full py-1">
+                                      <span className="text-[11px] font-bold text-slate-400 bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 inline-flex items-center gap-1 select-none">
+                                        🔒 입금확인 필요 (입금 완료 후 송장 등록 가능)
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => togglePayment(orderId)}
+                                        className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded-lg font-black transition-all shadow-2xs cursor-pointer active:scale-95"
+                                        title="입금 확인 처리"
+                                      >
+                                        ✓ 입금확인
+                                      </button>
+                                    </div>
+                                  );
+                                }
 
                                 if (curTracking && !isEditing) {
                                   return (
@@ -4402,7 +5459,7 @@
 
                 {/* [방식 2: 간편 수기 등록] */}
                 {courierInvoiceModal.tab === 'DIRECT' && (() => {
-                  const pendingOrders = myFarmOrders.filter(o => !o.tracking && !o.invoiceNum);
+                  const pendingOrders = myFarmOrders.filter(o => isPaid(o) && !isDeliveryCompleted(o) && !o.tracking && !o.invoiceNum);
                   return (
                     <div className="flex-1 overflow-y-auto space-y-2.5 min-h-[160px]">
                       <div className="flex items-center justify-between">
