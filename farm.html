@@ -150,121 +150,131 @@
       </div>
 
       <div class="p-4 space-y-4">
-        <!-- 1.5. 농가 전용 주문 링크 생성 및 원터치 공유 카드 -->
-        <div class="p-4 rounded-2xl shadow-md space-y-2.5 text-white bg-gradient-to-br from-farm-600 via-farm-700 to-emerald-800">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-1.5">
-              <span class="text-base">🔗</span>
-              <h3 class="font-extrabold text-sm tracking-tight">농가 전용 주문 링크 생성기</h3>
+        <!-- 1. 상단 2열 컴팩트 액션 그리드 (현장등록 / 링크공유) -->
+        <div class="grid grid-cols-2 gap-2">
+          <!-- [좌측 카드]: ✍️ 현장·전화 주문 즉시 등록 -->
+          <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between hover:border-emerald-300 transition-all">
+            <div>
+              <div class="flex items-center gap-1.5 mb-1">
+                <span class="text-base">✍️</span>
+                <h3 class="font-extrabold text-xs text-slate-900 tracking-tight">현장·전화 주문 등록</h3>
+              </div>
+              <p class="text-[10px] text-slate-500 leading-tight mb-2.5">
+                현장 직거래나 전화 주문을 직접 즉시 접수
+              </p>
             </div>
-            <span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-white/20">
-              원터치 복사
-            </span>
-          </div>
-          <p class="text-[11px] text-farm-100 leading-relaxed">
-            고객에게 이 전용 링크를 보내면, 로그인 없이도 <b>태안 사과농장</b> 상품으로 자동 연결되어 간편 주문이 접수됩니다.
-          </p>
-          <div class="bg-slate-900/60 p-2 rounded-xl flex items-center justify-between gap-2 border border-white/10">
-            <span class="font-mono text-xs text-emerald-300 truncate max-w-[210px] select-all" id="static-farm-order-url">
-              http://localhost:3000/order.html?farm=FARM-2026-224&ref=REF-2026-224
-            </span>
             <button
               type="button"
-              onclick="navigator.clipboard.writeText('http://localhost:3000/order.html?farm=FARM-2026-224&ref=REF-2026-224'); alert('전용 주문 링크가 복사되었습니다!');"
-              class="text-xs font-black px-3 py-1.5 rounded-lg shadow-sm shrink-0 transition-all flex items-center gap-1 bg-white text-farm-800 hover:bg-farm-50 active:scale-95 cursor-pointer"
-              title="전용 링크 복사하기"
+              onclick="alert('현장 주문 등록 폼으로 이동합니다.');"
+              class="w-full py-2 px-2.5 rounded-xl font-black text-xs text-white bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 shadow-sm active:scale-95 transition-all flex items-center justify-center gap-1 cursor-pointer"
             >
-              <span>📋 링크 복사</span>
+              <span>직접 입력</span>
+              <span class="text-[11px]">➔</span>
             </button>
           </div>
-          <div class="flex gap-2 pt-0.5">
-            <button
-              type="button"
-              onclick="navigator.clipboard.writeText('[태안 사과농장] 🍎 맛있는 꿀사과 10kg 주문 링크: http://localhost:3000/order.html?farm=FARM-2026-224'); alert('카톡/문자 안내문구가 복사되었습니다!');"
-              class="flex-1 text-[11px] font-bold py-2 rounded-xl transition-all flex items-center justify-center gap-1 bg-white/15 hover:bg-white/25 active:scale-98 text-white cursor-pointer"
-            >
-              <span>💬 카톡/문자 안내문구 복사</span>
-            </button>
-            <a
-              href="order.html?farm=FARM-2026-224"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="bg-white/15 hover:bg-white/25 active:scale-98 text-white text-[11px] font-bold px-3 py-2 rounded-xl transition-all flex items-center justify-center gap-1 text-center"
-            >
-              <span>미리보기 ↗</span>
-            </a>
-          </div>
-        </div>
 
-        <!-- 2. 오늘 출하 현황 요약 대시보드 카드 -->
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
-          <h2 class="text-xs font-bold text-slate-500 mb-3 flex items-center justify-between">
-            <span>📦 오늘 출하 & 예약 현황</span>
-            <span class="text-farm-600 font-semibold text-[11px]">수확 D-12</span>
-          </h2>
-          <div class="grid grid-cols-3 gap-2 text-center">
-            <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-              <p class="text-[11px] text-slate-500">총 주문</p>
-              <p class="text-lg font-black text-slate-900 mt-0.5" id="static-total-orders">8건</p>
-              <span class="text-[10px] text-farm-600 font-bold" id="static-total-boxes">11박스</span>
+          <!-- [우측 카드]: 🔗 농가 전용 주문링크 공유 -->
+          <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between hover:border-farm-300 transition-all">
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-base">🔗</span>
+                  <h3 class="font-extrabold text-xs text-slate-900 tracking-tight">주문링크 공유</h3>
+                </div>
+                <span class="text-[9px] px-1.5 py-0.2 rounded font-bold bg-farm-50 text-farm-700">원터치</span>
+              </div>
+              <p class="text-[10px] text-slate-500 leading-tight mb-2.5">
+                고객용 비회원 간편 주문 링크
+              </p>
             </div>
-            <div class="bg-emerald-50 p-2.5 rounded-xl border border-emerald-100">
-              <p class="text-[11px] text-emerald-700">입금 완료</p>
-              <p class="text-lg font-black text-emerald-800 mt-0.5" id="static-paid-orders">6건</p>
-              <span class="text-[10px] text-emerald-600 font-bold" id="static-paid-amount">330,000원</span>
-            </div>
-            <div class="bg-amber-50 p-2.5 rounded-xl border border-amber-100">
-              <p class="text-[11px] text-amber-700">입금 대기</p>
-              <p class="text-lg font-black text-amber-800 mt-0.5" id="static-unpaid-orders">2건</p>
-              <span class="text-[10px] text-amber-600 font-bold" id="static-unpaid-amount">165,000원</span>
+            <div class="grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                onclick="navigator.clipboard.writeText('http://localhost:3000/order.html?farm=FARM-2026-224&ref=REF-2026-224'); alert('전용 주문 링크가 복사되었습니다!');"
+                class="py-2 px-1 rounded-xl text-[11px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 active:scale-95 transition-all flex items-center justify-center gap-0.5 cursor-pointer"
+                title="전용 링크 복사하기"
+              >
+                <span>📋</span>
+                <span>링크 복사</span>
+              </button>
+              <button
+                type="button"
+                onclick="navigator.clipboard.writeText('[태안 사과농장] 🍎 맛있는 꿀사과 10kg 주문 링크: http://localhost:3000/order.html?farm=FARM-2026-224'); alert('카톡 안내문구가 복사되었습니다!');"
+                class="py-2 px-1 rounded-xl text-[11px] font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 active:scale-95 transition-all flex items-center justify-center gap-0.5 cursor-pointer"
+                title="카톡 공유 문구 복사"
+              >
+                <span>💬</span>
+                <span>카톡 공유</span>
+              </button>
             </div>
           </div>
         </div>
 
-        <!-- [모바일 친화형 5대 탭 네비게이션] -->
-        <div class="bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 sticky top-[108px] z-20">
-          <div class="flex gap-1 overflow-x-auto no-scrollbar scroll-smooth text-xs font-bold">
+        <!-- 2. 오늘 출하 & 예약 현황 슬림 바 (입금 대기 -> 입금 완료 -> 총 주문) -->
+        <div class="bg-white p-2.5 rounded-2xl shadow-sm border border-slate-200">
+          <div class="flex items-center justify-between px-0.5 mb-1.5">
+            <span class="text-[11px] font-bold text-slate-700 flex items-center gap-1" id="static-summary-header-title">
+              <span>📦</span>
+              <span>오늘 출하 & 예약 현황 (8건 / 6건 완료 / 2건 대기)</span>
+            </span>
+            <span class="text-farm-600 font-semibold text-[10px]">수확 D-12</span>
+          </div>
+          <div class="grid grid-cols-3 gap-1.5 text-center">
+            <!-- 1번째: [⏳ 입금 대기] (최우선 확인 - 주황/노랑 강조) -->
+            <div class="bg-amber-50/80 p-2 rounded-xl border border-amber-200/80">
+              <p class="text-[10px] font-bold text-amber-700">⏳ 입금 대기</p>
+              <p class="text-base font-black text-amber-800 leading-tight mt-0.5" id="static-unpaid-orders">2건</p>
+              <span class="text-[10px] text-amber-600 font-semibold block truncate" id="static-unpaid-amount">165,000원</span>
+            </div>
+            <!-- 2번째: [✓ 입금 완료] (은은한 그린 톤) -->
+            <div class="bg-emerald-50/70 p-2 rounded-xl border border-emerald-200/70">
+              <p class="text-[10px] font-bold text-emerald-700">✓ 입금 완료</p>
+              <p class="text-base font-black text-emerald-800 leading-tight mt-0.5" id="static-paid-orders">6건</p>
+              <span class="text-[10px] text-emerald-600 font-semibold block truncate" id="static-paid-amount">330,000원</span>
+            </div>
+            <!-- 3번째: [📦 총 주문] (그레이/뉴트럴 톤) -->
+            <div class="bg-slate-50 p-2 rounded-xl border border-slate-200/70">
+              <p class="text-[10px] font-bold text-slate-500">📦 총 주문</p>
+              <p class="text-base font-black text-slate-800 leading-tight mt-0.5" id="static-total-orders">8건</p>
+              <span class="text-[10px] text-slate-500 font-semibold block truncate" id="static-total-boxes">9박스</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- [4대 핵심 관리 탭: 모바일 앱 세그먼트 탭바 스타일 1줄 가로 정렬] -->
+        <div class="bg-slate-100/90 p-1.5 rounded-2xl shadow-inner border border-slate-200/80 sticky top-[108px] z-20 backdrop-blur-md">
+          <div class="grid grid-cols-4 gap-1 text-xs font-bold">
+            <!-- 1) 주문 관리 (활성) -->
             <button
               type="button"
-              class="flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap transition-all bg-slate-900 text-white shadow-xs font-black cursor-pointer"
+              class="flex items-center justify-center gap-1 py-2 px-1 rounded-xl transition-all shadow-sm font-black text-white bg-emerald-600 border border-emerald-600 ring-1 ring-emerald-500 cursor-pointer"
             >
-              <span>📥 주문 접수</span>
-              <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-farm-500 text-white" id="static-main-nav-orders">2</span>
+              <span class="whitespace-nowrap">📦 주문 및 배송처리</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full font-extrabold bg-white text-emerald-700 shadow-xs" id="static-main-nav-orders">2</span>
             </button>
+            <!-- 2) 고객 CS -->
             <button
               type="button"
-              class="flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap transition-all bg-transparent text-slate-600 hover:bg-slate-100 cursor-pointer"
+              class="flex items-center justify-center gap-1 py-2 px-1 rounded-xl transition-all border border-slate-200/90 bg-white/80 hover:bg-white text-slate-700 font-bold cursor-pointer shadow-2xs"
             >
-              <span>✍️ 현장 주문등록</span>
-              <span class="text-[9px] px-1.5 py-0.2 rounded font-black bg-farm-100 text-farm-800">신규</span>
+              <span class="whitespace-nowrap">💬 CS</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-amber-100 text-amber-800" id="static-main-nav-cs">1</span>
             </button>
+            <!-- 3) 상품 관리 -->
             <button
               type="button"
-              class="flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap transition-all bg-transparent text-slate-600 hover:bg-slate-100 cursor-pointer"
+              class="flex items-center justify-center gap-1 py-2 px-1 rounded-xl transition-all border border-slate-200/90 bg-white/80 hover:bg-white text-slate-700 font-bold cursor-pointer shadow-2xs"
             >
-              <span>📊 매출·출하 실적</span>
-              <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700" id="static-main-nav-stats">33만</span>
+              <span class="whitespace-nowrap">🍎 상품</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-slate-200 text-slate-700" id="static-main-nav-prods">2</span>
             </button>
+            <!-- 4) 작기 관리 -->
             <button
               type="button"
-              class="flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap transition-all bg-transparent text-slate-600 hover:bg-slate-100 cursor-pointer"
+              class="flex items-center justify-center gap-1 py-2 px-1 rounded-xl transition-all border border-slate-200/90 bg-white/80 hover:bg-white text-slate-700 font-bold cursor-pointer shadow-2xs"
             >
-              <span>🌱 작기·정식</span>
-              <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700">2</span>
-            </button>
-            <button
-              type="button"
-              class="flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap transition-all bg-transparent text-slate-600 hover:bg-slate-100 cursor-pointer"
-            >
-              <span>🍎 상품 관리</span>
-              <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700">2</span>
-            </button>
-            <button
-              type="button"
-              class="flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap transition-all bg-transparent text-slate-600 hover:bg-slate-100 cursor-pointer"
-            >
-              <span>💬 고객 CS</span>
-              <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700">1</span>
+              <span class="whitespace-nowrap">🌱 작기</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-slate-200 text-slate-700" id="static-main-nav-planting">2</span>
             </button>
           </div>
         </div>
@@ -292,9 +302,9 @@
             </div>
           </div>
 
-          <!-- [탭 메뉴 컨테이너: #tabsContainer] -->
-          <div id="tabsContainer" class="p-3 bg-slate-50/70 border-b border-slate-100">
-            <div class="flex flex-wrap gap-1 text-xs">
+          <!-- [탭 메뉴 컨테이너: #tabsContainer (좌측 상태 필터 4개 + 우측 독립 실행 송장 액션 버튼)] -->
+          <div id="tabsContainer" class="p-3 bg-slate-50/70 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div class="flex flex-wrap gap-1 text-xs flex-1">
               <button
                 type="button"
                 onclick="window.renderFarmTabsAndOrders && window.renderFarmTabsAndOrders(window.__INITIAL_FARM_ORDERS__ || [], 'ALL')"
@@ -328,6 +338,17 @@
                 <span class="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-slate-200 text-slate-700" id="static-tab-shipped-count">6</span>
               </button>
             </div>
+
+            <!-- 우측 독립 실행 액션 버튼: [🏷️ 택배 송장 등록 ➔] -->
+            <button
+              type="button"
+              onclick="alert('택배 송장 등록 관리창을 호출합니다.');"
+              class="py-2 px-3.5 rounded-xl font-black text-xs text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 shadow-sm transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+            >
+              <span>🏷️</span>
+              <span>택배 송장 등록</span>
+              <span class="text-xs">➔</span>
+            </button>
           </div>
 
           <!-- [주문 목록 컨테이너: #ordersList] -->
@@ -341,7 +362,7 @@
                       ORD-20261023-0001
                     </span>
                     <span class="font-extrabold text-slate-900 text-xs">
-                      김철수
+                      받는분 김철수 <span class="text-slate-500 font-normal">(주문: 김철수)</span>
                     </span>
                     <span class="text-xs text-slate-500 font-mono">010-1234-5678</span>
                   </div>
@@ -370,6 +391,9 @@
                     </div>
                   </div>
                 </div>
+                <button type="button" onclick="togglePayment(event, 'ORD-20261023-0001', 'unpaid')" class="btn-toggle-payment px-3 py-2 rounded-xl text-xs font-black shadow-sm transition-all active:scale-95 flex-shrink-0 cursor-pointer bg-farm-600 hover:bg-farm-700 text-white shadow-farm-600/30">
+                  ✓ 입금확인
+                </button>
               </div>
             </div>
 
@@ -382,7 +406,7 @@
                       ORD-20261023-0002
                     </span>
                     <span class="font-extrabold text-slate-900 text-xs">
-                      이영희 <span class="text-slate-500 font-normal">(주문: 김철수)</span>
+                      받는분 이영희 <span class="text-slate-500 font-normal">(주문: 김철수)</span>
                     </span>
                     <span class="text-xs text-slate-500 font-mono">010-9876-5432</span>
                   </div>
@@ -411,6 +435,9 @@
                     </div>
                   </div>
                 </div>
+                <button type="button" onclick="togglePayment(event, 'ORD-20261023-0002', 'unpaid')" class="btn-toggle-payment px-3 py-2 rounded-xl text-xs font-black shadow-sm transition-all active:scale-95 flex-shrink-0 cursor-pointer bg-farm-600 hover:bg-farm-700 text-white shadow-farm-600/30">
+                  ✓ 입금확인
+                </button>
               </div>
             </div>
           </div>
@@ -418,6 +445,37 @@
 
         <!-- [Zero-Latency 동기 바인딩 스크립트] -->
         <script>
+          // 전역 입금 토글 함수 (바닐라 및 React 초기화 전 완벽 호환 지원)
+          window.togglePayment = window.togglePaymentStatus = function(event, orderId, currentStatus) {
+            if (event && event.stopPropagation) event.stopPropagation();
+            var curPaid = currentStatus === 'paid' || currentStatus === '입금완료';
+            // [STRICT RULE 2: 입금취소 시 필수 확인(Confirm) 다이얼로그 강제]
+            if (curPaid) {
+              if (!confirm("입금 확인을 취소하고 [입금 대기] 상태로 되돌리시겠습니까?")) return;
+            }
+            var nextPaid = !curPaid;
+
+            // 1. 데모 및 메모리 주문 데이터 동기화
+            if (window.__INITIAL_FARM_ORDERS__ && Array.isArray(window.__INITIAL_FARM_ORDERS__)) {
+              window.__INITIAL_FARM_ORDERS__.forEach(function(o) {
+                if ((o.id || o.orderId || o.order_id || o.order_no) === orderId) {
+                  o.paid = nextPaid;
+                  o.payment_status = nextPaid ? 'paid' : 'unpaid';
+                  o.paymentStatus = nextPaid ? '입금완료' : '미입금';
+                }
+              });
+              if (typeof window.renderFarmTabsAndOrders === 'function') {
+                window.renderFarmTabsAndOrders(window.__INITIAL_FARM_ORDERS__, window.__CURRENT_FARM_TAB__ || 'ALL');
+              }
+            }
+
+            // 2. OOMS_DB / Supabase 비동기 동기화
+            if (window.OOMS_DB) {
+              try {
+                window.OOMS_DB.updateOrder(orderId, { payment_status: nextPaid ? 'paid' : 'unpaid' }).catch(function(){});
+              } catch(e) {}
+            }
+          };
           // 주소 객체 파싱 방어 함수 ([object Object] 원천 방지)
           window.formatSafeOrderAddress = function(o) {
             if (!o) return { fullAddr: '주소 정보 없음', zonePrefix: '' };
@@ -484,6 +542,7 @@
               var el = document.getElementById(id);
               if (el) el.textContent = val;
             };
+            setTxt('static-summary-header-title', '📦 오늘 출하 & 예약 현황 (' + list.length + '건 / ' + (list.length - unpaidCount) + '건 완료 / ' + unpaidCount + '건 대기)');
             setTxt('static-total-orders', list.length + '건');
             setTxt('static-total-boxes', totalBoxes + '박스');
             setTxt('static-paid-orders', (list.length - unpaidCount) + '건');
@@ -507,43 +566,52 @@
                 var badgeCls = isActive ? badgeActiveCls : 'bg-slate-200 text-slate-700';
                 return '<button type="button" onclick="window.renderFarmTabsAndOrders(window.__INITIAL_FARM_ORDERS__ || [], \'' + key + '\')" class="px-2.5 py-1.5 rounded-xl font-black transition-all cursor-pointer inline-flex items-center gap-1 text-xs ' + cls + '"><span>' + title + '</span><span class="text-[10px] px-1.5 py-0.2 rounded-full font-bold ' + badgeCls + '">' + count + '</span></button>';
               };
-              tabsEl.innerHTML = '<div class="flex flex-wrap gap-1 text-xs">' +
+              tabsEl.innerHTML = '<div class="flex flex-wrap gap-1 text-xs flex-1">' +
                 makeTab('ALL', '📥 주문 접수', receivedCount, 'bg-slate-900 text-white shadow-xs', 'bg-emerald-500 text-white') +
                 makeTab('ACTIVE', '🔴 오늘 출하 대기', activeCount, 'bg-red-600 text-white shadow-xs', 'bg-white text-red-800') +
                 makeTab('UNPAID', '⏳ 입금 대기', unpaidCount, 'bg-amber-600 text-white shadow-xs', 'bg-white text-amber-800') +
                 makeTab('SHIPPED', '🚚 배송중 / 완료', deliveredCount, 'bg-purple-600 text-white shadow-xs', 'bg-white text-purple-800') +
-                '</div>';
+                '</div>' +
+                '<button type="button" onclick="alert(\'택배 송장 등록 관리창을 호출합니다.\');" class="py-2 px-3.5 rounded-xl font-black text-xs text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 shadow-sm transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer">' +
+                '<span>🏷️</span><span>택배 송장 등록</span><span class="text-xs">➔</span></button>';
             }
 
-            // 필터링
+            // [STRICT RULE 1: 탭별 주문 데이터 엄격 격리 필터링 (바닐라)]
             var filtered = [];
             if (activeTab === 'ALL') {
+              // 1) [📥 주문 접수]: 신규 인입 및 배송 전 상태의 주문만 노출 (배송중/완료 절대 노출 금지)
               filtered = list.filter(function(o) {
-                var ship = String(o.shipping_status || o.shippingStatus || '').toLowerCase();
-                var trk = o.tracking_number || o.tracking || o.invoiceNum || '';
-                return !(ship === 'delivered' || ship === '배송완료' || !!trk);
+                var ship = String(o.shipping_status || o.shippingStatus || o.deliveryStatus || o.delivery_status || (o.status && o.status.shipping) || (typeof o.status === 'string' ? o.status : '') || '').toLowerCase();
+                var trk = String(o.tracking_number || o.tracking || o.invoiceNum || o.invoiceNumber || '').trim();
+                var isShipped = (ship === 'delivered' || ship === '배송완료' || ship === 'shipped' || ship === '배송중' || ship === '배송출발' || (trk && trk.length >= 8));
+                return !isShipped;
               });
             } else if (activeTab === 'ACTIVE') {
+              // 2) [🔴 오늘 출하 대기]: 입금완료 건 중 아직 출하되지 않은 주문
               filtered = list.filter(function(o) {
-                var pay = String(o.payment_status || o.paymentStatus || '').toLowerCase();
-                var isPaid = !(pay === 'unpaid' || pay === '미입금' || o.paid === false);
-                var ship = String(o.shipping_status || o.shippingStatus || '').toLowerCase();
-                var trk = o.tracking_number || o.tracking || o.invoiceNum || '';
-                return isPaid && !(ship === 'delivered' || ship === '배송완료' || !!trk);
+                var pay = String(o.payment_status || o.paymentStatus || (o.status && o.status.payment) || '').toLowerCase();
+                var isPaid = !(pay === 'unpaid' || pay === '미입금' || pay === '입금전' || o.paid === false);
+                var ship = String(o.shipping_status || o.shippingStatus || o.deliveryStatus || o.delivery_status || (o.status && o.status.shipping) || (typeof o.status === 'string' ? o.status : '') || '').toLowerCase();
+                var trk = String(o.tracking_number || o.tracking || o.invoiceNum || o.invoiceNumber || '').trim();
+                var isShipped = (ship === 'delivered' || ship === '배송완료' || ship === 'shipped' || ship === '배송중' || ship === '배송출발' || (trk && trk.length >= 8));
+                return isPaid && !isShipped;
               });
             } else if (activeTab === 'UNPAID') {
+              // 3) [⏳ 입금 대기]: payment_status === 'unpaid' 인 건만 노출
               filtered = list.filter(function(o) {
-                var pay = String(o.payment_status || o.paymentStatus || '').toLowerCase();
-                var isUnpaid = (pay === 'unpaid' || pay === '미입금' || o.paid === false);
-                var ship = String(o.shipping_status || o.shippingStatus || '').toLowerCase();
-                var trk = o.tracking_number || o.tracking || o.invoiceNum || '';
-                return isUnpaid && !(ship === 'delivered' || ship === '배송완료' || !!trk);
+                var pay = String(o.payment_status || o.paymentStatus || (o.status && o.status.payment) || '').toLowerCase();
+                var isUnpaid = (pay === 'unpaid' || pay === '미입금' || pay === '입금전' || pay === 'pending' || o.paid === false);
+                var ship = String(o.shipping_status || o.shippingStatus || o.deliveryStatus || o.delivery_status || (o.status && o.status.shipping) || (typeof o.status === 'string' ? o.status : '') || '').toLowerCase();
+                var trk = String(o.tracking_number || o.tracking || o.invoiceNum || o.invoiceNumber || '').trim();
+                var isShipped = (ship === 'delivered' || ship === '배송완료' || ship === 'shipped' || ship === '배송중' || ship === '배송출발' || (trk && trk.length >= 8));
+                return isUnpaid && !isShipped;
               });
             } else if (activeTab === 'SHIPPED') {
+              // 4) [🚚 배송중/완료]: 이미 송장이 등록되어 출하되었거나 배송 완료된 주문만 노출
               filtered = list.filter(function(o) {
-                var ship = String(o.shipping_status || o.shippingStatus || '').toLowerCase();
-                var trk = o.tracking_number || o.tracking || o.invoiceNum || '';
-                return (ship === 'delivered' || ship === '배송완료' || !!trk);
+                var ship = String(o.shipping_status || o.shippingStatus || o.deliveryStatus || o.delivery_status || (o.status && o.status.shipping) || (typeof o.status === 'string' ? o.status : '') || '').toLowerCase();
+                var trk = String(o.tracking_number || o.tracking || o.invoiceNum || o.invoiceNumber || '').trim();
+                return (ship === 'delivered' || ship === '배송완료' || ship === 'shipped' || ship === '배송중' || ship === '배송출발' || (trk && trk.length >= 8));
               });
             }
 
@@ -593,7 +661,7 @@
                       '<div class="flex-1 min-w-0">' +
                         '<div class="flex flex-wrap items-center gap-1.5">' +
                           '<span class="font-mono text-[11px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">' + orderId + '</span>' +
-                          '<span class="font-extrabold text-slate-900 text-xs">' + receiver + (receiver !== orderer ? ' <span class="text-slate-500 font-normal">(주문: ' + orderer + ')</span>' : '') + '</span>' +
+                          '<span class="font-extrabold text-slate-900 text-xs">받는분 ' + receiver + ' <span class="text-slate-500 font-normal">(주문: ' + (orderer || receiver) + ')</span></span>' +
                           '<span class="text-xs text-slate-500 font-mono">' + phone + '</span>' +
                         '</div>' +
                         '<div class="flex flex-wrap items-center gap-1.5 mt-1.5">' +
@@ -614,6 +682,25 @@
                           (!isPaidOrder ? '<div class="flex items-center justify-between w-full py-1"><span class="text-[11px] font-bold text-slate-400 bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 inline-flex items-center gap-1 select-none">🔒 입금확인 필요 (입금 완료 후 송장 등록 가능)</span></div>' : (trk ? '<span class="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1 inline-flex items-center gap-1">✓ 정상 발송 완료</span>' : '<span class="text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1 inline-flex items-center gap-1">📦 출하 대기 (송장 입력 가능)</span>')) +
                         '</div>' +
                       '</div>' +
+                      (activeTab === 'SHIPPED' ?
+                        '<div class="flex items-center gap-1.5 flex-shrink-0">' +
+                          '<span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">결제완료</span>' +
+                          '<button type="button" onclick="alert(\'운송장 및 배송 조회를 실행합니다.\');" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 cursor-pointer">🔍 배송조회</button>' +
+                        '</div>'
+                      : (activeTab === 'PRE_ORDER' ?
+                        '<div class="flex items-center gap-1.5 flex-shrink-0">' +
+                          '<span class="px-2.5 py-1 rounded-lg text-xs font-bold border whitespace-nowrap ' + (isPaidOrder ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200') + '">' + (isPaidOrder ? '결제완료' : '입금대기') + '</span>' +
+                          '<button type="button" onclick="alert(\'주문이 오늘 출하 대기로 이동되었습니다.\');" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-red-50 text-red-700 border border-red-200 cursor-pointer">📦 출하대기로 이동</button>' +
+                        '</div>'
+                      : (activeTab === 'ALL' || activeTab === 'UNPAID' ?
+                        '<button type="button" onclick="togglePayment(event, \'' + orderId + '\', \'' + (isPaidOrder ? 'paid' : 'unpaid') + '\')" class="btn-toggle-payment px-3 py-2 rounded-xl text-xs font-black shadow-sm transition-all active:scale-95 flex-shrink-0 cursor-pointer flex items-center gap-1 ' + (isPaidOrder ? 'bg-slate-100 hover:bg-amber-50 text-slate-700 hover:text-amber-800 border border-slate-300' : 'bg-farm-600 hover:bg-farm-700 text-white shadow-farm-600/30') + '">' +
+                          '<span>' + (isPaidOrder ? '↩️ 입금취소' : '✓ 입금확인') + '</span>' +
+                        '</button>'
+                      :
+                        '<div class="flex items-center gap-1 flex-shrink-0">' +
+                          '<span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">결제완료</span>' +
+                        '</div>'
+                      ))) +
                     '</div>' +
                   '</div>';
                 }).join('');
@@ -1418,7 +1505,10 @@
       const [onsiteOrder, setOnsiteOrder] = useState({
         productId: '',
         quantity: 1,
-        isPaid: true,
+        isPaid: false,
+        senderName: '',
+        senderPhone: '',
+        sameAsSender: false,
         receiverName: '',
         receiverPhone: '',
         zip: '',
@@ -1578,7 +1668,7 @@
       // 현장 수기 주문 즉시 등록 핸들러
       const handleSaveOnsiteManualOrder = (e) => {
         if (e) e.preventDefault();
-        const { productId, quantity, isPaid: orderIsPaid, receiverName, receiverPhone, zip, roadAddress, detailAddress, deliveryMemo, customMemo } = onsiteOrder;
+        const { productId, quantity, isPaid: orderIsPaid, senderName, senderPhone, receiverName, receiverPhone, zip, roadAddress, detailAddress, deliveryMemo, customMemo } = onsiteOrder;
 
         if (!receiverName.trim()) {
           alert('받는 분(수령인) 성함을 입력해주세요.');
@@ -1607,12 +1697,21 @@
         const newOrderId = 'ORD-ONSITE-' + Date.now().toString().slice(-4);
         const finalMemo = deliveryMemo === '직접 입력' ? (customMemo || '요청사항 없음') : (deliveryMemo || '문 앞 보관');
 
+        const resolvedSenderName = (senderName || '').trim() || receiverName.trim();
+        const resolvedSenderPhone = (senderPhone || '').trim() || receiverPhone.trim();
+
         const newOrderObj = {
           orderId: newOrderId,
           farmCode: curFarmCode,
           farmName: currentMerchant?.farmName || '태안 사과농장',
-          senderName: currentMerchant?.repName || '농가현장등록',
-          senderPhone: currentMerchant?.phone || '010-3849-1234',
+          senderName: resolvedSenderName,
+          senderPhone: resolvedSenderPhone,
+          ordererName: resolvedSenderName,
+          ordererPhone: resolvedSenderPhone,
+          sender_name: resolvedSenderName,
+          sender_phone: resolvedSenderPhone,
+          orderer_name: resolvedSenderName,
+          orderer_phone: resolvedSenderPhone,
           receiverName: receiverName.trim(),
           receiverPhone: receiverPhone.trim(),
           postcode: zip || '32145',
@@ -1629,8 +1728,8 @@
           orderType: '현장수기주문',
           createdAt: new Date().toISOString(),
           id: newOrderId,
-          rawText: `[현장수기] ${receiverName.trim()} ${receiverPhone.trim()} ${roadAddress.trim()} ${chosenProd.name} ${qty}박스`,
-          orderer: { name: currentMerchant?.repName || '농가현장등록', tel: currentMerchant?.phone || '010-3849-1234' },
+          rawText: `[현장수기] ${resolvedSenderName} -> ${receiverName.trim()} ${receiverPhone.trim()} ${roadAddress.trim()} ${chosenProd.name} ${qty}박스`,
+          orderer: { name: resolvedSenderName, tel: resolvedSenderPhone },
           receiver: { name: receiverName.trim(), tel: receiverPhone.trim() },
           product: { name: chosenProd.name, qty: qty, price: totalAmount },
           status: { payment: orderIsPaid ? 'PAID' : 'UNPAID', staging: 'APPROVED' },
@@ -1645,7 +1744,10 @@
         setOnsiteOrder({
           productId: prods[0]?.id || prods[0]?.name || '',
           quantity: 1,
-          isPaid: true,
+          isPaid: false,
+          senderName: '',
+          senderPhone: '',
+          sameAsSender: false,
           receiverName: '',
           receiverPhone: '',
           zip: '',
@@ -2139,11 +2241,47 @@
 
 
 
-      // 1. [📥 주문 접수]: shipping_status NOT IN ('shipped', 'delivered')
+      // 5. [🚚 배송중 / 완료]: 이미 송장이 등록되어 출하되었거나 배송 완료된 주문 (STRICT RULE 1-2)
+      const isShippedOrDelivered = (o) => {
+        if (!o) return false;
+        const s = String(o.shipping_status || o.shippingStatus || o.deliveryStatus || o.delivery_status || o.status?.shipping || '').toLowerCase();
+        const trk = String(o.tracking_number || o.tracking || o.invoiceNum || o.invoiceNumber || '').trim();
+        return s === 'shipped' || s === 'delivered' || s === '배송중' || s === '배송출발' || s === '배송완료' || (trk !== '' && trk.length >= 8);
+      };
+
+      // 1. [📥 주문 접수]: 신규 인입 및 배송 전 상태의 주문만 노출 (배송중/완료 절대 노출 금지, STRICT RULE 1-1)
       const isOrderReceived = (o) => {
         if (!o) return false;
-        const s = String(o.shipping_status || o.shippingStatus || '').toLowerCase();
-        return s !== 'shipped' && s !== 'delivered' && s !== '배송중' && s !== '배송완료';
+        return !isShippedOrDelivered(o);
+      };
+
+      // 3. [⏳ 입금 대기]: payment_status === 'unpaid' 인 건만 노출 (STRICT RULE 1-3)
+      const isPaymentUnpaid = (o) => {
+        if (!o) return false;
+        const pay = String(o.payment_status || o.paymentStatus || (o.status && o.status.payment) || '').toLowerCase();
+        if (pay === 'paid' || pay === '입금완료' || o.paid === true) return false;
+        const isUnpaid = (pay === 'unpaid' || pay === '미입금' || pay === '입금전' || pay === 'pending' || o.paid === false);
+        return isUnpaid && !isShippedOrDelivered(o);
+      };
+
+      const isPaid = (o) => {
+        if (!o) return false;
+        if (isPaymentUnpaid(o)) return false;
+        const pay = String(o.payment_status || o.paymentStatus || (o.status && o.status.payment) || '').toLowerCase();
+        return pay === 'paid' || pay === '입금완료' || o.paid === true;
+      };
+
+      // 4. [🔴 오늘 출하 대기]: 입금완료 건 중 아직 출하되지 않은 주문
+      const isTodayShipping = (o) => {
+        if (!o) return false;
+        return isPaid(o) && !isShippedOrDelivered(o);
+      };
+
+      // 6. [📅 예약 / 작기 보관]: 수확 전 임시 보관 중인 주문
+      const isPreOrderReserved = (o) => {
+        if (!o || !isOrderReceived(o) || isShippedOrDelivered(o)) return false;
+        const schedule = String(o.deliverySchedule || o.delivery_schedule || '').trim().toUpperCase();
+        return schedule === 'RESERVED' || schedule === 'PRE_ORDER' || (schedule !== '' && schedule !== 'IMMEDIATE' && schedule !== 'TODAY' && !schedule.startsWith('2026-10-16') && !schedule.startsWith('2026-10-17') && !schedule.startsWith('2026-10-18') && !schedule.startsWith('2026-10-19'));
       };
 
       // 2. [🤖 AI 검증/접수]: zonecode(우편번호)가 없거나 address가 비정형으로 파싱 오류가 난 주문
@@ -2155,42 +2293,6 @@
         if (!addr || addr.trim().length < 5) return true;
         if (o.address_status === 'ERROR' || o.addressStatus === 'ERROR') return true;
         return false;
-      };
-
-      // 3. [⏳ 입금 대기]: payment_status === 'unpaid' AND shipping_status === 'preparing'
-      const isPaymentUnpaid = (o) => {
-        if (!o) return false;
-        const pay = String(o.payment_status || o.paymentStatus || '').toLowerCase();
-        const ship = String(o.shipping_status || o.shippingStatus || '').toLowerCase();
-        const isUnpaid = (pay === 'unpaid' || pay === '미입금' || o.paid === false);
-        const isPreparing = (ship === 'preparing' || ship === '준비중');
-        return isUnpaid && isPreparing;
-      };
-
-      // 4. [🔴 오늘 출하 대기]: payment_status === 'paid' AND (tracking_number IS NULL OR tracking_number = '') AND shipping_status NOT IN ('shipped', 'delivered')
-      const isTodayShipping = (o) => {
-        if (!o) return false;
-        const pay = String(o.payment_status || o.paymentStatus || '').toLowerCase();
-        const ship = String(o.shipping_status || o.shippingStatus || '').toLowerCase();
-        const isPaid = (pay === 'paid' || pay === '입금완료' || o.paid === true);
-        const trk = String(o.tracking_number || o.tracking || o.invoiceNum || o.invoiceNumber || '').trim();
-        const isNotShipped = (ship !== 'shipped' && ship !== 'delivered' && ship !== '배송중' && ship !== '배송완료');
-        return isPaid && (!trk || trk === '') && isNotShipped;
-      };
-
-      // 5. [🚚 배송중 / 완료]: shipping_status IN ('shipped', 'delivered')
-      const isShippedOrDelivered = (o) => {
-        if (!o) return false;
-        const s = String(o.shipping_status || o.shippingStatus || '').toLowerCase();
-        const trk = String(o.tracking_number || o.tracking || o.invoiceNum || o.invoiceNumber || '').trim();
-        return s === 'shipped' || s === 'delivered' || s === '배송중' || s === '배송완료' || (trk !== '' && trk.length >= 8);
-      };
-
-      const isPaid = (o) => {
-        if (!o) return false;
-        if (isPaymentUnpaid(o)) return false;
-        const pay = String(o.payment_status || o.paymentStatus || '').toLowerCase();
-        return pay === 'paid' || pay === '입금완료' || o.paid === true;
       };
 
       const isPaymentPaid = isPaid;
@@ -2276,26 +2378,70 @@
         showToast('주문 [' + orderId + '] 배송완료 처리되었습니다.');
       };
 
-      // 원터치 입금 확인 토글 (DB 실시간 연동)
-      const togglePayment = async (id) => {
-        const targetOrder = orders.find(o => (o.orderId || o.id) === id);
+      // 원터치 입금 확인 / 입금취소 토글 (낙관적 즉시 상태 갱신 + DB 실시간 연동)
+      const togglePayment = async (e, id, currentStatus) => {
+        if (e && typeof e.stopPropagation === 'function') {
+          e.stopPropagation();
+        }
+        const targetId = typeof e === 'string' && !id ? e : id;
+        const targetOrder = orders.find(o => (o.orderId === targetId || o.id === targetId || o.order_id === targetId || o.order_no === targetId));
         if (!targetOrder) return;
-        const currentPaid = isPaid(targetOrder);
-        const nextPaid = !currentPaid;
 
+        const curPaid = currentStatus ? (currentStatus === 'paid' || currentStatus === '입금완료') : isPaid(targetOrder);
+        const nextPaid = !curPaid;
+
+        // [STRICT RULE 2: 입금취소 시 필수 확인(Confirm) 다이얼로그 강제]
+        if (curPaid) {
+          if (!confirm("입금 확인을 취소하고 [입금 대기] 상태로 되돌리시겠습니까?")) return;
+        }
+
+        // 1. React 로컬 주문 상태 즉시 낙관적 갱신 (단일 대상 정확 타겟팅 & UI 즉각 반응)
+        setOrders(prev => prev.map(o => {
+          if (o.orderId === targetId || o.id === targetId || o.order_id === targetId || o.order_no === targetId) {
+            return {
+              ...o,
+              paid: nextPaid,
+              payment_status: nextPaid ? 'paid' : 'unpaid',
+              paymentStatus: nextPaid ? '입금완료' : '미입금',
+              status: {
+                ...(typeof o.status === 'object' ? o.status : {}),
+                payment: nextPaid ? 'PAID' : 'UNPAID'
+              }
+            };
+          }
+          return o;
+        }));
+
+        // 2. 전역 데모 데이터 동기화
+        if (window.__INITIAL_FARM_ORDERS__ && Array.isArray(window.__INITIAL_FARM_ORDERS__)) {
+          window.__INITIAL_FARM_ORDERS__.forEach(o => {
+            if (o.orderId === targetId || o.id === targetId || o.order_id === targetId || o.order_no === targetId) {
+              o.paid = nextPaid;
+              o.payment_status = nextPaid ? 'paid' : 'unpaid';
+              o.paymentStatus = nextPaid ? '입금완료' : '미입금';
+            }
+          });
+        }
+
+        // 3. OOMS_DB / Supabase 비동기 동기화 (전체 상태 재로드 없이 단일 건만 안전 처리)
         if (window.OOMS_DB) {
           try {
-            await window.OOMS_DB.updateOrder(id, {
+            const dbId = targetOrder.id || targetOrder.order_id || targetOrder.order_no || targetId;
+            await window.OOMS_DB.updateOrder(dbId, {
               payment_status: nextPaid ? 'paid' : 'unpaid'
             });
-          } catch (e) {
-            console.error('[OOMS_DB.togglePayment Error]', e);
+          } catch (err) {
+            console.warn('[OOMS_DB.togglePayment Warning]', err);
           }
         }
-        await loadOrdersFromDb();
-        const ordererName = targetOrder.senderName || targetOrder.orderer_name || '고객';
+
+        const ordererName = targetOrder.senderName || targetOrder.orderer_name || targetOrder.ordererName || '고객';
         showToast(`${ordererName}님 주문 [${nextPaid ? '입금 확인 완료' : '입금 대기로 변경'}]`);
       };
+
+      // 전역 window 참조 바인딩
+      window.togglePayment = togglePayment;
+      window.togglePaymentStatus = togglePayment;
 
       // 로그아웃 처리 (농가 세션 안전 해제 및 index.html?tab=login 리다이렉트)
       const handleLogout = () => {
@@ -2344,23 +2490,32 @@
       const unpaidOrdersCount = myFarmOrders.filter(isPaymentUnpaid).length;
       const todayShippingOrdersCount = myFarmOrders.filter(isTodayShipping).length;
       const activeOrdersCount = todayShippingOrdersCount;
+      const preOrderReservedCount = myFarmOrders.filter(isPreOrderReserved).length;
       const shippedOrDeliveredOrdersCount = myFarmOrders.filter(isShippedOrDelivered).length;
       const shippingOrdersCount = myFarmOrders.filter(isShippingInProgress).length;
       const deliveredOrdersCount = myFarmOrders.filter(isDeliveryCompleted).length;
 
-      // 결제 상태 및 주문 배송 단계 필터링 적용 (Single Source of Truth)
+      // [STRICT RULE 1: 탭별 주문 데이터 엄격 격리 필터링 (React)]
       const filteredOrders = myFarmOrders
         .filter(o => {
           if (filterPaid === 'ALL') {
+            // 1) [📥 주문 접수]: 신규 인입 및 배송 전 상태의 주문만 노출 (배송 시작/완료 건 원천 배제)
             return isOrderReceived(o);
           }
           if (filterPaid === 'ACTIVE') {
+            // 2) [🔴 오늘 출하 대기]: 입금완료 & 배송 전 주문
             return isTodayShipping(o);
           }
           if (filterPaid === 'UNPAID') {
+            // 3) [⏳ 입금 대기]: payment_status === 'unpaid' 인 건만 노출
             return isPaymentUnpaid(o);
           }
+          if (filterPaid === 'PRE_ORDER') {
+            // [📅 예약 / 작기 보관]
+            return isPreOrderReserved(o);
+          }
           if (filterPaid === 'SHIPPED') {
+            // 4) [🚚 배송중/완료]: 이미 송장이 등록되어 출하되었거나 배송 완료된 주문만 노출
             return isShippedOrDelivered(o);
           }
           if (filterPaid === 'DELIVERED') {
@@ -2888,114 +3043,133 @@
               </div>
             )}
 
-            {/* 1.5. 농가 전용 주문 링크 생성 및 원터치 공유 카드 */}
+            {/* 1. 상단 2열 컴팩트 액션 그리드 (현장등록 / 링크공유) */}
             {(() => {
               const isApproved = (currentMerchant?.approvalStatus || currentMerchant?.status) === 'APPROVED';
-
               return (
-                <div className={`p-4 rounded-2xl shadow-md space-y-2.5 text-white transition-all ${
-                  isApproved 
-                    ? 'bg-gradient-to-br from-farm-600 via-farm-700 to-emerald-800' 
-                    : 'bg-slate-700 opacity-90'
-                }`}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-base">{isApproved ? '🔗' : '🔒'}</span>
-                      <h3 className="font-extrabold text-sm tracking-tight">농가 전용 주문 링크 생성기</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {/* [좌측 카드]: ✍️ 현장·전화 주문 즉시 등록 */}
+                  <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between hover:border-emerald-300 transition-all">
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-base">✍️</span>
+                        <h3 className="font-extrabold text-xs text-slate-900 tracking-tight">현장·전화 주문 등록</h3>
+                      </div>
+                      <p className="text-[10px] text-slate-500 leading-tight mb-2.5">
+                        현장 직거래나 전화 주문을 직접 즉시 접수
+                      </p>
                     </div>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                      isApproved ? 'bg-white/20' : 'bg-amber-400 text-slate-900 font-black'
-                    }`}>
-                      {isApproved ? '원터치 복사' : '승인 대기 중'}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-farm-100 leading-relaxed">
-                    {isApproved ? (
-                      <>고객에게 이 전용 링크를 보내면, 로그인 없이도 <b>{currentMerchant?.farmName || '우리 농가'}</b> 상품으로 자동 연결되어 간편 주문이 접수됩니다.</>
-                    ) : (
-                      <>⚠️ <b>관리자 승인 심사 중</b>입니다. 승인 완료 후 고객 전용 주문 링크가 활성화됩니다.</>
-                    )}
-                  </p>
-                  <div className="bg-slate-900/60 p-2 rounded-xl flex items-center justify-between gap-2 border border-white/10">
-                    <span className="font-mono text-xs text-emerald-300 truncate max-w-[210px] select-all">
-                      {isApproved ? getFarmOrderUrl() : '관리자 승인 후 링크가 활성화됩니다'}
-                    </span>
                     <button
                       type="button"
-                      disabled={!isApproved}
-                      onClick={copyOrderLink}
-                      className={`text-xs font-black px-3 py-1.5 rounded-lg shadow-sm shrink-0 transition-all flex items-center gap-1 ${
-                        isApproved
-                          ? 'bg-white text-farm-800 hover:bg-farm-50 active:scale-95 cursor-pointer'
-                          : 'bg-slate-600 text-slate-400 cursor-not-allowed opacity-60'
+                      onClick={() => {
+                        if (!isApproved) {
+                          alert('관리자 승인 후 이용 가능합니다.');
+                          return;
+                        }
+                        setMainTab('ONSITE');
+                        setTimeout(() => {
+                          const formEl = document.getElementById('onsite-order-form-card');
+                          if (formEl) {
+                            formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          }
+                        }, 80);
+                      }}
+                      className={`w-full py-2 px-2.5 rounded-xl font-black text-xs text-white shadow-sm active:scale-95 transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                        mainTab === 'ONSITE'
+                          ? 'bg-emerald-700 ring-2 ring-emerald-400'
+                          : 'bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600'
                       }`}
-                      title={isApproved ? "전용 링크 복사하기" : "관리자 승인 후 이용 가능합니다."}
                     >
-                      <span>📋 링크 복사</span>
+                      <span>직접 입력</span>
+                      <span className="text-[11px]">➔</span>
                     </button>
                   </div>
-                  <div className="flex gap-2 pt-0.5">
-                    <button
-                      type="button"
-                      disabled={!isApproved}
-                      onClick={copyFullShareText}
-                      className={`flex-1 text-[11px] font-bold py-2 rounded-xl transition-all flex items-center justify-center gap-1 ${
-                        isApproved
-                          ? 'bg-white/15 hover:bg-white/25 active:scale-98 text-white cursor-pointer'
-                          : 'bg-slate-600/50 text-slate-400 cursor-not-allowed opacity-60'
-                      }`}
-                    >
-                      <span>💬 카톡/문자 안내문구 복사</span>
-                    </button>
-                    {isApproved ? (
-                      <a
-                        href={getFarmOrderUrl()}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="bg-white/15 hover:bg-white/25 active:scale-98 text-white text-[11px] font-bold px-3 py-2 rounded-xl transition-all flex items-center justify-center gap-1 text-center"
-                      >
-                        <span>미리보기 ↗</span>
-                      </a>
-                    ) : (
+
+                  {/* [우측 카드]: 🔗 농가 전용 주문링크 공유 */}
+                  <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between hover:border-farm-300 transition-all">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-base">🔗</span>
+                          <h3 className="font-extrabold text-xs text-slate-900 tracking-tight">주문링크 공유</h3>
+                        </div>
+                        <span className="text-[9px] px-1.5 py-0.2 rounded font-bold bg-farm-50 text-farm-700">원터치</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 leading-tight mb-2.5">
+                        고객용 비회원 간편 주문 링크
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
                       <button
                         type="button"
-                        disabled
-                        className="bg-slate-600/50 text-slate-400 text-[11px] font-bold px-3 py-2 rounded-xl opacity-60 cursor-not-allowed"
+                        disabled={!isApproved}
+                        onClick={copyOrderLink}
+                        className={`py-2 px-1 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-0.5 ${
+                          isApproved
+                            ? 'text-slate-700 bg-slate-100 hover:bg-slate-200 active:scale-95 cursor-pointer'
+                            : 'text-slate-400 bg-slate-100/60 cursor-not-allowed opacity-60'
+                        }`}
+                        title={isApproved ? "전용 링크 복사하기" : "관리자 승인 후 이용 가능합니다."}
                       >
-                        <span>미리보기 ↗</span>
+                        <span>📋</span>
+                        <span>링크 복사</span>
                       </button>
-                    )}
+                      <button
+                        type="button"
+                        disabled={!isApproved}
+                        onClick={copyFullShareText}
+                        className={`py-2 px-1 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-0.5 ${
+                          isApproved
+                            ? 'text-amber-900 bg-amber-100 hover:bg-amber-200 active:scale-95 cursor-pointer'
+                            : 'text-slate-400 bg-slate-100/60 cursor-not-allowed opacity-60'
+                        }`}
+                        title={isApproved ? "카톡 공유 문구 복사" : "관리자 승인 후 이용 가능합니다."}
+                      >
+                        <span>💬</span>
+                        <span>카톡 공유</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
             })()}
 
-            {/* 2. 오늘 출하 현황 요약 대시보드 카드 */}
-            <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
-              <h2 className="text-xs font-bold text-slate-500 mb-3 flex items-center justify-between">
-                <span>📦 오늘 출하 & 예약 현황</span>
-                <span className="text-farm-600 font-semibold text-[11px]">수확 D-12</span>
-              </h2>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                  <p className="text-[11px] text-slate-500">총 주문</p>
-                  <p className="text-lg font-black text-slate-900 mt-0.5">{myFarmOrders.length}건</p>
-                  <span className="text-[10px] text-farm-600 font-bold">{totalBoxes}박스</span>
+            {/* 2. 오늘 출하 & 예약 현황 슬림 바 (입금 대기 -> 입금 완료 -> 총 주문) */}
+            <div className="bg-white p-2.5 rounded-2xl shadow-sm border border-slate-200">
+              <div className="flex items-center justify-between px-0.5 mb-1.5">
+                <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                  <span>📦</span>
+                  <span>오늘 출하 & 예약 현황 ({myFarmOrders.length}건 / {paidOrders.length}건 완료 / {unpaidOrders.length}건 대기)</span>
+                </span>
+                <span className="text-farm-600 font-semibold text-[10px]">수확 D-12</span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 text-center">
+                {/* 1번째: [⏳ 입금 대기] (최우선 확인 - 대기 건 있을 경우 주황/노랑 강조) */}
+                <div className={`p-2 rounded-xl border transition-all ${
+                  unpaidOrders.length > 0
+                    ? 'bg-amber-50/80 border-amber-200/80'
+                    : 'bg-slate-50 border-slate-100'
+                }`}>
+                  <p className="text-[10px] font-bold text-amber-700">⏳ 입금 대기</p>
+                  <p className="text-base font-black text-amber-800 leading-tight mt-0.5">{unpaidOrders.length}건</p>
+                  <span className="text-[10px] text-amber-600 font-semibold block truncate">{totalUnpaidAmount.toLocaleString()}원</span>
                 </div>
-                <div className="bg-emerald-50 p-2.5 rounded-xl border border-emerald-100">
-                  <p className="text-[11px] text-emerald-700">입금 완료</p>
-                  <p className="text-lg font-black text-emerald-800 mt-0.5">{paidOrders.length}건</p>
-                  <span className="text-[10px] text-emerald-600 font-bold">{totalPaidAmount.toLocaleString()}원</span>
+                {/* 2번째: [✓ 입금 완료] (은은한 그린 톤) */}
+                <div className="bg-emerald-50/70 p-2 rounded-xl border border-emerald-200/70">
+                  <p className="text-[10px] font-bold text-emerald-700">✓ 입금 완료</p>
+                  <p className="text-base font-black text-emerald-800 leading-tight mt-0.5">{paidOrders.length}건</p>
+                  <span className="text-[10px] text-emerald-600 font-semibold block truncate">{totalPaidAmount.toLocaleString()}원</span>
                 </div>
-                <div className="bg-amber-50 p-2.5 rounded-xl border border-amber-100">
-                  <p className="text-[11px] text-amber-700">입금 대기</p>
-                  <p className="text-lg font-black text-amber-800 mt-0.5">{unpaidOrders.length}건</p>
-                  <span className="text-[10px] text-amber-600 font-bold">{totalUnpaidAmount.toLocaleString()}원</span>
+                {/* 3번째: [📦 총 주문] (그레이/뉴트럴 톤) */}
+                <div className="bg-slate-50 p-2 rounded-xl border border-slate-200/70">
+                  <p className="text-[10px] font-bold text-slate-500">📦 총 주문</p>
+                  <p className="text-base font-black text-slate-800 leading-tight mt-0.5">{myFarmOrders.length}건</p>
+                  <span className="text-[10px] text-slate-500 font-semibold block truncate">{totalBoxes}박스</span>
                 </div>
               </div>
             </div>
 
-            {/* [모바일 친화형 5대 탭 네비게이션] */}
+            {/* [4대 핵심 관리 탭: 모바일 앱 세그먼트 탭바 스타일 1줄 가로 정렬] */}
             {(() => {
               const curFarmCode = (currentMerchant?.merchantCode || currentMerchant?.code || currentMerchant?.farmCode || 'FARM-2026-224').toLowerCase();
               const myPlantingsCount = plantings.filter(p => !p.farmCode || p.farmCode.toLowerCase() === curFarmCode).length;
@@ -3003,102 +3177,81 @@
               const myCsCount = myFarmCsInquiries.length;
 
               return (
-                <div className="bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 sticky top-[108px] z-20">
-                  <div className="flex gap-1 overflow-x-auto no-scrollbar scroll-smooth text-xs font-bold">
+                <div className="bg-slate-100/90 p-1.5 rounded-2xl shadow-inner border border-slate-200/80 sticky top-[108px] z-20 backdrop-blur-md">
+                  <div className="grid grid-cols-4 gap-1 text-xs font-bold">
                     <button
                       type="button"
                       onClick={() => setMainTab('ORDERS')}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
+                      className={`flex items-center justify-center gap-1 py-2 px-1 rounded-xl transition-all cursor-pointer ${
                         mainTab === 'ORDERS'
-                          ? 'bg-slate-900 text-white shadow-xs font-black'
-                          : 'bg-transparent text-slate-600 hover:bg-slate-100'
+                          ? 'bg-emerald-600 border border-emerald-600 text-white shadow-sm font-black ring-1 ring-emerald-500'
+                          : 'border border-slate-200/90 bg-white/80 hover:bg-white text-slate-700 font-bold shadow-2xs'
                       }`}
                     >
-                      <span>📥 주문 접수</span>
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${mainTab === 'ORDERS' ? 'bg-farm-500 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                      <span className="whitespace-nowrap">📦 주문 및 배송처리</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-extrabold ${
+                        mainTab === 'ORDERS'
+                          ? 'bg-white text-emerald-700 shadow-xs'
+                          : 'bg-farm-100 text-farm-800'
+                      }`}>
                         {receivedOrdersCount}
                       </span>
                     </button>
 
                     <button
                       type="button"
-                      onClick={() => {
-                        const isApproved = (currentMerchant?.approvalStatus || currentMerchant?.status) === 'APPROVED';
-                        if (!isApproved) {
-                          alert('관리자 승인 후 이용 가능합니다.');
-                          return;
-                        }
-                        setMainTab('ONSITE');
-                      }}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
-                        mainTab === 'ONSITE'
-                          ? 'bg-farm-600 text-white shadow-xs font-black'
-                          : 'bg-transparent text-slate-600 hover:bg-slate-100'
+                      onClick={() => setMainTab('CS')}
+                      className={`flex items-center justify-center gap-1 py-2 px-1 rounded-xl transition-all cursor-pointer ${
+                        mainTab === 'CS'
+                          ? 'bg-emerald-600 border border-emerald-600 text-white shadow-sm font-black ring-1 ring-emerald-500'
+                          : 'border border-slate-200/90 bg-white/80 hover:bg-white text-slate-700 font-bold shadow-2xs'
                       }`}
                     >
-                      <span>✍️ 현장 주문등록</span>
-                      <span className={`text-[9px] px-1.5 py-0.2 rounded font-black ${mainTab === 'ONSITE' ? 'bg-white text-farm-800' : 'bg-farm-100 text-farm-800'}`}>
-                        신규
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setMainTab('STATS')}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
-                        mainTab === 'STATS'
-                          ? 'bg-slate-900 text-white shadow-xs font-black'
-                          : 'bg-transparent text-slate-600 hover:bg-slate-100'
-                      }`}
-                    >
-                      <span>📊 매출·출하 실적</span>
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${mainTab === 'STATS' ? 'bg-farm-500 text-white' : 'bg-slate-200 text-slate-700'}`}>
-                        {totalPaidAmount > 0 ? `${Math.round(totalPaidAmount / 10000)}만` : '0'}
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setMainTab('PLANTING')}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
-                        mainTab === 'PLANTING'
-                          ? 'bg-slate-900 text-white shadow-xs font-black'
-                          : 'bg-transparent text-slate-600 hover:bg-slate-100'
-                      }`}
-                    >
-                      <span>🌱 작기·정식</span>
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${mainTab === 'PLANTING' ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-700'}`}>
-                        {myPlantingsCount}
+                      <span className="whitespace-nowrap">💬 CS</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-extrabold ${
+                        mainTab === 'CS'
+                          ? 'bg-white text-emerald-700 shadow-xs'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {myCsCount}
                       </span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setMainTab('PRODUCTS')}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
+                      className={`flex items-center justify-center gap-1 py-2 px-1 rounded-xl transition-all cursor-pointer ${
                         mainTab === 'PRODUCTS'
-                          ? 'bg-slate-900 text-white shadow-xs font-black'
-                          : 'bg-transparent text-slate-600 hover:bg-slate-100'
+                          ? 'bg-emerald-600 border border-emerald-600 text-white shadow-sm font-black ring-1 ring-emerald-500'
+                          : 'border border-slate-200/90 bg-white/80 hover:bg-white text-slate-700 font-bold shadow-2xs'
                       }`}
                     >
-                      <span>🍎 상품 관리</span>
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${mainTab === 'PRODUCTS' ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                      <span className="whitespace-nowrap">🍎 상품</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                        mainTab === 'PRODUCTS'
+                          ? 'bg-white text-emerald-700 shadow-xs font-extrabold'
+                          : 'bg-slate-200 text-slate-700'
+                      }`}>
                         {myProdsCount}
                       </span>
                     </button>
 
                     <button
                       type="button"
-                      onClick={() => setMainTab('CS')}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
-                        mainTab === 'CS'
-                          ? 'bg-slate-900 text-white shadow-xs font-black'
-                          : 'bg-transparent text-slate-600 hover:bg-slate-100'
+                      onClick={() => setMainTab('PLANTING')}
+                      className={`flex items-center justify-center gap-1 py-2 px-1 rounded-xl transition-all cursor-pointer ${
+                        mainTab === 'PLANTING'
+                          ? 'bg-emerald-600 border border-emerald-600 text-white shadow-sm font-black ring-1 ring-emerald-500'
+                          : 'border border-slate-200/90 bg-white/80 hover:bg-white text-slate-700 font-bold shadow-2xs'
                       }`}
                     >
-                      <span>💬 고객 CS</span>
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${mainTab === 'CS' ? 'bg-harvest-500 text-white' : 'bg-slate-200 text-slate-700'}`}>
-                        {myCsCount}
+                      <span className="whitespace-nowrap">🌱 작기</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                        mainTab === 'PLANTING'
+                          ? 'bg-white text-emerald-700 shadow-xs font-extrabold'
+                          : 'bg-slate-200 text-slate-700'
+                      }`}>
+                        {myPlantingsCount}
                       </span>
                     </button>
                   </div>
@@ -3787,74 +3940,104 @@
                   </span>
                 </div>
 
-                {/* 주문 상태 필터 탭 */}
-                <div id="tabsContainer" className="flex flex-wrap gap-1 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setFilterPaid('ALL')}
-                    className={`px-2.5 py-1.5 rounded-xl font-black transition-all cursor-pointer flex items-center gap-1 ${
-                      filterPaid === 'ALL'
-                        ? 'bg-slate-900 text-white shadow-xs'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    <span>📥 주문 접수</span>
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                      filterPaid === 'ALL' ? 'bg-farm-500 text-white' : 'bg-slate-200 text-slate-700'
-                    }`}>
-                      {receivedOrdersCount}
-                    </span>
-                  </button>
+                {/* 주문 상태 필터 탭 (좌측 4개) & 독립 실행 액션 버튼 (우측 송장 등록) */}
+                <div id="tabsContainer" className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div className="flex flex-wrap gap-1 text-xs flex-1">
+                    <button
+                      type="button"
+                      onClick={() => setFilterPaid('ALL')}
+                      className={`px-2.5 py-1.5 rounded-xl font-black transition-all cursor-pointer flex items-center gap-1 ${
+                        filterPaid === 'ALL'
+                          ? 'bg-slate-900 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      <span>📥 주문 접수</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                        filterPaid === 'ALL' ? 'bg-farm-500 text-white' : 'bg-slate-200 text-slate-700'
+                      }`}>
+                        {receivedOrdersCount}
+                      </span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setFilterPaid('ACTIVE')}
-                    className={`px-2.5 py-1.5 rounded-xl font-black transition-all cursor-pointer flex items-center gap-1 ${
-                      filterPaid === 'ACTIVE'
-                        ? 'bg-red-600 text-white shadow-xs'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    <span>🔴 오늘 출하 대기</span>
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                      filterPaid === 'ACTIVE' ? 'bg-white text-red-800' : 'bg-slate-200 text-slate-700'
-                    }`}>
-                      {activeOrdersCount}
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => setFilterPaid('ACTIVE')}
+                      className={`px-2.5 py-1.5 rounded-xl font-black transition-all cursor-pointer flex items-center gap-1 ${
+                        filterPaid === 'ACTIVE'
+                          ? 'bg-red-600 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      <span>🔴 오늘 출하 대기</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                        filterPaid === 'ACTIVE' ? 'bg-white text-red-800' : 'bg-slate-200 text-slate-700'
+                      }`}>
+                        {activeOrdersCount}
+                      </span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setFilterPaid('UNPAID')}
-                    className={`px-2.5 py-1.5 rounded-xl font-black transition-all cursor-pointer flex items-center gap-1 ${
-                      filterPaid === 'UNPAID'
-                        ? 'bg-amber-600 text-white shadow-xs'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    <span>⏳ 입금 대기</span>
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                      filterPaid === 'UNPAID' ? 'bg-white text-amber-800' : 'bg-slate-200 text-slate-700'
-                    }`}>
-                      {unpaidOrdersCount}
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => setFilterPaid('UNPAID')}
+                      className={`px-2.5 py-1.5 rounded-xl font-black transition-all cursor-pointer flex items-center gap-1 ${
+                        filterPaid === 'UNPAID'
+                          ? 'bg-amber-600 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      <span>⏳ 입금 대기</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                        filterPaid === 'UNPAID' ? 'bg-white text-amber-800' : 'bg-slate-200 text-slate-700'
+                      }`}>
+                        {unpaidOrdersCount}
+                      </span>
+                    </button>
 
+                    <button
+                      type="button"
+                      onClick={() => setFilterPaid('PRE_ORDER')}
+                      className={`px-2.5 py-1.5 rounded-xl font-black transition-all cursor-pointer flex items-center gap-1 ${
+                        filterPaid === 'PRE_ORDER'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      <span>📅 예약 / 작기 보관</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                        filterPaid === 'PRE_ORDER' ? 'bg-white text-emerald-800' : 'bg-slate-200 text-slate-700'
+                      }`}>
+                        {preOrderReservedCount}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setFilterPaid('SHIPPED')}
+                      className={`px-2.5 py-1.5 rounded-xl font-black transition-all cursor-pointer flex items-center gap-1 ${
+                        filterPaid === 'SHIPPED'
+                          ? 'bg-purple-600 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      <span>🚚 배송중 / 완료</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                        filterPaid === 'SHIPPED' ? 'bg-white text-purple-800' : 'bg-slate-200 text-slate-700'
+                      }`}>
+                        {shippedOrDeliveredOrdersCount}
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* 우측 독립 실행 액션 버튼: [🏷️ 택배 송장 등록 ➔] */}
                   <button
                     type="button"
-                    onClick={() => setFilterPaid('SHIPPED')}
-                    className={`px-2.5 py-1.5 rounded-xl font-black transition-all cursor-pointer flex items-center gap-1 ${
-                      filterPaid === 'SHIPPED'
-                        ? 'bg-purple-600 text-white shadow-xs'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
+                    onClick={() => setCourierInvoiceModal(prev => ({ ...prev, isOpen: true, matchResults: [], bulkFile: null }))}
+                    className="py-2 px-3.5 rounded-xl font-black text-xs text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 shadow-sm transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
                   >
-                    <span>🚚 배송중 / 완료</span>
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                      filterPaid === 'SHIPPED' ? 'bg-white text-purple-800' : 'bg-slate-200 text-slate-700'
-                    }`}>
-                      {shippedOrDeliveredOrdersCount}
-                    </span>
+                    <span>🏷️</span>
+                    <span>택배 송장 등록</span>
+                    <span className="text-xs">➔</span>
                   </button>
                 </div>
               </div>
@@ -3869,6 +4052,7 @@
                       {filterPaid === 'ALL' && '접수된 신규 주문이 없습니다.'}
                       {filterPaid === 'ACTIVE' && '오늘 출하할 대기 주문이 없습니다.'}
                       {filterPaid === 'UNPAID' && '입금 대기 중인 주문이 없습니다.'}
+                      {filterPaid === 'PRE_ORDER' && '예약 및 작기 보관 중인 주문이 없습니다.'}
                       {filterPaid === 'SHIPPED' && '배송중이거나 완료된 주문 내역이 없습니다.'}
                     </p>
                     <p className="text-xs text-slate-500 mt-1.5">
@@ -3942,7 +4126,7 @@
                                 </span>
                               )}
                               <span className="font-extrabold text-slate-900 text-xs">
-                                {receiverName} {receiverName !== ordererName ? `(주문: ${ordererName})` : ''}
+                                받는분 {receiverName} <span className="text-slate-500 font-normal">(주문: {ordererName || receiverName})</span>
                               </span>
                               <span className="text-xs text-slate-500 font-mono">
                                 {receiverTel}
@@ -3952,7 +4136,7 @@
                             {/* 상태 뱃지 라인 */}
                             <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                               <span className={`text-[10px] px-2 py-0.5 rounded font-black whitespace-nowrap ${paidStatus ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800 animate-pulse'}`}>
-                                {paidStatus ? '✓ 입금완료' : '⏳ 입금전'}
+                                {paidStatus ? '✓ 결제완료' : '⏳ 입금전'}
                               </span>
                               <span className={`text-[10px] px-2 py-0.5 rounded font-black whitespace-nowrap ${
                                 shippingStatus === '배송완료' 
@@ -4002,21 +4186,13 @@
                                 const selectedCourier = inlineState.courier || curCourier || 'CJ대한통운';
                                 const inputNum = inlineState.num !== undefined ? inlineState.num : curTracking;
 
-                                // [게이트웨이 비즈니스 룰 방어] 미입금 상태인 경우: 송장 등록 폼 차단, 잠금 배지 및 입금확인 버튼 노출
+                                // [게이트웨이 비즈니스 룰 방어] 미입금 상태인 경우: 송장 등록 폼 차단, 잠금 배지만 노출 (입금확인은 우측 단일 액션 버튼 이용)
                                 if (!paidStatus) {
                                   return (
                                     <div className="flex items-center justify-between w-full py-1">
                                       <span className="text-[11px] font-bold text-slate-400 bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 inline-flex items-center gap-1 select-none">
                                         🔒 입금확인 필요 (입금 완료 후 송장 등록 가능)
                                       </span>
-                                      <button
-                                        type="button"
-                                        onClick={() => togglePayment(orderId)}
-                                        className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded-lg font-black transition-all shadow-2xs cursor-pointer active:scale-95"
-                                        title="입금 확인 처리"
-                                      >
-                                        ✓ 입금확인
-                                      </button>
                                     </div>
                                   );
                                 }
@@ -4115,14 +4291,75 @@
                             </div>
                           </div>
 
-                          {/* 원터치 입금확인 버튼 */}
-                          <button
-                            type="button"
-                            onClick={() => togglePayment(orderId)}
-                            className={`px-3 py-2 rounded-xl text-xs font-black shadow-sm transition-all active:scale-95 flex-shrink-0 cursor-pointer ${paidStatus ? 'bg-slate-200 text-slate-600 hover:bg-slate-300' : 'bg-farm-600 hover:bg-farm-700 text-white shadow-farm-600/30'}`}
-                          >
-                            {paidStatus ? '입금취소' : '✓ 입금확인'}
-                          </button>
+                          {/* [탭별 엄격 액션 정책] */}
+                          {filterPaid === 'SHIPPED' || filterPaid === 'DELIVERED' ? (
+                            /* 1. [🚚 배송중 / 완료]: 결제 변경 버튼 완전 제거, 정적 [결제완료] 뱃지 + [🔍 배송조회] 액션 */
+                            <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5 flex-shrink-0">
+                              <span className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+                                결제완료
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  if (e && e.stopPropagation) e.stopPropagation();
+                                  const trk = order.tracking_number || order.tracking || order.invoiceNum || order.invoiceNumber || '';
+                                  alert(`[${order.courier || order.carrier || 'CJ대한통운'}] 운송장번호: ${trk || '등록완료'}\n현재 배송 상태를 조회합니다.`);
+                                }}
+                                className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-all cursor-pointer whitespace-nowrap active:scale-95 flex items-center gap-1"
+                                title="배송조회"
+                              >
+                                <span>🔍 배송조회</span>
+                              </button>
+                            </div>
+                          ) : filterPaid === 'PRE_ORDER' ? (
+                            /* 2. [📅 예약 / 작기 보관]: 결제 변경 버튼 노출 금지, 단순 텍스트/뱃지 + [📦 출하대기로 이동] 액션 */
+                            <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5 flex-shrink-0">
+                              <span className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border whitespace-nowrap ${
+                                paidStatus ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+                              }`}>
+                                {paidStatus ? '결제완료' : '입금대기'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={async (e) => {
+                                  if (e && e.stopPropagation) e.stopPropagation();
+                                  if (!confirm(`주문번호 [${orderId}] 건을 [오늘 출하 대기] 상태로 이동하시겠습니까?`)) return;
+                                  setOrders(prev => prev.map(o => (o.orderId === orderId || o.id === orderId) ? { ...o, deliverySchedule: 'IMMEDIATE', shippingStatus: '준비중' } : o));
+                                  if (window.OOMS_DB) {
+                                    try {
+                                      await window.OOMS_DB.updateOrder(orderId, { shipping_status: 'preparing' });
+                                    } catch(err) {}
+                                  }
+                                  showToast(`주문 [${orderId}] 건이 [오늘 출하 대기]로 이동되었습니다.`);
+                                }}
+                                className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 transition-all cursor-pointer whitespace-nowrap active:scale-95 flex items-center gap-1"
+                                title="예약 주문을 즉시 오늘 출하 대기로 이동"
+                              >
+                                <span>📦 출하대기로 이동</span>
+                              </button>
+                            </div>
+                          ) : (filterPaid === 'ALL' || filterPaid === 'UNPAID') ? (
+                            /* 3. [📥 주문 접수] & [⏳ 입금 대기]: 오직 이 탭들에서만 원터치 입금확인 / 입금취소 인터랙션 버튼 허용 */
+                            <button
+                              type="button"
+                              onClick={(e) => togglePayment(e, orderId, paidStatus ? 'paid' : 'unpaid')}
+                              className={`btn-toggle-payment px-3 py-2 rounded-xl text-xs font-black shadow-sm transition-all active:scale-95 flex-shrink-0 cursor-pointer flex items-center gap-1 ${
+                                paidStatus 
+                                  ? 'bg-slate-100 hover:bg-amber-50 text-slate-700 hover:text-amber-800 border border-slate-300 hover:border-amber-300' 
+                                  : 'bg-farm-600 hover:bg-farm-700 text-white shadow-farm-600/30'
+                              }`}
+                              title={paidStatus ? "입금 확인 취소 (미입금 대기로 롤백)" : "입금 확인 완료 처리"}
+                            >
+                              <span>{paidStatus ? '↩️ 입금취소' : '✓ 입금확인'}</span>
+                            </button>
+                          ) : (
+                            /* 기타 (예: 오늘 출하 대기): 정적 결제 뱃지만 표시 */
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <span className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+                                결제완료
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -4136,19 +4373,25 @@
           {/* [탭 2: ✍️ 현장 주문등록] (신규 추가) */}
           {/* ========================================================================= */}
           {mainTab === 'ONSITE' && (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 space-y-4 animate-fadeIn">
-              <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-base">✍️</span>
-                  <div>
-                    <h3 className="font-extrabold text-sm text-slate-900">현장 주문등록</h3>
-                    <p className="text-[11px] text-slate-500">전화·문자·현장 방문 주문을 즉시 수기 또는 엑셀로 접수합니다.</p>
+            <div id="onsite-order-form-card" className="bg-white rounded-2xl shadow-md border-2 border-emerald-500 overflow-hidden space-y-4 animate-fadeIn transition-all scroll-mt-28">
+              {/* 상단 액센트 컬러 띠 */}
+              <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 w-full"></div>
+              <div className="p-4 pt-1 space-y-4">
+                <div className="flex items-center justify-between pb-2.5 border-b border-emerald-100">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">✍️</span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-extrabold text-sm text-slate-900">현장·전화 주문등록</h3>
+                        <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">직접 접수중</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500">전화·문자·현장 방문 주문을 즉시 수기 또는 엑셀로 접수합니다.</p>
+                    </div>
                   </div>
+                  <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded border border-emerald-200">
+                    실시간 즉시 반영
+                  </span>
                 </div>
-                <span className="text-[10px] bg-farm-50 text-farm-700 font-bold px-2 py-0.5 rounded border border-farm-200">
-                  실시간 즉시 반영
-                </span>
-              </div>
 
               {/* 서브 세그먼트 토글: [📝 일반 수기입력] | [📊 엑셀 대량업로드] */}
               <div className="flex p-1 bg-slate-100 rounded-xl text-xs font-bold gap-1">
@@ -4181,7 +4424,7 @@
               {/* 1) [📝 일반 수기입력] 폼 */}
               {onsiteSubMode === 'MANUAL' && (
                 <form onSubmit={handleSaveOnsiteManualOrder} className="space-y-3.5 text-xs">
-                  {/* 상품 선택 및 수량 */}
+                  {/* 1. 출하 상품 선택 & 2. 주문 수량 */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block font-bold text-slate-700 mb-1">
@@ -4202,7 +4445,7 @@
 
                     <div>
                       <label className="block font-bold text-slate-700 mb-1">
-                        2. 주문 수량 (박스) <span className="text-rose-500">*</span>
+                        2. 주문 수량 <span className="text-rose-500">*</span>
                       </label>
                       <div className="flex items-center gap-2">
                         <input
@@ -4217,60 +4460,108 @@
                     </div>
                   </div>
 
-                  {/* 입금 확인 상태 토글 */}
-                  <div className="bg-emerald-50/70 border border-emerald-200/80 p-3 rounded-xl flex items-center justify-between">
-                    <div>
-                      <b className="text-emerald-900 block">결제 / 입금 상태</b>
-                      <span className="text-[11px] text-emerald-700">현장 현금/계좌이체 수납 시 입금완료로 등록됩니다.</span>
-                    </div>
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={onsiteOrder.isPaid}
-                        onChange={(e) => setOnsiteOrder({ ...onsiteOrder, isPaid: e.target.checked })}
-                        className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
-                      />
-                      <span className="font-extrabold text-xs text-emerald-900">
-                        {onsiteOrder.isPaid ? '✓ 입금완료 상태' : '미입금(대기)'}
-                      </span>
-                    </label>
-                  </div>
-
-                  {/* 수령인 및 연락처 */}
+                  {/* 3. 보내는 분 성함 & 4. 보내는 분 연락처 (+받는 분과 동일 체크박스) */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block font-bold text-slate-700 mb-1">
-                        3. 받는 분 성함 <span className="text-rose-500">*</span>
+                        3. 보내는 분 성함 <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={onsiteOrder.senderName}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setOnsiteOrder(prev => ({
+                            ...prev,
+                            senderName: val,
+                            ...(prev.sameAsSender ? { receiverName: val } : {})
+                          }));
+                        }}
+                        placeholder="예: 홍길동"
+                        className="w-full p-2.5 border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-farm-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="font-bold text-slate-700">
+                          4. 보내는 분 연락처 <span className="text-rose-500">*</span>
+                        </label>
+                        {/* [ ] 받는 분과 동일 원터치 체크박스 (기본값: 체크 해제) */}
+                        <label className="flex items-center gap-1 cursor-pointer text-[11px] font-bold text-slate-600 hover:text-emerald-700 transition-colors select-none">
+                          <input
+                            type="checkbox"
+                            checked={onsiteOrder.sameAsSender}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setOnsiteOrder(prev => ({
+                                ...prev,
+                                sameAsSender: checked,
+                                ...(checked ? {
+                                  receiverName: prev.senderName || '',
+                                  receiverPhone: prev.senderPhone || ''
+                                } : {})
+                              }));
+                            }}
+                            className="w-3.5 h-3.5 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                          />
+                          <span>받는 분과 동일</span>
+                        </label>
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        value={onsiteOrder.senderPhone}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setOnsiteOrder(prev => ({
+                            ...prev,
+                            senderPhone: val,
+                            ...(prev.sameAsSender ? { receiverPhone: val } : {})
+                          }));
+                        }}
+                        placeholder="010-0000-0000"
+                        className="w-full p-2.5 border border-slate-300 rounded-xl text-slate-900 font-mono focus:ring-2 focus:ring-farm-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 5. 받는 분 성함 & 6. 받는 분 연락처 */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">
+                        5. 받는 분 성함 <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="text"
                         required
                         value={onsiteOrder.receiverName}
                         onChange={(e) => setOnsiteOrder({ ...onsiteOrder, receiverName: e.target.value })}
-                        placeholder="예: 홍길동"
+                        placeholder="예: 이영희"
                         className="w-full p-2.5 border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-farm-500 focus:outline-none"
                       />
                     </div>
                     <div>
                       <label className="block font-bold text-slate-700 mb-1">
-                        4. 받는 분 연락처 <span className="text-rose-500">*</span>
+                        6. 받는 분 연락처 <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="text"
                         required
                         value={onsiteOrder.receiverPhone}
                         onChange={(e) => setOnsiteOrder({ ...onsiteOrder, receiverPhone: e.target.value })}
-                        placeholder="예: 010-1234-5678"
+                        placeholder="010-0000-0000"
                         className="w-full p-2.5 border border-slate-300 rounded-xl text-slate-900 font-mono focus:ring-2 focus:ring-farm-500 focus:outline-none"
                       />
                     </div>
                   </div>
 
-                  {/* 배송지 도로명 주소 & 검색 버튼 */}
+                  {/* 7. 배송지 도로명 주소 & 검색 버튼 */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="font-bold text-slate-700">
-                        5. 배송지 도로명 주소 <span className="text-rose-500">*</span>
+                        7. 배송지 도로명 주소 <span className="text-rose-500">*</span>
                       </label>
                       <button
                         type="button"
@@ -4299,10 +4590,10 @@
                     </div>
                   </div>
 
-                  {/* 배송 요청사항 */}
+                  {/* 8. 배송 요청사항 */}
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">
-                      6. 배송 요청사항
+                      8. 배송 요청사항
                     </label>
                     <select
                       value={onsiteOrder.deliveryMemo}
@@ -4326,7 +4617,7 @@
                     )}
                   </div>
 
-                  {/* 결제 예정 총액 표시 및 등록 버튼 */}
+                  {/* 결제금액-입금상태 1라인 슬림 통합 (8:2 비율) 컴팩트 카드 */}
                   {(() => {
                     const prods = currentMerchant?.products || [];
                     const chosenProd = prods.find(p => (p.id || p.name) === onsiteOrder.productId) || prods[0];
@@ -4335,14 +4626,38 @@
                     const tot = unit * qty;
 
                     return (
-                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between">
-                        <div>
-                          <span className="text-[11px] text-slate-500 block">결제 예정 금액</span>
-                          <b className="text-slate-900 text-sm font-black">{chosenProd?.name || '상품'} × {qty}박스</b>
+                      <div className="bg-slate-50/90 py-2 px-3 rounded-xl border border-slate-200/90 flex items-center justify-between gap-2 shadow-2xs">
+                        {/* [좌측 80% 영역 - 결제 내역 및 볼드 금액] */}
+                        <div className="flex-1 min-w-0 flex items-center justify-between pr-3 border-r border-slate-200">
+                          <div className="truncate mr-2">
+                            <span className="text-[10px] text-slate-400 font-bold block leading-none mb-0.5">결제 예정 총액</span>
+                            <span className="text-slate-800 text-xs font-black truncate block">
+                              {chosenProd?.name || '상품'} <span className="text-slate-500 font-medium text-[11px]">× {qty}박스</span>
+                            </span>
+                          </div>
+                          <span className="font-mono text-base font-black text-emerald-700 whitespace-nowrap shrink-0">
+                            {tot.toLocaleString()}원
+                          </span>
                         </div>
-                        <span className="font-mono text-base font-black text-emerald-700">
-                          {tot.toLocaleString()}원
-                        </span>
+
+                        {/* [우측 20% 영역 - 체크 여부가 한눈에 보이는 명확한 상태 토글] */}
+                        <div className="shrink-0 flex items-center justify-end">
+                          <button
+                            type="button"
+                            onClick={() => setOnsiteOrder({ ...onsiteOrder, isPaid: !onsiteOrder.isPaid })}
+                            className={`py-1.5 px-3 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 border ${
+                              onsiteOrder.isPaid
+                                ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 ring-2 ring-emerald-300/60'
+                                : 'bg-amber-100/90 text-amber-900 border-amber-400 hover:bg-amber-200 ring-2 ring-amber-200/80'
+                            }`}
+                            title="클릭/터치하여 입금 상태를 전환합니다"
+                          >
+                            <span className="text-sm leading-none">{onsiteOrder.isPaid ? '✅' : '⬜'}</span>
+                            <span className="whitespace-nowrap font-black">
+                              {onsiteOrder.isPaid ? '입금 완료' : '미입금 (대기)'}
+                            </span>
+                          </button>
+                        </div>
                       </div>
                     );
                   })()}
@@ -4430,6 +4745,7 @@
                   )}
                 </div>
               )}
+              </div>
             </div>
           )}
 
@@ -4526,36 +4842,43 @@
           )}
         </div>
 
-          {/* 하단 고정 Floating Action Bar (FAB) */}
-          <div style={{ maxWidth: '860px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }} className="mobile-container fixed bottom-0 left-0 right-0 mx-auto bg-white/95 backdrop-blur-md border-t border-slate-200 p-3 flex items-center justify-around gap-2 z-40 shadow-2xl">
+          {/* [맨 하단 슬림 고정 액션바 (Fixed Bottom Toolbar - 3구 구성)] */}
+          <div style={{ maxWidth: '860px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }} className="mobile-container fixed bottom-0 left-0 right-0 mx-auto bg-white/95 backdrop-blur-md border-t-2 border-emerald-500 px-3 py-2 flex items-center justify-around gap-2 z-40 shadow-lg h-[50px]">
+            {/* 1) 📢 과수원 소식 */}
             <button 
               type="button"
               onClick={() => setOrchardNewsModal(prev => ({ ...prev, isOpen: true }))}
-              className="flex-1 flex flex-col items-center py-2 px-1 bg-slate-50 hover:bg-slate-100 active:scale-95 text-slate-700 rounded-xl transition-all cursor-pointer"
+              className="flex-1 h-full flex items-center justify-center gap-1.5 bg-slate-50 hover:bg-slate-100 active:scale-95 text-slate-800 rounded-xl transition-all border border-slate-200/70 font-bold text-xs cursor-pointer"
             >
-              <span className="text-lg">📸</span>
-              <span className="text-[11px] font-bold mt-0.5">과수원 소식</span>
+              <span className="text-sm">📢</span>
+              <span>과수원 소식</span>
             </button>
 
+            {/* 2) 💬 입금 독려톡 */}
             <button 
               type="button"
               onClick={() => setPaymentReminderModal({ isOpen: true })}
-              className="flex-1 flex flex-col items-center py-2 px-1 bg-slate-50 hover:bg-slate-100 active:scale-95 text-slate-700 rounded-xl transition-all relative cursor-pointer"
+              className="flex-1 h-full flex items-center justify-center gap-1.5 bg-slate-50 hover:bg-slate-100 active:scale-95 text-slate-800 rounded-xl transition-all border border-slate-200/70 font-bold text-xs relative cursor-pointer"
             >
-              <span className="text-lg">📋</span>
-              <span className="text-[11px] font-bold mt-0.5">입금 독려톡</span>
+              <span className="text-sm">💬</span>
+              <span>입금 독려톡</span>
               {unpaidOrders.length > 0 && (
-                <span className="absolute top-1.5 right-3 w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                <span className="absolute top-1.5 right-2 w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
               )}
             </button>
 
+            {/* 3) 📊 실적/통계 */}
             <button 
               type="button"
-              onClick={() => setCourierInvoiceModal(prev => ({ ...prev, isOpen: true, matchResults: [], bulkFile: null }))}
-              className="flex-1 flex flex-col items-center py-2 px-1 bg-harvest-500 hover:bg-harvest-600 active:scale-95 text-white rounded-xl shadow-md shadow-harvest-500/30 transition-all cursor-pointer"
+              onClick={() => setMainTab('STATS')}
+              className={`flex-1 h-full flex items-center justify-center gap-1.5 rounded-xl transition-all border font-bold text-xs cursor-pointer active:scale-95 ${
+                mainTab === 'STATS'
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-800 border-slate-200/70'
+              }`}
             >
-              <span className="text-lg">🚚</span>
-              <span className="text-[11px] font-black mt-0.5">택배사 송장</span>
+              <span className="text-sm">📊</span>
+              <span>실적/통계</span>
             </button>
           </div>
 

@@ -340,23 +340,39 @@
       const addressReason = addrValidation.reason;
 
       const hasTracking = Boolean(tracking && tracking !== '-');
-      let paid = Boolean(o.paid || o.paymentStatus === '입금완료' || o.paymentStatus === 'paid' || o.status?.payment === 'PAID');
-      let paymentStatus = paid ? '입금완료' : '입금전';
-      let shippingStatus = o.shippingStatus || '준비중';
+      const rawPay = String(o.payment_status || o.paymentStatus || (o.status && o.status.payment) || '').toLowerCase();
+      const isExplicitlyUnpaid = (
+        rawPay === 'unpaid' ||
+        rawPay === '미입금' ||
+        rawPay === '입금전' ||
+        rawPay === 'pending' ||
+        o.paid === false
+      );
 
-      if (bulkOrderMasterMap[orderKey]) {
-        // 원본 6건(ORD-BULK-9566 시리즈): 영구 불변 배송완료 + 입금완료
+      let paid = false;
+      if (isExplicitlyUnpaid) {
+        paid = false;
+      } else if (rawPay === 'paid' || rawPay === '입금완료' || o.paid === true) {
         paid = true;
-        paymentStatus = '입금완료';
-        shippingStatus = '배송완료';
+      } else if (bulkOrderMasterMap[orderKey]) {
+        paid = true;
       } else if (hasTracking) {
         paid = true;
-        paymentStatus = '입금완료';
+      }
+
+      let paymentStatus = paid ? '입금완료' : '미입금';
+      let payment_status = paid ? 'paid' : 'unpaid';
+      let shippingStatus = o.shippingStatus || '준비중';
+
+      if (bulkOrderMasterMap[orderKey] && paid) {
+        // 원본 6건(ORD-BULK-9566 시리즈): 영구 불변 배송완료 + 입금완료
+        shippingStatus = '배송완료';
+      } else if (hasTracking && paid) {
         if (shippingStatus !== '배송완료') {
           shippingStatus = '배송중';
         }
       } else {
-        // 송장이 없는 건: 배송중 불가 (준비중 or 접수대기)
+        // 송장이 없거나 미입금 건: 배송중 불가 (준비중 or 접수대기)
         if (paid) {
           if (shippingStatus === '배송중') shippingStatus = '준비중';
         } else {
@@ -379,6 +395,7 @@
         createdAt,
         paid,
         paymentStatus,
+        payment_status,
         shippingStatus,
         tracking: tracking || '',
         invoiceNum: tracking || '',
@@ -720,7 +737,7 @@
         if (tabParam === 'settlement') return 'SETTLEMENT';
         if (tabParam === 'cs' || tabParam === 'cs_board') return 'CS_BOARD';
         if (tabParam === 'merchants') return 'MERCHANTS';
-        return 'ORDERS'; // 접속 시 기본 탭: [주문 및 발송 관리]
+        return 'ORDERS'; // 접속 시 기본 탭: [주문 및 배송처리]
       };
 
       const [activeTab, setActiveTab] = useState(getInitialTab);
@@ -1367,16 +1384,38 @@
       };
 
       // -----------------------------------------------------------------------
-      // [메뉴 3] 주문 및 발송 관리 핸들러
+      // [메뉴 3] 주문 및 배송처리 핸들러
       // -----------------------------------------------------------------------
       // -----------------------------------------------------------------------
-      // [메뉴 3] 주문 및 발송 관리 핸들러 (Single Source of Truth 기반 엄격 5대 파이프라인)
+      // [메뉴 3] 주문 및 배송처리 핸들러 (Single Source of Truth 기반 엄격 5대 파이프라인)
       // -----------------------------------------------------------------------
-      // 1. [📥 주문 접수]: shipping_status NOT IN ('shipped', 'delivered')
+      // 5. [🚚 배송중 / 완료]: status === 'shipped' || status === 'delivered' 또는 송장 등록 완료 (STRICT RULE 1-2)
+      const isShippedOrDelivered = (o) => {
+        if (!o) return false;
+        const s = String(
+          o.shipping_status ||
+          o.shippingStatus ||
+          o.deliveryStatus ||
+          o.delivery_status ||
+          (o.status && o.status.shipping) ||
+          (typeof o.status === 'string' ? o.status : '') ||
+          ''
+        ).toLowerCase();
+        const trk = String(o.tracking_number || o.tracking || o.invoiceNum || o.invoiceNumber || '').trim();
+        return (
+          s === 'shipped' ||
+          s === 'delivered' ||
+          s === '배송중' ||
+          s === '배송출발' ||
+          s === '배송완료' ||
+          (trk !== '' && trk.length >= 8)
+        );
+      };
+
+      // 1. [📥 주문 접수 / 신규 접수]: 배송 전 상태 건만 노출 (배송중/완료 건 원천 배제, STRICT RULE 1-1)
       const isOrderReceived = (o) => {
         if (!o) return false;
-        const s = String(o.shipping_status || o.shippingStatus || '').toLowerCase();
-        return s !== 'shipped' && s !== 'delivered' && s !== '배송중' && s !== '배송완료';
+        return !isShippedOrDelivered(o);
       };
 
       // 2. [🤖 AI 검증/접수]: zonecode(우편번호)가 없거나 address가 비정형으로 파싱 오류가 난 주문
@@ -1390,41 +1429,30 @@
         return false;
       };
 
-      // 3. [⏳ 입금 대기]: payment_status === 'unpaid' AND shipping_status === 'preparing'
+      // 3. [⏳ 입금 대기]: payment_status === 'unpaid' 인 건만 노출 (STRICT RULE 1-3)
       const isPaymentUnpaid = (o) => {
         if (!o) return false;
-        const pay = String(o.payment_status || o.paymentStatus || '').toLowerCase();
-        const ship = String(o.shipping_status || o.shippingStatus || '').toLowerCase();
-        const isUnpaid = (pay === 'unpaid' || pay === '미입금' || o.paid === false);
-        const isPreparing = (ship === 'preparing' || ship === '준비중');
-        return isUnpaid && isPreparing;
-      };
-
-      // 4. [🔴 오늘 출하 대기]: payment_status === 'paid' AND (tracking_number IS NULL OR tracking_number = '') AND shipping_status NOT IN ('shipped', 'delivered')
-      const isTodayShipping = (o) => {
-        if (!o) return false;
-        const pay = String(o.payment_status || o.paymentStatus || '').toLowerCase();
-        const ship = String(o.shipping_status || o.shippingStatus || '').toLowerCase();
-        const isPaid = (pay === 'paid' || pay === '입금완료' || o.paid === true);
-        const trk = String(o.tracking_number || o.tracking || o.invoiceNum || o.invoiceNumber || '').trim();
-        const isNotShipped = (ship !== 'shipped' && ship !== 'delivered' && ship !== '배송중' && ship !== '배송완료');
-        return isPaid && (!trk || trk === '') && isNotShipped;
-      };
-
-      // 5. [🚚 배송중 / 완료]: shipping_status IN ('shipped', 'delivered')
-      const isShippedOrDelivered = (o) => {
-        if (!o) return false;
-        const s = String(o.shipping_status || o.shippingStatus || '').toLowerCase();
-        const trk = String(o.tracking_number || o.tracking || o.invoiceNum || o.invoiceNumber || '').trim();
-        return s === 'shipped' || s === 'delivered' || s === '배송중' || s === '배송완료' || (trk !== '' && trk.length >= 8);
+        const pay = String(o.payment_status || o.paymentStatus || (o.status && o.status.payment) || '').toLowerCase();
+        if (pay === 'paid' || pay === '입금완료' || o.paid === true) {
+          return false;
+        }
+        const isUnpaid = (pay === 'unpaid' || pay === '미입금' || pay === '입금전' || pay === 'pending' || o.paid === false);
+        return isUnpaid && !isShippedOrDelivered(o);
       };
 
       // 결제 완료 여부 (SSOT 기반: 미입금 우선 배제)
       const isPaymentPaid = (o) => {
         if (!o) return false;
         if (isPaymentUnpaid(o)) return false;
-        const pay = String(o.payment_status || o.paymentStatus || '').toLowerCase();
+        const pay = String(o.payment_status || o.paymentStatus || (o.status && o.status.payment) || '').toLowerCase();
         return pay === 'paid' || pay === '입금완료' || o.paid === true;
+      };
+
+      // 4. [🔴 오늘 출하 대기]: payment_status === 'paid' AND 출하 전
+      const isTodayShipping = (o) => {
+        if (!o) return false;
+        const isPaid = isPaymentPaid(o);
+        return isPaid && !isShippedOrDelivered(o);
       };
 
       const isStagingPending = isAiPending;
@@ -1842,21 +1870,44 @@
       };
 
       const handleTogglePaymentOrder = async (id) => {
-        const targetOrder = orders.find(o => (o.id === id || o.orderId === id));
+        const targetOrder = orders.find(o => (o.id === id || o.orderId === id || o.order_no === id));
         if (!targetOrder) return;
         const curPaid = isPaymentPaid(targetOrder);
         const nextPaid = !curPaid;
 
+        // [STRICT RULE 2: 입금취소 시 필수 확인(Confirm) 다이얼로그 강제]
+        if (curPaid) {
+          if (!confirm("입금 확인을 취소하고 [입금 대기] 상태로 되돌리시겠습니까?")) return;
+        }
+
+        // [STRICT RULE 3: 단일 주문 타겟 즉시 갱신 (다른 행 보존 & 증발 방지)]
+        setOrders(prev => prev.map(o => {
+          if (o.id === id || o.orderId === id || o.order_no === id) {
+            return {
+              ...o,
+              paid: nextPaid,
+              payment_status: nextPaid ? 'paid' : 'unpaid',
+              paymentStatus: nextPaid ? '입금완료' : '미입금',
+              status: {
+                ...(typeof o.status === 'object' ? o.status : {}),
+                payment: nextPaid ? 'PAID' : 'UNPAID'
+              }
+            };
+          }
+          return o;
+        }));
+
+        // 백엔드 / DB 비동기 동기화 (전체 상태 재로드로 인한 행 유실 방지)
         if (window.OOMS_DB) {
           try {
-            await window.OOMS_DB.updateOrder(id, {
+            const dbId = targetOrder.id || targetOrder.order_id || targetOrder.order_no || id;
+            await window.OOMS_DB.updateOrder(dbId, {
               payment_status: nextPaid ? 'paid' : 'unpaid'
             });
           } catch (e) {
             console.error('[OOMS_DB.updateOrder Payment Error]', e);
           }
         }
-        await loadOrdersFromDb();
       };
 
       // 배송 진행상태 3단계 (준비중 / 배송중 / 배송완료) 변경 핸들러 (규칙 강제: 송장번호 필수 & 입금완료 필수, DB 연동)
@@ -2541,7 +2592,7 @@
 
       const handleBatchSettlementPayout = () => {
         if (farmSettlementSummary.length === 0) {
-          alert('정산 대상 내역이 없습니다.\n(주문 및 발송 관리에서 최종 승인 및 배송완료된 주문이 인입되면 정산 처리가 가능합니다)');
+          alert('정산 대상 내역이 없습니다.\n(주문 및 배송처리에서 최종 승인 및 배송완료된 주문이 인입되면 정산 처리가 가능합니다)');
           return;
         }
         if (confirm(`미정산 농가 대상 총 ${pendingSettlementAmount.toLocaleString()}원 일괄 송금을 승인하시겠습니까?`)) {
@@ -2635,10 +2686,14 @@
         return matchesCategory && matchesQuery;
       });
 
+      const seenFilteredIds = new Set();
       const filteredOrders = (orders || [])
         .filter(o => {
           if (!o) return false;
-          const oid = String(o.id || o.orderId || '').toLowerCase();
+          const rawOid = String(o.id || o.orderId || o.order_no || '');
+          if (rawOid && seenFilteredIds.has(rawOid)) return false;
+          if (rawOid) seenFilteredIds.add(rawOid);
+          const oid = rawOid.toLowerCase();
           const q = String(searchKeyword || '').toLowerCase();
           const sender = String(o.senderName || o.orderer?.name || (typeof o.orderer === 'string' ? o.orderer : '') || '');
           const receiver = String(o.receiverName || o.receiver?.name || (typeof o.receiver === 'string' ? o.receiver : '') || '');
@@ -2657,6 +2712,7 @@
           if (!matchesQuery) return false;
 
           // 6대 SCM 파이프라인 필터 적용 (Single Source of Truth)
+          // [STRICT RULE 1: 탭별 주문 데이터 엄격 격리 - 주문 접수 탭에서 배송완료 건 원천 배제]
           if (orderFilter === 'ALL' || orderFilter === 'RECEIVED') return isOrderReceived(o);
           if (orderFilter === 'AI_PENDING' || orderFilter === 'PENDING') return isAiPending(o);
           if (orderFilter === 'UNPAID') return isPaymentUnpaid(o);
@@ -2879,7 +2935,7 @@
                 className={`px-4 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'ORDERS' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
               >
                 <span className="text-sm">📦</span>
-                <span>3. 주문 및 발송 관리</span>
+                <span>3. 주문 및 배송처리</span>
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${activeTab === 'ORDERS' ? 'bg-farm-500 text-white' : 'bg-slate-200 text-slate-700'}`}>
                   {orders.length}
                 </span>
@@ -3357,7 +3413,7 @@
           )}
 
           {/* ================================================================= */}
-          {/* [메뉴 3] 📦 주문 및 발송 관리 화면                                */}
+          {/* [메뉴 3] 📦 주문 및 배송처리 화면                                */}
           {/* ================================================================= */}
           {activeTab === 'ORDERS' && (
             <div className="space-y-4">
@@ -3678,6 +3734,7 @@
                           const isIssued = isInvoiceIssued(order);
                           const orderId = order.id || order.orderId;
                           const paidStatus = isPaymentPaid(order);
+                          const isUnpaidOrder = isPaymentUnpaid(order) || !paidStatus;
                           const isSelected = selectedOrderIds.includes(orderId);
 
                           const ordererName = order.senderName || order.orderer?.name || order.orderer || order.orderer_name || order.sender || '고객';
@@ -3843,7 +3900,7 @@
                                     className="py-2 px-3 align-middle text-xs whitespace-nowrap cursor-pointer hover:bg-indigo-50/40 transition-colors"
                                   >
                                     <div className="flex flex-col gap-1 min-w-[190px]">
-                                      {/* 1행: [받는분] 한리라 010-9116-5088 (이름 볼드, 번호 일반체, 한 줄 인라인 정렬) */}
+                                      {/* 1행: [받는분] receiver (주문: orderer) receiverTel */}
                                       <div className="flex items-center gap-1.5 whitespace-nowrap">
                                         <span className="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-1 py-0.2 rounded shrink-0 leading-none">
                                           받는분
@@ -3851,30 +3908,23 @@
                                         <span className="font-bold text-slate-900 text-[12.5px]">
                                           {receiverName}
                                         </span>
+                                        <span className="text-[11.5px] text-slate-500 font-normal">
+                                          (주문: {ordererName || receiverName})
+                                        </span>
                                         <span className="font-mono text-[11.5px] text-slate-600 font-normal">
                                           {receiverTel}
                                         </span>
-                                        {ordererName === receiverName && (
-                                          <span className="text-[11px] text-slate-400 font-normal ml-0.5">
-                                            (동일)
-                                          </span>
-                                        )}
                                       </div>
 
-                                      {/* 2행: [보내는분] 김순혜 010-4455-9513 (연회색 폰트, 동일한 경우 렌더링 안함) */}
-                                      {ordererName !== receiverName && (
+                                      {/* 2행: 주문자 연락처 보조 노출 */}
+                                      {ordererTel && ordererTel !== '-' && ordererTel !== receiverTel && (
                                         <div className="flex items-center gap-1.5 whitespace-nowrap text-slate-500">
                                           <span className="text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200 px-1 py-0.2 rounded shrink-0 leading-none">
-                                            보내는분
+                                            보내는분 번호
                                           </span>
-                                          <span className="text-[11.5px] text-slate-600 font-normal">
-                                            {ordererName}
+                                          <span className="font-mono text-[11px] text-slate-400 font-normal">
+                                            {ordererTel}
                                           </span>
-                                          {ordererTel && ordererTel !== '-' && (
-                                            <span className="font-mono text-[11px] text-slate-400 font-normal">
-                                              {ordererTel}
-                                            </span>
-                                          )}
                                         </div>
                                       )}
                                     </div>
@@ -4184,62 +4234,160 @@
                                 </div>
                               </td>
 
-                              {/* 8. 관리 액션: [1) 입금 관리] vs [2) 배송 관리] 2단계 독립 구역 + [3) 삭제] */}
+                              {/* 8. 관리 액션: [탭별 엄격 분기 정책 적용] */}
                               <td className="py-2.5 px-3 align-middle text-center">
-                                <div className="flex items-center justify-center gap-1.5 flex-nowrap">
-                                  {/* [구역 1] 입금 관리 (입금확인 / 입금취소) */}
-                                  <div className="shrink-0">
-                                    {!paidStatus ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleTogglePaymentOrder(orderId)}
-                                        className="px-2 py-1 rounded text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-2xs cursor-pointer whitespace-nowrap active:scale-95"
-                                        title="입금 확인 처리 (출하 준비 단계로 전환)"
-                                      >
-                                        ✓ 입금확인
-                                      </button>
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleTogglePaymentOrder(orderId)}
-                                        className="px-1.5 py-1 rounded text-[10.5px] font-medium bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 transition-all cursor-pointer whitespace-nowrap"
-                                        title="입금 취소하기 (미입금으로 롤백)"
-                                      >
-                                        입금취소
-                                      </button>
-                                    )}
-                                  </div>
-
-                                  {/* [구역 2] 배송 관리 (단계 선택 콤팩트 드롭다운) */}
-                                  <div className="shrink-0">
-                                    <select
-                                      value={order.shippingStatus || '준비중'}
-                                      onChange={(e) => handleChangeShippingStatus(orderId, e.target.value)}
-                                      className={`text-[11px] font-semibold rounded px-1.5 py-1 border transition-all cursor-pointer ${
-                                        order.shippingStatus === '배송완료'
-                                          ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                                          : order.shippingStatus === '배송중'
-                                          ? 'bg-blue-50 text-blue-800 border-blue-300'
-                                          : 'bg-amber-50 text-amber-800 border-amber-300'
-                                      }`}
-                                      title="배송 진행상태 단계 전환 (송장번호 입력 시 자동으로 배송중 전환)"
+                                {orderFilter === 'SHIPPED' ? (
+                                  /* 1. [🚚 배송중 / 완료]: 결제 변경 버튼 완전 제거, 정적 [결제완료] 뱃지 + [🔍 배송조회] 액션 */
+                                  <div className="flex items-center justify-center gap-1.5 flex-nowrap">
+                                    <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+                                      결제완료
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const curTracking = order.tracking || order.invoiceNum || order.invoiceNumber || '';
+                                        alert(`[${order.carrier || 'CJ대한통운'}] 운송장번호: ${curTracking || '등록완료'}\n현재 배송 상태를 조회합니다.`);
+                                      }}
+                                      className="px-2 py-1 rounded text-[11px] font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-all cursor-pointer whitespace-nowrap active:scale-95 flex items-center gap-1"
+                                      title="운송장 및 배송 상태 조회"
                                     >
-                                      <option value="준비중">📦 준비중</option>
-                                      <option value="배송중">🚚 배송중</option>
-                                      <option value="배송완료">✓ 배송완료</option>
-                                    </select>
+                                      <span>🔍 배송조회</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteSingleOrder(order)}
+                                      className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 text-[12px] transition-all cursor-pointer shrink-0"
+                                      title={`주문번호 [${orderId}] 영구 삭제`}
+                                    >
+                                      🗑️
+                                    </button>
                                   </div>
+                                ) : orderFilter === 'PRE_ORDER' ? (
+                                  /* 2. [📅 예약 / 작기 보관]: 결제 변경 버튼 노출 금지, 단순 상태 표시 + [📦 출하대기로 이동] 액션 */
+                                  <div className="flex items-center justify-center gap-1.5 flex-nowrap">
+                                    <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border whitespace-nowrap ${
+                                      paidStatus ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+                                    }`}>
+                                      {paidStatus ? '결제완료' : '입금대기'}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        if (!confirm(`주문번호 [${orderId}] 건을 [오늘 출하 대기] 상태로 이동하시겠습니까?`)) return;
+                                        setOrders(prev => prev.map(o => (o.id === orderId || o.orderId === orderId) ? { ...o, deliverySchedule: 'IMMEDIATE', shippingStatus: '준비중' } : o));
+                                        if (window.OOMS_DB) {
+                                          try {
+                                            await window.OOMS_DB.updateOrder(orderId, { shipping_status: 'preparing' });
+                                          } catch(e) {}
+                                        }
+                                        alert(`주문 [${orderId}] 건이 [오늘 출하 대기]로 이동되었습니다.`);
+                                      }}
+                                      className="px-2 py-1 rounded text-[11px] font-semibold bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 transition-all cursor-pointer whitespace-nowrap active:scale-95 flex items-center gap-1"
+                                      title="예약 주문을 즉시 오늘 출하 대기로 이동합니다"
+                                    >
+                                      <span>📦 출하대기로 이동</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteSingleOrder(order)}
+                                      className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 text-[12px] transition-all cursor-pointer shrink-0"
+                                      title={`주문번호 [${orderId}] 영구 삭제`}
+                                    >
+                                      🗑️
+                                    </button>
+                                  </div>
+                                ) : (orderFilter === 'ALL' || orderFilter === 'RECEIVED' || orderFilter === 'UNPAID') ? (
+                                  /* 3. [📥 주문 접수] & [⏳ 입금 대기]: 오직 이 탭들에서만 원터치 입금확인 / 입금취소 인터랙션 허용 */
+                                  <div className="flex items-center justify-center gap-1.5 flex-nowrap">
+                                    <div className="shrink-0">
+                                      {isUnpaidOrder ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleTogglePaymentOrder(orderId)}
+                                          className="btn-confirm-payment px-2.5 py-1 rounded text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-2xs cursor-pointer whitespace-nowrap active:scale-95 flex items-center gap-1"
+                                          title="입금 확인 처리 (입금완료로 승격)"
+                                        >
+                                          <span>✓ 입금확인</span>
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleTogglePaymentOrder(orderId)}
+                                          className="btn-cancel-payment px-2 py-1 rounded text-[11px] font-semibold bg-slate-100 hover:bg-amber-50 text-slate-700 hover:text-amber-800 border border-slate-300 hover:border-amber-300 transition-all cursor-pointer whitespace-nowrap active:scale-95 flex items-center gap-1 shadow-2xs"
+                                          title="입금 확인을 취소하고 미입금 상태로 되돌립니다"
+                                        >
+                                          <span>↩️ 입금취소</span>
+                                        </button>
+                                      )}
+                                    </div>
 
-                                  {/* [구역 3] 맨 끝 조그만 삭제 아이콘 버튼 */}
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteSingleOrder(order)}
-                                    className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 text-[12px] transition-all cursor-pointer shrink-0"
-                                    title={`주문번호 [${orderId}] 영구 삭제`}
-                                  >
-                                    🗑️
-                                  </button>
-                                </div>
+                                    {/* 배송 관리 (단계 선택 콤팩트 드롭다운) */}
+                                    <div className="shrink-0">
+                                      <select
+                                        value={order.shippingStatus || '준비중'}
+                                        onChange={(e) => handleChangeShippingStatus(orderId, e.target.value)}
+                                        className={`text-[11px] font-semibold rounded px-1.5 py-1 border transition-all cursor-pointer ${
+                                          order.shippingStatus === '배송완료'
+                                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                            : order.shippingStatus === '배송중'
+                                            ? 'bg-blue-50 text-blue-800 border-blue-300'
+                                            : 'bg-amber-50 text-amber-800 border-amber-300'
+                                        }`}
+                                        title="배송 진행상태 단계 전환 (송장번호 입력 시 자동으로 배송중 전환)"
+                                      >
+                                        <option value="준비중">📦 준비중</option>
+                                        <option value="배송중">🚚 배송중</option>
+                                        <option value="배송완료">✓ 배송완료</option>
+                                      </select>
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteSingleOrder(order)}
+                                      className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 text-[12px] transition-all cursor-pointer shrink-0"
+                                      title={`주문번호 [${orderId}] 영구 삭제`}
+                                    >
+                                      🗑️
+                                    </button>
+                                  </div>
+                                ) : (
+                                  /* 기타 탭: 정적 결제 뱃지 + 배송 상태 선택 */
+                                  <div className="flex items-center justify-center gap-1.5 flex-nowrap">
+                                    <div className="shrink-0">
+                                      <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border whitespace-nowrap ${
+                                        paidStatus ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+                                      }`}>
+                                        {paidStatus ? '결제완료' : '입금대기'}
+                                      </span>
+                                    </div>
+                                    <div className="shrink-0">
+                                      <select
+                                        value={order.shippingStatus || '준비중'}
+                                        onChange={(e) => handleChangeShippingStatus(orderId, e.target.value)}
+                                        className={`text-[11px] font-semibold rounded px-1.5 py-1 border transition-all cursor-pointer ${
+                                          order.shippingStatus === '배송완료'
+                                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                            : order.shippingStatus === '배송중'
+                                            ? 'bg-blue-50 text-blue-800 border-blue-300'
+                                            : 'bg-amber-50 text-amber-800 border-amber-300'
+                                        }`}
+                                        title="배송 진행상태 단계 전환"
+                                      >
+                                        <option value="준비중">📦 준비중</option>
+                                        <option value="배송중">🚚 배송중</option>
+                                        <option value="배송완료">✓ 배송완료</option>
+                                      </select>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteSingleOrder(order)}
+                                      className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 text-[12px] transition-all cursor-pointer shrink-0"
+                                      title={`주문번호 [${orderId}] 영구 삭제`}
+                                    >
+                                      🗑️
+                                    </button>
+                                  </div>
+                                )}
                               </td>
                             </tr>
                           );
@@ -4340,7 +4488,7 @@
                       {farmSettlementSummary.length === 0 ? (
                         <tr>
                           <td colSpan={9} style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
-                            승인 완료된 정산 대상 내역이 없습니다. (주문 및 발송 관리에서 최종 완료된 건이 자동 집계됩니다)
+                            승인 완료된 정산 대상 내역이 없습니다. (주문 및 배송처리에서 최종 완료된 건이 자동 집계됩니다)
                           </td>
                         </tr>
                       ) : (
