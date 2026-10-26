@@ -166,9 +166,23 @@
     return {
       id: id,
       orderer_name: order.senderName || order.orderer_name || order.orderer?.name || (typeof order.orderer === 'string' ? order.orderer : '') || '고객',
-      orderer_phone: order.senderPhone || order.orderer_phone || order.orderer?.tel || order.phone || '010-0000-0000',
+      orderer_phone: (function(v) {
+        if (!v) return '010-0000-0000';
+        const d = String(v).replace(/[^0-9]/g, '');
+        if (d.length >= 11) return d.slice(0, 11).replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
+        if (d.length >= 7) return d.replace(/(\d{3})(\d{3,4})(\d+)/, '$1-$2-$3');
+        if (d.length >= 4) return d.replace(/(\d{3})(\d+)/, '$1-$2');
+        return String(v).trim();
+      })(order.senderPhone || order.orderer_phone || order.orderer?.tel || order.phone),
       recipient_name: order.receiverName || order.recipient_name || order.receiver?.name || (typeof order.receiver === 'string' ? order.receiver : '') || '수령인',
-      recipient_phone: order.receiverPhone || order.recipient_phone || order.receiver?.tel || '010-0000-0000',
+      recipient_phone: (function(v) {
+        if (!v) return '010-0000-0000';
+        const d = String(v).replace(/[^0-9]/g, '');
+        if (d.length >= 11) return d.slice(0, 11).replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
+        if (d.length >= 7) return d.replace(/(\d{3})(\d{3,4})(\d+)/, '$1-$2-$3');
+        if (d.length >= 4) return d.replace(/(\d{3})(\d+)/, '$1-$2');
+        return String(v).trim();
+      })(order.receiverPhone || order.recipient_phone || order.receiver?.tel),
       zonecode: zonecode,
       address: addrStr,
       product_name: prodName,
