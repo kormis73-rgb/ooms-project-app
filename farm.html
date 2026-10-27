@@ -8512,24 +8512,14 @@
 
       // 카톡 공식 SDK 공유 헬퍼 (Kakao.Share.sendDefault 전용 - Web Share API 완전 배제)
       const shareKakaoLink = () => {
-        // 현재 도메인 기준 풀 URL 생성 (모바일 인앱 브라우저 호환 절대 경로)
-        const isLocal = window.location.hostname === 'localhost' || 
-                        window.location.hostname === '127.0.0.1' || 
-                        !window.location.origin || 
-                        !window.location.origin.startsWith('http');
-
-        const currentOrigin = isLocal 
-          ? 'https://ooms-project-app.vercel.app' 
-          : window.location.origin.replace(/\/+$/, '');
-
+        // 카카오톡 공식 주문서 공유 풀 URL (Vercel 배포 주소 기준)
         const currentFarmCode = new URLSearchParams(window.location.search).get('farm') || 
                                 currentMerchant?.merchantCode || 
                                 currentMerchant?.farmCode || 
                                 currentMerchant?.code || 
                                 'FARM-2026-224';
 
-        // 반드시 https:// 를 포함한 절대 경로여야 카카오 인앱 브라우저가 정상 오픈됨
-        const fullOrderUrl = `${currentOrigin}/order.html?farm=${encodeURIComponent(currentFarmCode)}`;
+        const fullOrderUrl = 'https://ooms-project-app.vercel.app/order.html?farm=' + encodeURIComponent(currentFarmCode);
 
         const cardTitle = document.title.split('-')[0].trim() || 
                           (currentMerchant?.farmName ? `[${currentMerchant.farmName}] 산지직송 간편 주문서` : '농가 산지직송 간편 주문서');

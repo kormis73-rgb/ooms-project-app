@@ -573,16 +573,52 @@
               const normalizedStatus = isPending ? 'PENDING' : 'APPROVED';
 
               // 상품 목록 바인딩 (JOIN된 products 또는 산지 표준 등록상품)
-              let farmProducts = Array.isArray(row.products) && row.products.length > 0
+              const isDemo = urlParams.get('demo') === 'true' || window.location.href.includes('demo=true');
+              let farmProducts = (Array.isArray(row.products) && row.products.length > 0 && !isDemo)
                 ? row.products
                 : (function() {
-                    try {
-                      const allProds = JSON.parse(localStorage.getItem('ooms_products') || '[]');
-                      const matched = allProds.filter(p => p.farmCode === code || p.merchantCode === code);
-                      if (matched.length > 0) return matched;
-                    } catch(e) {}
+                    if (!isDemo) {
+                      try {
+                        const allProds = JSON.parse(localStorage.getItem('ooms_products') || '[]');
+                        const matched = allProds.filter(p => p.farmCode === code || p.merchantCode === code);
+                        if (matched.length > 0) return matched;
+                      } catch(e) {}
+                    }
                     if (code === 'FARM-2026-224') {
                       return [
+                        {
+                          id: 'p-apple-2',
+                          category: '사과',
+                          name: '시나노스위트 5kg',
+                          variety: '시나노스위트',
+                          spec: '5kg(14~16과 특품)',
+                          originPrice: 48000,
+                          salePrice: 42000,
+                          desc: '풍부한 과즙과 아삭하고 달콤한 명품 시나노스위트 햇사과',
+                          status: 'APPROVED'
+                        },
+                        {
+                          id: 'p-melon-2',
+                          category: '메론',
+                          name: '하미과멜론 10kg',
+                          variety: '하미과(황금)',
+                          spec: '10kg(4~5수 특품)',
+                          originPrice: 110000,
+                          salePrice: 98000,
+                          desc: '아삭한 식감과 깊은 단맛의 황실 진상품 하미과 대용량 세트',
+                          status: 'APPROVED'
+                        },
+                        {
+                          id: 'p-citrus-1',
+                          category: '감귤/한라봉',
+                          name: '감귤 5kg',
+                          variety: '온주밀감',
+                          spec: '5kg(로얄과 특품)',
+                          originPrice: 32000,
+                          salePrice: 26000,
+                          desc: '새콤달콤 비타민 가득 제주 서귀포 산지직송 온주밀감',
+                          status: 'APPROVED'
+                        },
                         {
                           id: 'p-apple-1',
                           category: '사과',
