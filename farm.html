@@ -8672,26 +8672,8 @@
         const farmCode = urlParams.get('farm') || 'FARM-2026-224';
         const targetUrl = 'https://ooms-project-app.vercel.app/order.html?farm=' + encodeURIComponent(farmCode);
 
-        Kakao.Share.sendDefault({
-          objectType: 'feed',
-          content: {
-            title: '🍎 태안 사과농장 산지직송 주문서',
-            description: '아래 버튼을 눌러 신선한 농산물을 직접 주문하세요.',
-            imageUrl: 'https://images.unsplash.com/photo-1546548970-71785318a17b?w=600',
-            link: {
-              mobileWebUrl: targetUrl,
-              webUrl: targetUrl
-            }
-          },
-          buttons: [
-            {
-              title: '👉 주문서 바로 열기',
-              link: {
-                mobileWebUrl: targetUrl,
-                webUrl: targetUrl
-              }
-            }
-          ]
+        Kakao.Share.sendScrap({
+          requestUrl: targetUrl
         });
       }
 
