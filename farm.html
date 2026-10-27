@@ -2666,6 +2666,110 @@
 
 
 
+    // 5대 원본 표준 상품 데이터 (각 소속 농가 1:1 정확한 매핑)
+    const STANDARD_SYSTEM_PRODUCTS = [
+      {
+        id: 'p-apple-2',
+        category: '사과',
+        name: '시나노스위트 5kg',
+        variety: '시나노스위트',
+        spec: '5kg(14~16과 특품)',
+        originPrice: 48000,
+        salePrice: 42000,
+        price: 42000,
+        desc: '풍부한 과즙과 아삭하고 달콤한 명품 시나노스위트 햇사과',
+        status: 'APPROVED',
+        farm_code: 'FARM-2026-177',
+        farmCode: 'FARM-2026-177',
+        merchantCode: 'FARM-2026-177',
+        farm_name: '(화성) 화성산업진흥원',
+        farmName: '(화성) 화성산업진흥원',
+        owner_name: '윤성수',
+        repName: '윤성수',
+        farmerName: '윤성수'
+      },
+      {
+        id: 'p-melon-2',
+        category: '메론',
+        name: '하미과멜론 10kg',
+        variety: '하미과(황금)',
+        spec: '10kg(4~5수 특품)',
+        originPrice: 110000,
+        salePrice: 98000,
+        price: 98000,
+        desc: '아삭한 식감과 깊은 단맛의 황실 진상품 하미과 대용량 세트',
+        status: 'APPROVED',
+        farm_code: 'FARM-2026-400',
+        farmCode: 'FARM-2026-400',
+        merchantCode: 'FARM-2026-400',
+        farm_name: '뚱땡이 과일농장',
+        farmName: '뚱땡이 과일농장',
+        owner_name: '조국래',
+        repName: '조국래',
+        farmerName: '조국래'
+      },
+      {
+        id: 'p-citrus-1',
+        category: '감귤/한라봉',
+        name: '감귤 5kg',
+        variety: '온주밀감',
+        spec: '5kg(로얄과 특품)',
+        originPrice: 32000,
+        salePrice: 26000,
+        price: 26000,
+        desc: '새콤달콤 비타민 가득 제주 서귀포 산지직송 온주밀감',
+        status: 'APPROVED',
+        farm_code: 'FARM-2026-400',
+        farmCode: 'FARM-2026-400',
+        merchantCode: 'FARM-2026-400',
+        farm_name: '뚱땡이 과일농장',
+        farmName: '뚱땡이 과일농장',
+        owner_name: '조국래',
+        repName: '조국래',
+        farmerName: '조국래'
+      },
+      {
+        id: 'p-apple-1',
+        category: '사과',
+        name: '맛있는 꿀사과 10kg',
+        variety: '후지(부사)',
+        spec: '10kg(28~32과 특품)',
+        originPrice: 65000,
+        salePrice: 55000,
+        price: 55000,
+        desc: '태안 해풍과 황토에서 자란 아삭하고 달콤한 특품 꿀사과',
+        status: 'APPROVED',
+        farm_code: 'FARM-2026-224',
+        farmCode: 'FARM-2026-224',
+        merchantCode: 'FARM-2026-224',
+        farm_name: '태안 사과농장',
+        farmName: '태안 사과농장',
+        owner_name: '김혜진',
+        repName: '김혜진',
+        farmerName: '김혜진'
+      },
+      {
+        id: 'p-melon-1',
+        category: '메론',
+        name: '정품 하미과 4.5kg',
+        variety: '하미과(황금)',
+        spec: '2수(4.5kg 내외 특품)',
+        originPrice: 78000,
+        salePrice: 70000,
+        price: 70000,
+        desc: '황토와 해풍으로 키워낸 고당도 하미과메론',
+        status: 'APPROVED',
+        farm_code: 'FARM-2026-224',
+        farmCode: 'FARM-2026-224',
+        merchantCode: 'FARM-2026-224',
+        farm_name: '태안 사과농장',
+        farmName: '태안 사과농장',
+        owner_name: '김혜진',
+        repName: '김혜진',
+        farmerName: '김혜진'
+      }
+    ];
+
     const DEFAULT_FARM = {
 
 
@@ -2746,6 +2850,14 @@
 
 
 
+          farm_code: 'FARM-2026-224',
+
+
+
+          farmCode: 'FARM-2026-224',
+
+
+
           category: '사과',
 
 
@@ -2783,6 +2895,14 @@
 
 
           id: 'p-melon-1',
+
+
+
+          farm_code: 'FARM-2026-224',
+
+
+
+          farmCode: 'FARM-2026-224',
 
 
 
@@ -3734,7 +3854,10 @@
 
 
 
-                products: matched.products || []
+                products: (matched.products || []).filter(p => {
+                  const pCode = (p.farm_code || p.farmCode || '').trim().toLowerCase();
+                  return pCode ? pCode === cleanP : (cleanP === 'farm-2026-224' && (p.id === 'p-apple-1' || p.id === 'p-melon-1'));
+                })
 
 
 
@@ -3782,45 +3905,80 @@
 
 
 
+
             if (cleanP === 'farm-2026-224' || cleanP === '01034128934' || cleanP === '010-3412-8934' || cleanP.includes('태안')) {
-
-
-
+              const farm224 = {
+                id: 'm-FARM-2026-224',
+                farmCode: 'FARM-2026-224',
+                code: 'FARM-2026-224',
+                merchantCode: 'FARM-2026-224',
+                farmName: '태안 사과농장',
+                repName: '김혜진',
+                owner: '김혜진',
+                ownerName: '김혜진',
+                phone: '010-3412-8934',
+                address: '충청남도 태안군 소원면 소근로 54-16',
+                status: 'APPROVED',
+                approvalStatus: 'APPROVED',
+                products: STANDARD_SYSTEM_PRODUCTS.filter(p => p.farm_code === 'FARM-2026-224')
+              };
               try {
-
-
-
-                sessionStorage.setItem('ooms_farm_session', JSON.stringify(DEFAULT_FARM));
-
-
-
-                localStorage.setItem('ooms_current_farm', JSON.stringify(DEFAULT_FARM));
-
-
-
-                localStorage.setItem('ooms_farm_code', DEFAULT_FARM.farmCode);
-
-
-
-                sessionStorage.setItem('ooms_farm_code', DEFAULT_FARM.farmCode);
-
-
-
+                sessionStorage.setItem('ooms_farm_session', JSON.stringify(farm224));
+                localStorage.setItem('ooms_current_farm', JSON.stringify(farm224));
+                localStorage.setItem('ooms_farm_code', farm224.farmCode);
               } catch(e){}
-
-
-
-              return DEFAULT_FARM;
-
-
-
+              return farm224;
             }
 
+            // FARM-2026-400 (뚱땡이 과일농장 / 조국래 대표 / 2개 상품: 하미과멜론, 감귤)
+            if (cleanP === 'farm-2026-400' || cleanP.includes('뚱땡이')) {
+              const farm400 = {
+                id: 'm-FARM-2026-400',
+                farmCode: 'FARM-2026-400',
+                code: 'FARM-2026-400',
+                merchantCode: 'FARM-2026-400',
+                farmName: '뚱땡이 과일농장',
+                repName: '조국래',
+                owner: '조국래',
+                ownerName: '조국래',
+                phone: '010-8730-2147',
+                address: '경상북도 청송군 주왕산면 당마루길 45',
+                status: 'APPROVED',
+                approvalStatus: 'APPROVED',
+                products: STANDARD_SYSTEM_PRODUCTS.filter(p => p.farm_code === 'FARM-2026-400')
+              };
+              try {
+                sessionStorage.setItem('ooms_farm_session', JSON.stringify(farm400));
+                localStorage.setItem('ooms_current_farm', JSON.stringify(farm400));
+                localStorage.setItem('ooms_farm_code', farm400.farmCode);
+              } catch(e){}
+              return farm400;
+            }
 
-
-
-
-
+            // FARM-2026-177 ((화성) 화성산업진흥원 / 윤성수 대표 / 1개 상품: 시나노스위트)
+            if (cleanP === 'farm-2026-177' || cleanP.includes('화성')) {
+              const farm177 = {
+                id: 'm-FARM-2026-177',
+                farmCode: 'FARM-2026-177',
+                code: 'FARM-2026-177',
+                merchantCode: 'FARM-2026-177',
+                farmName: '(화성) 화성산업진흥원',
+                repName: '윤성수',
+                owner: '윤성수',
+                ownerName: '윤성수',
+                phone: '010-5234-9812',
+                address: '경기도 화성시 향남읍 향남로 470',
+                status: 'PENDING',
+                approvalStatus: 'PENDING',
+                products: STANDARD_SYSTEM_PRODUCTS.filter(p => p.farm_code === 'FARM-2026-177')
+              };
+              try {
+                sessionStorage.setItem('ooms_farm_session', JSON.stringify(farm177));
+                localStorage.setItem('ooms_current_farm', JSON.stringify(farm177));
+                localStorage.setItem('ooms_farm_code', farm177.farmCode);
+              } catch(e){}
+              return farm177;
+            }
 
             // 1-3. query param이 FARM-2026-456일 때 CHEONGSONG_FARM (조국래 대표 / 청송 꿀사과 농원)
 
@@ -4673,37 +4831,26 @@
 
 
 
+// 3. 농가별 상품 Supabase DB 실시간 조회 정석 바인딩 (각 농가별 farm_code 1:1 복구)
+          let farmProducts = [];
           if (!productsRes.error && Array.isArray(productsRes.data) && productsRes.data.length > 0) {
+            farmProducts = productsRes.data.filter(p => (p.farm_code === targetQueryCode || p.farmCode === targetQueryCode));
+          } else {
+            // 예외 및 Fallback: 로컬 데이터 및 표준 시스템에서 item.farm_code === targetQueryCode 조건으로 필터링
+            try {
+              const allProducts = JSON.parse(localStorage.getItem('ooms_products') || '[]');
+              farmProducts = allProducts.filter(item => (item.farm_code === targetQueryCode || item.farmCode === targetQueryCode));
+            } catch (e) {}
 
-
-
-            setCurrentMerchant(prev => ({
-
-
-
-              ...prev,
-
-
-
-              products: productsRes.data
-
-
-
-            }));
-
-
-
+            if (farmProducts.length === 0) {
+              farmProducts = STANDARD_SYSTEM_PRODUCTS.filter(p => p.farm_code === targetQueryCode);
+            }
           }
 
-
-
-
-
-
-
-          // 3. 렌더링 분기: 주문 목록 단일 원천 바인딩
-
-
+          setCurrentMerchant(prev => ({
+            ...prev,
+            products: farmProducts
+          }));
 
           if (ordersRes.error || !Array.isArray(ordersRes.data) || ordersRes.data.length === 0) {
 
@@ -5342,10 +5489,14 @@
 
 
                   if (matched) {
-
-
-
-                    setCurrentMerchant(matched);
+                    const filteredMatchedProds = (matched.products || []).filter(p => {
+                      const pCode = (p.farm_code || p.farmCode || '').trim().toLowerCase();
+                      return pCode ? pCode === curCode : (curCode === 'farm-2026-224' && (p.id === 'p-apple-1' || p.id === 'p-melon-1'));
+                    });
+                    setCurrentMerchant({
+                      ...matched,
+                      products: filteredMatchedProds
+                    });
 
 
 
@@ -12178,7 +12329,7 @@
 
 
 
-              const myProdsCount = currentMerchant?.products?.length || 0;
+              const myProdsCount = (currentMerchant?.products || []).length;
 
 
 
@@ -13167,276 +13318,72 @@
 
 
         {mainTab === 'PRODUCTS' && (
-
-
-
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 animate-fadeIn">
-
-
-
-              <div className="flex justify-between items-center mb-2.5">
-
-
-
-                <div className="flex items-center gap-1.5">
-
-
-
-                  <span className="text-base">🍈</span>
-
-
-
-                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">
-
-
-
-                    현재 출하 등록 상품 ({currentMerchant?.products?.length || 0}종)
-
-
-
-                  </h3>
-
-
-
-                </div>
-
-
-
-                <button
-
-
-
-                  type="button"
-
-
-
-                  onClick={() => {
-                    if (!isApproved) {
-
-
-
-                      alert('관리자 승인 후 이용 가능합니다.');
-
-
-
-                      return;
-
-
-
-                    }
-
-
-
-                    setAddProductModal({ isOpen: true, category: '사과', name: '', spec: '', price: '', brix: '' });
-
-
-
-                  }}
-
-
-
-                  className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[11px] font-black px-2.5 py-1 rounded-lg shadow-sm transition-all flex items-center gap-1 cursor-pointer"
-
-
-
-                  title="신규 상품 등록"
-
-
-
-                >
-
-
-
-                  <span>➕</span>
-
-
-
-                  <span>상품 추가</span>
-
-
-
-                </button>
-
-
-
-              </div>
-
-
-
-
-
-
-
-              {(!currentMerchant?.products || currentMerchant.products.length === 0) ? (
-
-
-
-                <div className="py-6 text-center text-slate-400 bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
-
-
-
-                  <p className="text-xs">등록된 출하 상품이 없습니다.</p>
-
-
-
+              <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 animate-fadeIn">
+                <div className="flex justify-between items-center mb-2.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-base">🍎</span>
+                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                      등록 판매 상품 목록 ({(currentMerchant?.products || []).length}개)
+                    </h3>
+                  </div>
                   <button
-
-
-
                     type="button"
-
-
-
                     onClick={() => {
                       if (!isApproved) {
-
-
-
                         alert('관리자 승인 후 이용 가능합니다.');
-
-
-
                         return;
-
-
-
                       }
-
-
-
                       setAddProductModal({ isOpen: true, category: '사과', name: '', spec: '', price: '', brix: '' });
-
-
-
                     }}
-
-
-
-                    className="mt-2 text-xs text-emerald-600 font-bold hover:underline"
-
-
-
+                    className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[11px] font-black px-2.5 py-1 rounded-lg shadow-sm transition-all flex items-center gap-1 cursor-pointer"
+                    title="판매 상품 등록"
                   >
-
-
-
-                    + 첫 번째 상품 등록하기
-
-
-
+                    <span>➕</span>
+                    <span>상품 등록</span>
                   </button>
-
-
-
                 </div>
 
-
-
-              ) : (
-
-
-
-                <div className="divide-y divide-slate-100">
-
-
-
-                  {currentMerchant.products.map((p, idx) => (
-
-
-
-                    <div key={p.id || idx} className="py-2.5 flex justify-between items-center text-xs">
-
-
-
-                      <div className="min-w-0 pr-2">
-
-
-
-                        <div className="flex items-center gap-1.5 mb-0.5">
-
-
-
-                          <span className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.2 rounded font-bold border border-emerald-200/50">
-
-
-
-                            {p.category || '농산물'}
-
-
-
-                          </span>
-
-
-
-                          <span className="font-extrabold text-slate-900 truncate">{p.name}</span>
-
-
-
-                          <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.2 rounded font-mono">
-
-
-
-                            {p.status || p.saleStatus || '판매중'}
-
-
-
-                          </span>
-
-
-
+                {(!currentMerchant?.products || currentMerchant.products.length === 0) ? (
+                  <div className="py-6 text-center text-slate-400 bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
+                    <p className="text-xs">등록된 판매 상품이 없습니다.</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!isApproved) {
+                          alert('관리자 승인 후 이용 가능합니다.');
+                          return;
+                        }
+                        setAddProductModal({ isOpen: true, category: '사과', name: '', spec: '', price: '', brix: '' });
+                      }}
+                      className="mt-2 text-xs text-emerald-600 font-bold hover:underline"
+                    >
+                      + 첫 상품을 등록해 보세요
+                    </button>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {currentMerchant.products.map((p, idx) => (
+                      <div key={p.id || idx} className="py-2.5 flex justify-between items-center text-xs">
+                        <div className="min-w-0 pr-2">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.2 rounded font-bold border border-emerald-200/50">
+                              {p.category || '사과'}
+                            </span>
+                            <span className="font-extrabold text-slate-900 truncate">{p.name}</span>
+                          </div>
+                          <p className="text-[11px] text-slate-500">
+                            {p.variety ? `${p.variety} · ` : ''}{p.spec}
+                          </p>
                         </div>
-
-
-
-                        <p className="text-[11px] text-slate-500 truncate">
-
-
-
-                          {p.spec} {p.brix ? `• ${p.brix}` : (p.desc ? `• ${p.desc}` : '')}
-
-
-
-                        </p>
-
-
-
+                        <span className="font-mono font-black text-harvest-600 text-xs shrink-0">
+                          {(p.salePrice || p.sale_price || p.price)?.toLocaleString()}원
+                        </span>
                       </div>
-
-
-
-                      <span className="font-mono font-black text-harvest-600 text-xs shrink-0">
-
-
-
-                        {(p.salePrice || p.price)?.toLocaleString()}원
-
-
-
-                      </span>
-
-
-
-                    </div>
-
-
-
-                  ))}
-
-
-
-                </div>
-
-
-
-              )}
-
-
-
-            </div>
-
-
-
-          )}
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
 
 

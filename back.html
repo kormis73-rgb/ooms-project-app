@@ -63,6 +63,110 @@
   <div id="root"></div>
 
   <script type="text/babel">
+    // 5대 원본 표준 상품 데이터 (각 소속 농가 1:1 정확한 매핑)
+    const STANDARD_SYSTEM_PRODUCTS = [
+      {
+        id: 'p-apple-2',
+        category: '사과',
+        name: '시나노스위트 5kg',
+        variety: '시나노스위트',
+        spec: '5kg(14~16과 특품)',
+        originPrice: 48000,
+        salePrice: 42000,
+        price: 42000,
+        desc: '풍부한 과즙과 아삭하고 달콤한 명품 시나노스위트 햇사과',
+        status: 'APPROVED',
+        farm_code: 'FARM-2026-177',
+        farmCode: 'FARM-2026-177',
+        merchantCode: 'FARM-2026-177',
+        farm_name: '(화성) 화성산업진흥원',
+        farmName: '(화성) 화성산업진흥원',
+        owner_name: '윤성수',
+        repName: '윤성수',
+        farmerName: '윤성수'
+      },
+      {
+        id: 'p-melon-2',
+        category: '메론',
+        name: '하미과멜론 10kg',
+        variety: '하미과(황금)',
+        spec: '10kg(4~5수 특품)',
+        originPrice: 110000,
+        salePrice: 98000,
+        price: 98000,
+        desc: '아삭한 식감과 깊은 단맛의 황실 진상품 하미과 대용량 세트',
+        status: 'APPROVED',
+        farm_code: 'FARM-2026-400',
+        farmCode: 'FARM-2026-400',
+        merchantCode: 'FARM-2026-400',
+        farm_name: '뚱땡이 과일농장',
+        farmName: '뚱땡이 과일농장',
+        owner_name: '조국래',
+        repName: '조국래',
+        farmerName: '조국래'
+      },
+      {
+        id: 'p-citrus-1',
+        category: '감귤/한라봉',
+        name: '감귤 5kg',
+        variety: '온주밀감',
+        spec: '5kg(로얄과 특품)',
+        originPrice: 32000,
+        salePrice: 26000,
+        price: 26000,
+        desc: '새콤달콤 비타민 가득 제주 서귀포 산지직송 온주밀감',
+        status: 'APPROVED',
+        farm_code: 'FARM-2026-400',
+        farmCode: 'FARM-2026-400',
+        merchantCode: 'FARM-2026-400',
+        farm_name: '뚱땡이 과일농장',
+        farmName: '뚱땡이 과일농장',
+        owner_name: '조국래',
+        repName: '조국래',
+        farmerName: '조국래'
+      },
+      {
+        id: 'p-apple-1',
+        category: '사과',
+        name: '맛있는 꿀사과 10kg',
+        variety: '후지(부사)',
+        spec: '10kg(28~32과 특품)',
+        originPrice: 65000,
+        salePrice: 55000,
+        price: 55000,
+        desc: '태안 해풍과 황토에서 자란 아삭하고 달콤한 특품 꿀사과',
+        status: 'APPROVED',
+        farm_code: 'FARM-2026-224',
+        farmCode: 'FARM-2026-224',
+        merchantCode: 'FARM-2026-224',
+        farm_name: '태안 사과농장',
+        farmName: '태안 사과농장',
+        owner_name: '김혜진',
+        repName: '김혜진',
+        farmerName: '김혜진'
+      },
+      {
+        id: 'p-melon-1',
+        category: '메론',
+        name: '정품 하미과 4.5kg',
+        variety: '하미과(황금)',
+        spec: '2수(4.5kg 내외 특품)',
+        originPrice: 78000,
+        salePrice: 70000,
+        price: 70000,
+        desc: '황토와 해풍으로 키워낸 고당도 하미과메론',
+        status: 'APPROVED',
+        farm_code: 'FARM-2026-224',
+        farmCode: 'FARM-2026-224',
+        merchantCode: 'FARM-2026-224',
+        farm_name: '태안 사과농장',
+        farmName: '태안 사과농장',
+        owner_name: '김혜진',
+        repName: '김혜진',
+        farmerName: '김혜진'
+      }
+    ];
+
     const { useState, useEffect } = React;
 
     // Supabase Cloud DB 단일 원천 (하드코딩 mock 완전 제거)
@@ -572,79 +676,11 @@
               const isPending = rawStatus === 'pending' || rawStatus === '대기' || rawStatus === '심사대기';
               const normalizedStatus = isPending ? 'PENDING' : 'APPROVED';
 
-              // 상품 목록 바인딩 (JOIN된 products 또는 산지 표준 등록상품)
-              const isDemo = urlParams.get('demo') === 'true' || window.location.href.includes('demo=true');
-              let farmProducts = (Array.isArray(row.products) && row.products.length > 0 && !isDemo)
+              // 상품 목록 바인딩 (각 농가별 farm_code 1:1 원본 매핑)
+              const cleanCode = (code || '').toUpperCase();
+              let farmProducts = Array.isArray(row.products) && row.products.length > 0
                 ? row.products
-                : (function() {
-                    if (!isDemo) {
-                      try {
-                        const allProds = JSON.parse(localStorage.getItem('ooms_products') || '[]');
-                        const matched = allProds.filter(p => p.farmCode === code || p.merchantCode === code);
-                        if (matched.length > 0) return matched;
-                      } catch(e) {}
-                    }
-                    if (code === 'FARM-2026-224') {
-                      return [
-                        {
-                          id: 'p-apple-2',
-                          category: '사과',
-                          name: '시나노스위트 5kg',
-                          variety: '시나노스위트',
-                          spec: '5kg(14~16과 특품)',
-                          originPrice: 48000,
-                          salePrice: 42000,
-                          desc: '풍부한 과즙과 아삭하고 달콤한 명품 시나노스위트 햇사과',
-                          status: 'APPROVED'
-                        },
-                        {
-                          id: 'p-melon-2',
-                          category: '메론',
-                          name: '하미과멜론 10kg',
-                          variety: '하미과(황금)',
-                          spec: '10kg(4~5수 특품)',
-                          originPrice: 110000,
-                          salePrice: 98000,
-                          desc: '아삭한 식감과 깊은 단맛의 황실 진상품 하미과 대용량 세트',
-                          status: 'APPROVED'
-                        },
-                        {
-                          id: 'p-citrus-1',
-                          category: '감귤/한라봉',
-                          name: '감귤 5kg',
-                          variety: '온주밀감',
-                          spec: '5kg(로얄과 특품)',
-                          originPrice: 32000,
-                          salePrice: 26000,
-                          desc: '새콤달콤 비타민 가득 제주 서귀포 산지직송 온주밀감',
-                          status: 'APPROVED'
-                        },
-                        {
-                          id: 'p-apple-1',
-                          category: '사과',
-                          name: '맛있는 꿀사과 10kg',
-                          variety: '후지(부사)',
-                          spec: '10kg(28~32과 특품)',
-                          originPrice: 65000,
-                          salePrice: 55000,
-                          desc: '태안 해풍과 황토에서 자란 아삭하고 달콤한 특품 꿀사과',
-                          status: 'APPROVED'
-                        },
-                        {
-                          id: 'p-melon-1',
-                          category: '메론',
-                          name: '정품 하미과 4.5kg',
-                          variety: '하미과(황금)',
-                          spec: '2수(4.5kg 내외 특품)',
-                          originPrice: 78000,
-                          salePrice: 70000,
-                          desc: '황토와 해풍으로 키워낸 고당도 하미과메론',
-                          status: 'APPROVED'
-                        }
-                      ];
-                    }
-                    return [];
-                  })();
+                : STANDARD_SYSTEM_PRODUCTS.filter(p => p.farm_code === cleanCode);
 
               return {
                 id: row.id || ('m-' + code),
@@ -686,6 +722,9 @@
               };
             });
             setMerchants(mapped);
+            try {
+              localStorage.setItem('ooms_products', JSON.stringify(STANDARD_SYSTEM_PRODUCTS));
+            } catch(e) {}
           }
         } catch (err) {
           console.warn('[back.html] loadFarmsFromSupabase error:', err);
