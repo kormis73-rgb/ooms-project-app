@@ -211,14 +211,20 @@
 
 
   <!-- Supabase JS Client CDN & OOMS_DB Client Module -->
-
-
-
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-
-
   <script src="js/supabase-client.js"></script>
+
+  <!-- Kakao JavaScript SDK for Pure Kakao.Share (Kakao.Share.sendDefault 전용) -->
+  <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"></script>
+  <script>
+    try {
+      if (window.Kakao && !window.Kakao.isInitialized()) {
+        window.Kakao.init('dc866b784e9d7a179baebfe4c322c4cd');
+      }
+    } catch(e) {
+      console.warn('[Kakao SDK init]', e);
+    }
+  </script>
 
 
 
@@ -670,245 +676,71 @@
 
 
 
-        <!-- 1. 상단 2열 컴팩트 액션 그리드 (현장등록 / 링크공유) -->
-
-
-
-        <div class="grid grid-cols-2 gap-2">
-
-
-
-          <!-- [좌측 카드]: ✍️ 현장·전화 주문 즉시 등록 -->
-
-
-
-          <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between hover:border-emerald-300 transition-all">
-
-
-
-            <div>
-
-
-
-              <div class="flex items-center gap-1.5 mb-1">
-
-
-
-                <span class="text-base">✍️</span>
-
-
-
-                <h3 class="font-extrabold text-xs text-slate-900 tracking-tight">현장·전화 주문 등록</h3>
-
-
-
+        <!-- 1. 상단 고객 주문링크 공유 (최우선 강조) & 현장 주문 액션 영역 -->
+        <div class="space-y-2.5">
+          <!-- [최우선 강조 메인 히어로 카드]: 🔗 고객 전용 주문링크 공유 -->
+          <div class="bg-gradient-to-br from-emerald-500/15 via-teal-500/5 to-white p-4 rounded-2xl shadow-sm border-2 border-emerald-500/50 hover:border-emerald-500 transition-all relative overflow-hidden">
+            <div class="flex items-center justify-between mb-1.5">
+              <div class="flex items-center gap-2">
+                <span class="text-xl">🔗</span>
+                <div>
+                  <div class="flex items-center gap-1.5">
+                    <h3 class="font-black text-sm text-slate-900 tracking-tight">고객 전용 주문링크 공유</h3>
+                    <span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-600 text-white shadow-2xs">⭐ 핵심 기능</span>
+                  </div>
+                  <p class="text-[11px] text-slate-600 leading-tight mt-0.5">
+                    전화·문자 문의 고객에게 링크를 보내면 고객이 직접 상품 선택 및 배송지를 입력합니다.
+                  </p>
+                </div>
               </div>
-
-
-
-              <p class="text-[10px] text-slate-500 leading-tight mb-2.5">
-
-
-
-                현장 직거래나 전화 주문을 직접 즉시 접수
-
-
-
-              </p>
-
-
-
             </div>
 
+            <!-- 주문링크 공유 버튼 영역 (시인성 극대화) -->
+            <div class="mt-3 flex flex-col sm:flex-row gap-2">
+              <button
+                type="button"
+                onclick="if(window.copyOrderLink) window.copyOrderLink(); else { navigator.clipboard.writeText('https://ooms-project-app.vercel.app/order.html?farm=FARM-2026-224'); alert('주문서 링크가 복사되었습니다! 문자나 카톡에 붙여넣기 하세요.'); }"
+                class="flex-1 py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl shadow-md ring-2 ring-emerald-400/50 shadow-emerald-600/30 flex items-center justify-center gap-2 text-sm transition-all transform active:scale-95 cursor-pointer"
+                title="주문링크 원클릭 복사"
+              >
+                <span class="text-base">📋</span>
+                <span>주문링크 원클릭 복사</span>
+              </button>
 
+              <button
+                type="button"
+                onclick="if(window.shareKakaoLink) window.shareKakaoLink(); else { navigator.clipboard.writeText('https://ooms-project-app.vercel.app/order.html?farm=FARM-2026-224'); alert('주문서 링크가 복사되었습니다! 카카오톡 대화창에 붙여넣기(Ctrl+V) 하세요.'); }"
+                class="py-3.5 px-5 bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] font-black rounded-xl shadow-md shadow-amber-300/30 flex items-center justify-center gap-2 text-sm transition-all transform active:scale-95 cursor-pointer"
+                title="카톡으로 주문 안내문 공유"
+              >
+                <span class="text-base">💬</span>
+                <span>카톡 공유</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- [보조 액션 바]: ✍️ 현장·전화 주문 직접 등록 -->
+          <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between hover:border-emerald-300 transition-all">
+            <div class="flex items-center gap-2.5">
+              <span class="text-lg">✍️</span>
+              <div>
+                <h3 class="font-extrabold text-xs text-slate-900 tracking-tight">현장·전화 주문 등록</h3>
+                <p class="text-[10px] text-slate-500 leading-tight">
+                  현장 직거래나 전화 주문을 직접 즉시 접수
+                </p>
+              </div>
+            </div>
 
             <button
-
-
-
               type="button"
-
-
-
               onclick="alert('현장 주문 등록 폼으로 이동합니다.');"
-
-
-
-              class="w-full py-2 px-2.5 rounded-xl font-black text-xs text-white bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 shadow-sm active:scale-95 transition-all flex items-center justify-center gap-1 cursor-pointer"
-
-
-
+              class="py-2 px-3.5 rounded-xl font-black text-xs text-white bg-slate-800 hover:bg-slate-700 shadow-sm active:scale-95 transition-all flex items-center gap-1 cursor-pointer shrink-0"
             >
-
-
-
               <span>직접 입력</span>
-
-
-
               <span class="text-[11px]">➔</span>
-
-
-
             </button>
-
-
-
           </div>
-
-
-
-
-
-
-
-          <!-- [우측 카드]: 🔗 농가 전용 주문링크 공유 -->
-
-
-
-          <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between hover:border-farm-300 transition-all">
-
-
-
-            <div>
-
-
-
-              <div class="flex items-center justify-between mb-1">
-
-
-
-                <div class="flex items-center gap-1.5">
-
-
-
-                  <span class="text-base">🔗</span>
-
-
-
-                  <h3 class="font-extrabold text-xs text-slate-900 tracking-tight">주문링크 공유</h3>
-
-
-
-                </div>
-
-
-
-                <span class="text-[9px] px-1.5 py-0.2 rounded font-bold bg-farm-50 text-farm-700">원터치</span>
-
-
-
-              </div>
-
-
-
-              <p class="text-[10px] text-slate-500 leading-tight mb-2.5">
-
-
-
-                고객용 비회원 간편 주문 링크
-
-
-
-              </p>
-
-
-
-            </div>
-
-
-
-            <div class="grid grid-cols-2 gap-1.5">
-
-
-
-              <button
-
-
-
-                type="button"
-
-
-
-                onclick="navigator.clipboard.writeText('http://localhost:3000/order.html?farm=FARM-2026-224&ref=REF-2026-224'); alert('전용 주문 링크가 복사되었습니다!');"
-
-
-
-                class="py-2 px-1 rounded-xl text-[11px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 active:scale-95 transition-all flex items-center justify-center gap-0.5 cursor-pointer"
-
-
-
-                title="전용 링크 복사하기"
-
-
-
-              >
-
-
-
-                <span>📋</span>
-
-
-
-                <span>링크 복사</span>
-
-
-
-              </button>
-
-
-
-              <button
-
-
-
-                type="button"
-
-
-
-                onclick="navigator.clipboard.writeText('[태안 사과농장] 🍎 맛있는 꿀사과 10kg 주문 링크: http://localhost:3000/order.html?farm=FARM-2026-224'); alert('카톡 안내문구가 복사되었습니다!');"
-
-
-
-                class="py-2 px-1 rounded-xl text-[11px] font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 active:scale-95 transition-all flex items-center justify-center gap-0.5 cursor-pointer"
-
-
-
-                title="카톡 공유 문구 복사"
-
-
-
-              >
-
-
-
-                <span>💬</span>
-
-
-
-                <span>카톡 공유</span>
-
-
-
-              </button>
-
-
-
-            </div>
-
-
-
-          </div>
-
-
-
         </div>
-
-
-
-
-
-
 
         <!-- 2. 오늘 출하 & 예약 현황 슬림 바 (입금 대기 -> 입금 완료 -> 총 주문) -->
 
@@ -4718,6 +4550,14 @@
 
 
 
+      // 승인 상태 단일 SSOT 판별 함수 (status === 'approved' || status === 'active' 지원)
+      const checkFarmApproved = (m) => {
+        if (!m) return false;
+        const s = String(m.status || m.approvalStatus || '').toLowerCase();
+        return s === 'approved' || s === 'active';
+      };
+      const isApproved = checkFarmApproved(currentMerchant);
+
       const [orders, setOrdersState] = useState([]);
 
 
@@ -4774,70 +4614,53 @@
 
 
 
+          const targetQueryCode = (currentMerchant?.farmCode || currentMerchant?.farm_code || currentMerchant?.merchantCode || currentFarmCode || '').trim();
+
           const [farmRes, ordersRes, productsRes] = await Promise.all([
-
-
-
-            client.from('farms').select('*').eq('farm_code', currentFarmCode).maybeSingle(),
-
-
-
-            client.from('orders').select('*').eq('farm_code', currentFarmCode).order('created_at', { ascending: false }),
-
-
-
-            client.from('products').select('*').eq('farm_code', currentFarmCode)
-
-
-
+            client.from('farms').select('*').ilike('farm_code', targetQueryCode).maybeSingle(),
+            client.from('orders').select('*').eq('farm_code', targetQueryCode).order('created_at', { ascending: false }),
+            client.from('products').select('*').eq('farm_code', targetQueryCode)
           ]);
 
-
-
-
-
-
-
-          // 농가 기본 프로필 동기화
-
-
-
+          // 농가 기본 프로필 및 승인상태 실시간 동기화 (단일 status SSOT 규격 적용)
           if (!farmRes.error && farmRes.data) {
+            const rawStatus = String(farmRes.data.status || '').toLowerCase();
+            const farmApproved = rawStatus === 'approved' || rawStatus === 'active';
+            const statusVal = farmApproved ? 'approved' : 'pending';
+            const normalizedStatus = farmApproved ? 'APPROVED' : 'PENDING';
 
+            setCurrentMerchant(prev => {
+              const updated = {
+                ...prev,
+                farmName: farmRes.data.farm_name || prev.farmName,
+                ownerName: farmRes.data.owner_name || prev.ownerName,
+                repName: farmRes.data.owner_name || prev.repName,
+                phone: farmRes.data.phone || prev.phone,
+                address: farmRes.data.address || prev.address,
+                status: statusVal,
+                approvalStatus: normalizedStatus,
+                courier: farmRes.data.courier || prev.courier || '우체국택배'
+              };
+              try {
+                sessionStorage.setItem('ooms_farm_session', JSON.stringify(updated));
+                localStorage.setItem('ooms_current_farm', JSON.stringify(updated));
+                const curUserRaw = sessionStorage.getItem('current_user_farm') || localStorage.getItem('current_user_farm');
+                if (curUserRaw) {
+                  const parsed = JSON.parse(curUserRaw);
+                  parsed.status = statusVal;
+                  parsed.approvalStatus = normalizedStatus;
+                  sessionStorage.setItem('current_user_farm', JSON.stringify(parsed));
+                  localStorage.setItem('current_user_farm', JSON.stringify(parsed));
+                }
+              } catch(e) {}
+              return updated;
+            });
 
-
-            setCurrentMerchant(prev => ({
-
-
-
-              ...prev,
-
-
-
-              farmName: farmRes.data.farm_name || prev.farmName,
-
-
-
-              ownerName: farmRes.data.owner_name || prev.ownerName,
-
-
-
-              repName: farmRes.data.owner_name || prev.repName,
-
-
-
-              phone: farmRes.data.phone || prev.phone,
-
-
-
-              courier: farmRes.data.courier || prev.courier || '우체국택배'
-
-
-
-            }));
-
-
-
+            // 심사대기 안내 배너 DOM 직접 제어 가드 (HTML 태그가 마운트된 경우에도 즉시 동기화)
+            const bannerEl = document.getElementById('pendingApprovalBanner');
+            if (bannerEl) {
+              bannerEl.style.display = farmApproved ? 'none' : 'block';
+            }
           }
 
 
@@ -8511,52 +8334,36 @@
 
 
       const getFarmOrderUrl = (refCode = currentRefCode) => {
-
-
-
         const curCode = currentMerchant?.merchantCode || currentMerchant?.code || currentMerchant?.farmCode || 'FARM-2026-224';
 
+        // 1. localhost 또는 127.0.0.1, file 프로토콜 환경인 경우 스마트폰 카카오톡 접속용 Vercel 도메인 자동 전환
+        const isLocalhost = window.location.hostname === 'localhost' || 
+                            window.location.hostname === '127.0.0.1' || 
+                            window.location.hostname === '' || 
+                            window.location.protocol === 'file:';
 
+        // 실제 배포된 Vercel 도메인 주소 (window.OOMS_PRODUCTION_BASE_URL 또는 localStorage override 가능)
+        const PRODUCTION_BASE_URL = window.OOMS_PRODUCTION_BASE_URL || 
+                                    localStorage.getItem('ooms_production_url') || 
+                                    'https://ooms-project-app.vercel.app';
 
-        const origin = window.location.origin || '';
-
-
+        const baseUrl = isLocalhost ? PRODUCTION_BASE_URL : window.location.origin;
+        const cleanBase = baseUrl.replace(/\/+$/, '');
 
         let basePath = window.location.pathname || '';
-
-
-
-        if (basePath.endsWith('farm.html')) {
-
-
-
-          basePath = basePath.replace('farm.html', 'order.html');
-
-
-
+        if (isLocalhost) {
+          basePath = '/order.html';
         } else {
-
-
-
-          basePath = 'order.html';
-
-
-
+          if (basePath.endsWith('farm.html')) {
+            basePath = basePath.replace('farm.html', 'order.html');
+          } else if (!basePath.endsWith('order.html')) {
+            basePath = basePath.replace(/\/+$/, '') + '/order.html';
+          }
         }
+        if (!basePath.startsWith('/')) basePath = '/' + basePath;
 
-
-
-        return `${origin}${basePath}?farm=${encodeURIComponent(curCode)}&ref=${encodeURIComponent(refCode)}`;
-
-
-
+        return `${cleanBase}${basePath}?farm=${encodeURIComponent(curCode)}${refCode ? `&ref=${encodeURIComponent(refCode)}` : ''}`;
       };
-
-
-
-
-
-
 
       // 원터치 링크 복사 헬퍼 (복사 후 다음 고객을 위해 새 ref 자동 발급)
 
@@ -8583,17 +8390,8 @@
 
 
         const doSuccess = () => {
-
-
-
-          showToast(`📋 고객 식별코드 [${copiedRef}] 전용 링크가 복사되었습니다! (다음 링크 자동 생성됨)`);
-
-
-
+          showToast(`주문서 링크가 복사되었습니다! 문자나 카톡에 붙여넣기 하세요.`);
           setCurrentRefCode(nextRef);
-
-
-
         };
 
 
@@ -8715,42 +8513,95 @@
 
 
         if (navigator.clipboard && navigator.clipboard.writeText) {
-
-
-
           navigator.clipboard.writeText(shareText).then(doSuccess).catch(() => {
-
-
-
             prompt('아래 안내 문구를 복사하여 고객에게 전송하세요:', shareText);
-
-
-
             setCurrentRefCode(nextRef);
-
-
-
           });
-
-
-
         } else {
-
-
-
           prompt('아래 안내 문구를 복사하여 고객에게 전송하세요:', shareText);
-
-
-
           setCurrentRefCode(nextRef);
-
-
-
         }
-
-
-
       };
+
+      // 카톡 공식 SDK 공유 헬퍼 (Kakao.Share.sendDefault 전용 - Web Share API 완전 배제)
+      const shareKakaoLink = () => {
+        const curCode = currentMerchant?.merchantCode || currentMerchant?.code || currentMerchant?.farmCode || 'FARM-2026-224';
+        const farmName = currentMerchant?.farmName || '산지직송 농장';
+        const nextRef = generateNewRefCode();
+
+        // 1. 도메인 분기: localhost 또는 file 프로토콜 환경인 경우 실제 배포된 Vercel 프로덕션 URL을 우선 적용
+        const isLocalhost = window.location.hostname === 'localhost' || 
+                            window.location.hostname === '127.0.0.1' || 
+                            window.location.hostname === '' || 
+                            window.location.protocol === 'file:';
+
+        // 실제 배포된 Vercel 도메인 주소를 기본 Base URL로 지정 (또는 window.location.origin 활용)
+        const PRODUCTION_BASE_URL = window.OOMS_PRODUCTION_BASE_URL || 
+                                    localStorage.getItem('ooms_production_url') || 
+                                    'https://ooms-project-app.vercel.app';
+
+        const baseUrl = isLocalhost ? PRODUCTION_BASE_URL : window.location.origin;
+        const cleanBase = baseUrl.replace(/\/+$/, '');
+        const orderUrl = `${cleanBase}/order.html?farm=${encodeURIComponent(curCode)}${currentRefCode ? `&ref=${encodeURIComponent(currentRefCode)}` : ''}`;
+
+        const fallbackCopy = () => {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(orderUrl).then(() => {
+              showToast('주문서 링크가 복사되었습니다! 카카오톡 대화창에 붙여넣기(Ctrl+V) 하세요.');
+              setCurrentRefCode(nextRef);
+            }).catch(() => {
+              prompt('아래 주문서 링크를 복사하여 카카오톡 대화창에 붙여넣기(Ctrl+V) 하세요:', orderUrl);
+              setCurrentRefCode(nextRef);
+            });
+          } else {
+            prompt('아래 주문서 링크를 복사하여 카카오톡에 붙여넣기(Ctrl+V) 하세요:', orderUrl);
+            setCurrentRefCode(nextRef);
+          }
+        };
+
+        try {
+          if (window.Kakao) {
+            if (!window.Kakao.isInitialized()) {
+              window.Kakao.init('dc866b784e9d7a179baebfe4c322c4cd');
+            }
+            if (window.Kakao.isInitialized() && window.Kakao.Share && typeof window.Kakao.Share.sendDefault === 'function') {
+              window.Kakao.Share.sendDefault({
+                objectType: 'feed',
+                content: {
+                  title: `[${farmName}] 햇과일 산지직송 간편 주문서`,
+                  description: '신선한 농산물을 산지에서 직접 받아보세요. 링크를 눌러 비회원으로 간편하게 주문하실 수 있습니다.',
+                  imageUrl: 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?auto=format&fit=crop&w=800&q=80',
+                  link: {
+                    mobileWebUrl: orderUrl,
+                    webUrl: orderUrl
+                  }
+                },
+                buttons: [
+                  {
+                    title: '주문서 작성하기',
+                    link: {
+                      mobileWebUrl: orderUrl,
+                      webUrl: orderUrl
+                    }
+                  }
+                ]
+              });
+              setCurrentRefCode(nextRef);
+              return;
+            }
+          }
+          // Kakao SDK 미초기화 또는 함수 미지원 시 fallback 클립보드 복사
+          fallbackCopy();
+        } catch (err) {
+          console.warn('[Kakao.Share error, fallback to clipboard]:', err);
+          fallbackCopy();
+        }
+      };
+
+      try {
+        window.copyOrderLink = copyOrderLink;
+        window.shareKakaoLink = shareKakaoLink;
+      } catch(e) {}
 
 
 
@@ -12056,15 +11907,9 @@
 
 
 
-            {/* [RBAC 승인 통제 게이트웨이] 심사 대기(PENDING) 경고 배너 */}
-
-
-
-            {((currentMerchant?.approvalStatus || currentMerchant?.status) !== 'APPROVED') && (
-
-
-
-              <div className="bg-amber-500/10 border-2 border-amber-500/60 p-4 rounded-2xl flex items-start gap-3 shadow-md animate-fadeIn">
+            {/* [RBAC 승인 통제 게이트웨이] 심사 대기(pending) 경고 배너 */}
+            {!isApproved && (
+              <div id="pendingApprovalBanner" className="bg-amber-500/10 border-2 border-amber-500/60 p-4 rounded-2xl flex items-start gap-3 shadow-md animate-fadeIn">
 
 
 
@@ -12104,6 +11949,18 @@
 
 
 
+                  <p className="mt-2 text-xs text-amber-800 font-medium">
+
+
+
+                    ※ 문의사항은 운영팀(010-8730-2147)으로 연락주시면 신속히 승인해 드립니다.
+
+
+
+                  </p>
+
+
+
                 </div>
 
 
@@ -12120,369 +11977,101 @@
 
 
 
-            {/* 1. 상단 2열 컴팩트 액션 그리드 (현장등록 / 링크공유) */}
-
-
-
+            {/* 1. 상단 고객 주문링크 공유 (최우선 강조) & 현장 주문 액션 영역 */}
             {(() => {
-
-
-
-              const isApproved = (currentMerchant?.approvalStatus || currentMerchant?.status) === 'APPROVED';
-
-
-
               return (
-
-
-
-                <div className="grid grid-cols-2 gap-2">
-
-
-
-                  {/* [좌측 카드]: ✍️ 현장·전화 주문 즉시 등록 */}
-
-
-
-                  <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between hover:border-emerald-300 transition-all">
-
-
-
-                    <div>
-
-
-
-                      <div className="flex items-center gap-1.5 mb-1">
-
-
-
-                        <span className="text-base">✍️</span>
-
-
-
-                        <h3 className="font-extrabold text-xs text-slate-900 tracking-tight">현장·전화 주문 등록</h3>
-
-
-
+                <div className="space-y-2.5">
+                  {/* [최우선 강조 메인 히어로 카드]: 🔗 고객 전용 주문링크 공유 */}
+                  <div className="bg-gradient-to-br from-emerald-500/15 via-teal-500/5 to-white p-4 rounded-2xl shadow-sm border-2 border-emerald-500/50 hover:border-emerald-500 transition-all relative overflow-hidden">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">🔗</span>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <h3 className="font-black text-sm text-slate-900 tracking-tight">고객 전용 주문링크 공유</h3>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-600 text-white shadow-2xs">⭐ 핵심 기능</span>
+                          </div>
+                          <p className="text-[11px] text-slate-600 leading-tight mt-0.5">
+                            전화·문자 문의 고객에게 링크를 보내면 고객이 직접 상품 선택 및 배송지를 입력합니다.
+                          </p>
+                        </div>
                       </div>
-
-
-
-                      <p className="text-[10px] text-slate-500 leading-tight mb-2.5">
-
-
-
-                        현장 직거래나 전화 주문을 직접 즉시 접수
-
-
-
-                      </p>
-
-
-
                     </div>
 
+                    {/* 주문링크 공유 버튼 영역 (시인성 극대화) */}
+                    <div className="mt-3 flex flex-col sm:flex-row gap-2">
+                      <button
+                        type="button"
+                        disabled={!isApproved}
+                        onClick={copyOrderLink}
+                        className={`flex-1 py-3.5 px-4 font-black rounded-xl shadow-md flex items-center justify-center gap-2 text-sm transition-all transform active:scale-95 cursor-pointer ${
+                          isApproved
+                            ? 'bg-emerald-600 hover:bg-emerald-500 text-white ring-2 ring-emerald-400/50 shadow-emerald-600/30'
+                            : 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-60'
+                        }`}
+                        title={isApproved ? "주문링크 원클릭 복사" : "관리자 승인 후 이용 가능합니다."}
+                      >
+                        <span className="text-base">📋</span>
+                        <span>주문링크 원클릭 복사</span>
+                      </button>
 
+                      <button
+                        type="button"
+                        disabled={!isApproved}
+                        onClick={shareKakaoLink}
+                        className={`py-3.5 px-5 font-black rounded-xl shadow-md flex items-center justify-center gap-2 text-sm transition-all transform active:scale-95 cursor-pointer ${
+                          isApproved
+                            ? 'bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] shadow-amber-300/30'
+                            : 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-60'
+                        }`}
+                        title={isApproved ? "카톡으로 주문 안내문 공유" : "관리자 승인 후 이용 가능합니다."}
+                      >
+                        <span className="text-base">💬</span>
+                        <span>카톡 공유</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* [보조 액션 바]: ✍️ 현장·전화 주문 직접 등록 */}
+                  <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between hover:border-emerald-300 transition-all">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-lg">✍️</span>
+                      <div>
+                        <h3 className="font-extrabold text-xs text-slate-900 tracking-tight">현장·전화 주문 등록</h3>
+                        <p className="text-[10px] text-slate-500 leading-tight">
+                          현장 직거래나 전화 주문을 직접 즉시 접수
+                        </p>
+                      </div>
+                    </div>
 
                     <button
-
-
-
                       type="button"
-
-
-
                       onClick={() => {
-
-
-
                         if (!isApproved) {
-
-
-
                           alert('관리자 승인 후 이용 가능합니다.');
-
-
-
                           return;
-
-
-
                         }
-
-
-
                         setMainTab('ONSITE');
-
-
-
                         setTimeout(() => {
-
-
-
                           const formEl = document.getElementById('onsite-order-form-card');
-
-
-
                           if (formEl) {
-
-
-
                             formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-
-
                           }
-
-
-
                         }, 80);
-
-
-
                       }}
-
-
-
-                      className={`w-full py-2 px-2.5 rounded-xl font-black text-xs text-white shadow-sm active:scale-95 transition-all flex items-center justify-center gap-1 cursor-pointer ${
-
-
-
+                      className={`py-2 px-3.5 rounded-xl font-black text-xs text-white shadow-sm active:scale-95 transition-all flex items-center gap-1 cursor-pointer shrink-0 ${
                         mainTab === 'ONSITE'
-
-
-
                           ? 'bg-emerald-700 ring-2 ring-emerald-400'
-
-
-
-                          : 'bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600'
-
-
-
+                          : 'bg-slate-800 hover:bg-slate-700'
                       }`}
-
-
-
                     >
-
-
-
                       <span>직접 입력</span>
-
-
-
                       <span className="text-[11px]">➔</span>
-
-
-
                     </button>
-
-
-
                   </div>
-
-
-
-
-
-
-
-                  {/* [우측 카드]: 🔗 농가 전용 주문링크 공유 */}
-
-
-
-                  <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between hover:border-farm-300 transition-all">
-
-
-
-                    <div>
-
-
-
-                      <div className="flex items-center justify-between mb-1">
-
-
-
-                        <div className="flex items-center gap-1.5">
-
-
-
-                          <span className="text-base">🔗</span>
-
-
-
-                          <h3 className="font-extrabold text-xs text-slate-900 tracking-tight">주문링크 공유</h3>
-
-
-
-                        </div>
-
-
-
-                        <span className="text-[9px] px-1.5 py-0.2 rounded font-bold bg-farm-50 text-farm-700">원터치</span>
-
-
-
-                      </div>
-
-
-
-                      <p className="text-[10px] text-slate-500 leading-tight mb-2.5">
-
-
-
-                        고객용 비회원 간편 주문 링크
-
-
-
-                      </p>
-
-
-
-                    </div>
-
-
-
-                    <div className="grid grid-cols-2 gap-1.5">
-
-
-
-                      <button
-
-
-
-                        type="button"
-
-
-
-                        disabled={!isApproved}
-
-
-
-                        onClick={copyOrderLink}
-
-
-
-                        className={`py-2 px-1 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-0.5 ${
-
-
-
-                          isApproved
-
-
-
-                            ? 'text-slate-700 bg-slate-100 hover:bg-slate-200 active:scale-95 cursor-pointer'
-
-
-
-                            : 'text-slate-400 bg-slate-100/60 cursor-not-allowed opacity-60'
-
-
-
-                        }`}
-
-
-
-                        title={isApproved ? "전용 링크 복사하기" : "관리자 승인 후 이용 가능합니다."}
-
-
-
-                      >
-
-
-
-                        <span>📋</span>
-
-
-
-                        <span>링크 복사</span>
-
-
-
-                      </button>
-
-
-
-                      <button
-
-
-
-                        type="button"
-
-
-
-                        disabled={!isApproved}
-
-
-
-                        onClick={copyFullShareText}
-
-
-
-                        className={`py-2 px-1 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-0.5 ${
-
-
-
-                          isApproved
-
-
-
-                            ? 'text-amber-900 bg-amber-100 hover:bg-amber-200 active:scale-95 cursor-pointer'
-
-
-
-                            : 'text-slate-400 bg-slate-100/60 cursor-not-allowed opacity-60'
-
-
-
-                        }`}
-
-
-
-                        title={isApproved ? "카톡 공유 문구 복사" : "관리자 승인 후 이용 가능합니다."}
-
-
-
-                      >
-
-
-
-                        <span>💬</span>
-
-
-
-                        <span>카톡 공유</span>
-
-
-
-                      </button>
-
-
-
-                    </div>
-
-
-
-                  </div>
-
-
-
                 </div>
-
-
-
               );
-
-
-
             })()}
-
-
-
-
-
-
 
             {/* 2. 오늘 출하 & 예약 현황 슬림 바 (입금 대기 -> 입금 완료 -> 총 주문) */}
 
@@ -13673,13 +13262,6 @@
 
 
                   onClick={() => {
-
-
-
-                    const isApproved = (currentMerchant?.approvalStatus || currentMerchant?.status) === 'APPROVED';
-
-
-
                     if (!isApproved) {
 
 
@@ -13757,13 +13339,6 @@
 
 
                     onClick={() => {
-
-
-
-                      const isApproved = (currentMerchant?.approvalStatus || currentMerchant?.status) === 'APPROVED';
-
-
-
                       if (!isApproved) {
 
 

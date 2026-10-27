@@ -1128,19 +1128,41 @@
         // 세션 스토리지 및 로그인된 세션과 실시간 동기화
         try {
           const farmCode = target.merchantCode || target.farmCode || target.code;
-          ['ooms_farmer_session', 'ooms_session'].forEach(k => {
-            const raw = localStorage.getItem(k);
+          ['ooms_farmer_session', 'ooms_session', 'current_user_farm', 'ooms_current_farm'].forEach(k => {
+            const raw = localStorage.getItem(k) || sessionStorage.getItem(k);
             if (raw) {
               const parsed = JSON.parse(raw);
-              if (parsed && (parsed.farmCode === farmCode || parsed.merchantCode === farmCode)) {
+              if (parsed && (parsed.farmCode === farmCode || parsed.merchantCode === farmCode || parsed.code === farmCode)) {
                 parsed.approvalStatus = nextStatus;
                 parsed.status = nextStatus;
                 localStorage.setItem(k, JSON.stringify(parsed));
+                sessionStorage.setItem(k, JSON.stringify(parsed));
               }
             }
           });
           window.dispatchEvent(new Event('storage'));
         } catch(e) {}
+
+        // Supabase DB 실시간 승인상태 동기화 (단일 SSOT status 규격 통일: 'approved' | 'pending')
+        try {
+          const supabase = window.supabaseClient || window.supabase;
+          const farmCode = target.merchantCode || target.farmCode || target.code;
+          if (supabase && farmCode) {
+            const dbStatus = nextStatus.toLowerCase();
+            supabase.from('farms')
+              .update({ status: dbStatus })
+              .eq('farm_code', farmCode)
+              .then(({ error }) => {
+                if (error) {
+                  console.warn('[Supabase] farm approval toggle error:', error);
+                } else {
+                  console.log(`[Supabase] Farm ${farmCode} status successfully updated to '${dbStatus}'`);
+                }
+              });
+          }
+        } catch(e) {
+          console.error('[back.html] toggleMerchantStatus Supabase update error:', e);
+        }
       };
 
       const handleToggleSelectAllMerchants = (e) => {
@@ -1186,19 +1208,40 @@
           // 세션 스토리지 및 로그인된 세션 동기화
           try {
             const approvedCodes = new Set(pendingSelected.map(m => m.merchantCode || m.farmCode || m.code));
-            ['ooms_farmer_session', 'ooms_session'].forEach(k => {
-              const raw = localStorage.getItem(k);
+            ['ooms_farmer_session', 'ooms_session', 'current_user_farm', 'ooms_current_farm'].forEach(k => {
+              const raw = localStorage.getItem(k) || sessionStorage.getItem(k);
               if (raw) {
                 const parsed = JSON.parse(raw);
-                if (parsed && approvedCodes.has(parsed.farmCode || parsed.merchantCode)) {
+                if (parsed && approvedCodes.has(parsed.farmCode || parsed.merchantCode || parsed.code)) {
                   parsed.approvalStatus = 'APPROVED';
                   parsed.status = 'APPROVED';
                   localStorage.setItem(k, JSON.stringify(parsed));
+                  sessionStorage.setItem(k, JSON.stringify(parsed));
                 }
               }
             });
             window.dispatchEvent(new Event('storage'));
           } catch(e) {}
+
+          // Supabase DB 일괄 승인상태 동기화 (단일 SSOT status 규격: 'approved')
+          try {
+            const supabase = window.supabaseClient || window.supabase;
+            const codes = pendingSelected.map(m => m.merchantCode || m.farmCode || m.code).filter(Boolean);
+            if (supabase && codes.length > 0) {
+              supabase.from('farms')
+                .update({ status: 'approved' })
+                .in('farm_code', codes)
+                .then(({ error }) => {
+                  if (error) {
+                    console.warn('[Supabase] batch farm approval update error:', error);
+                  } else {
+                    console.log(`[Supabase] Selected ${codes.length} farms successfully approved in DB`);
+                  }
+                });
+            }
+          } catch(e) {
+            console.error('[back.html] batch farm approval Supabase update error:', e);
+          }
 
           setSelectedMerchantIds([]);
           alert(`선택한 ${pendingSelected.length}개 농가가 일괄 승인완료 처리되었습니다.`);

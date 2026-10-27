@@ -22,9 +22,8 @@
 
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-  <!-- Daum Postcode API CDN -->
-
-  <script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js" defer></script>
+  <!-- Daum Postcode API CDN (인앱 모달 임베드 엔진) -->
+  <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 
   <!-- Kakao JavaScript SDK CDN -->
 
@@ -447,6 +446,36 @@
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col selection:bg-farm-500 selection:text-white">
 
   <div id="root"></div>
+
+  <!-- 스마트폰 최적화 도로명주소 검색 모달 -->
+  <div id="jusoModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 hidden backdrop-blur-sm" onclick="if(event.target === this) closeJusoModal();">
+    <div class="relative w-full max-w-[420px] bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col h-[560px] border border-gray-700" onclick="event.stopPropagation();">
+      <!-- 정부 표준형 헤더 바 -->
+      <div class="flex items-center justify-between px-4 py-3 bg-gray-900 border-b border-gray-800 shrink-0 z-10">
+        <div class="flex items-center gap-2">
+          <span class="text-base">🏛️</span>
+          <div>
+            <div class="text-xs font-bold text-white tracking-wide">대한민국 도로명주소 표준 검색</div>
+            <div class="text-[10px] text-emerald-400 font-medium">행정안전부 공공주소 데이터 체계 연동</div>
+          </div>
+        </div>
+        <button type="button" onclick="closeJusoModal()" class="text-gray-400 hover:text-white p-1.5 text-base font-bold transition-colors cursor-pointer">
+          ✕
+        </button>
+      </div>
+
+      <!-- 주소 검색 임베드 영역 (하단 카카오 푸터 75px 완전 크롭) -->
+      <div class="w-full flex-1 overflow-hidden relative" style="height: calc(100% - 95px);">
+        <div id="jusoLayer" style="width: 100%; height: calc(100% + 75px); margin-bottom: -75px;"></div>
+      </div>
+
+      <!-- 하단 공공 표준 상태 바 -->
+      <div class="w-full h-[45px] px-4 bg-gray-100 border-t border-gray-200 shrink-0 flex items-center justify-between text-[11px] text-gray-600 z-10">
+        <span class="font-medium">도로명/지번/건물명 검색 지원</span>
+        <span class="font-bold text-emerald-600">✓ 공공 표준 주소</span>
+      </div>
+    </div>
+  </div>
 
 
 
@@ -1763,6 +1792,13 @@
 
 
 
+      // Supabase 연결 상태 배지 실시간 동기화
+      useEffect(() => {
+        if (typeof window.checkSupabaseConnection === 'function') {
+          window.checkSupabaseConnection();
+        }
+      }, []);
+
       // tab=login 또는 view=farmer 파라미터 감지 시 농가 로그인 섹션 자동 활성화 및 세션 격리 복구
 
       useEffect(() => {
@@ -2163,9 +2199,19 @@
 
 
 
-              {/* 헤더 우측 여백 유지 */}
+              {/* 헤더 우측: Supabase 실시간 연결 상태 배지 */}
 
-              <div></div>
+              <div className="flex items-center">
+
+                <span id="supabaseStatusBadge" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-800 text-gray-400 border border-gray-700">
+
+                  <span className="w-2 h-2 rounded-full bg-gray-500 animate-pulse" id="supabaseStatusDot"></span>
+
+                  <span id="supabaseStatusText">DB 연결 확인 중...</span>
+
+                </span>
+
+              </div>
 
             </div>
 
@@ -3265,104 +3311,77 @@
 
 
 
-      // 표준 카카오(Daum) 우편번호 도로명주소 검색 함수
+      // 도로명주소 검색 모달 열기/닫기
+      const closeJusoModal = () => {
+        const modal = document.getElementById('jusoModal');
+        const layer = document.getElementById('jusoLayer');
+        if (modal) modal.classList.add('hidden');
+        if (layer) layer.innerHTML = '';
+      };
+      window.closeJusoModal = closeJusoModal;
 
       const openAddressSearch = () => {
+        const modal = document.getElementById('jusoModal');
+        const layer = document.getElementById('jusoLayer');
+        if (!modal || !layer) return;
 
         if (typeof daum === 'undefined' || !daum.Postcode) {
-
           alert('주소 검색 서비스를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
-
           return;
-
         }
 
+        modal.classList.remove('hidden');
+        layer.innerHTML = ''; // 초기화
+
         new daum.Postcode({
-
           oncomplete: function(data) {
-
-            // 1. 도로명 주소 또는 지번 주소 선택
-
+            // 도로명 주소 또는 지번 주소 매핑
             var fullAddr = data.userSelectedType === 'R' ? data.roadAddress : data.jibunAddress;
-
             var extraAddr = '';
 
-
-
-            // 2. 법정동 및 건물명 참고항목 조합
-
             if (data.userSelectedType === 'R') {
-
               if (data.bname !== '' && /[동|로|가]$/g.test(data.bname)) {
-
                 extraAddr += data.bname;
-
               }
-
               if (data.buildingName !== '' && data.apartment === 'Y') {
-
                 extraAddr += (extraAddr !== '' ? ', ' + data.buildingName : data.buildingName);
-
               }
-
               if (extraAddr !== '') {
-
                 fullAddr += ' (' + extraAddr + ')';
-
               }
-
             }
 
+            const addrInput = document.getElementById('farmAddress') || document.getElementById('farmerAddress');
+            const detailInput = document.getElementById('farmAddressDetail') || document.getElementById('farmerDetailAddress');
+            const zipInput = document.getElementById('farmerZipcode') || document.getElementById('orderZipcode');
 
+            if (addrInput) addrInput.value = fullAddr;
+            if (zipInput) zipInput.value = data.zonecode;
+            if (detailInput) detailInput.value = ''; // 상세주소는 자동완성 없이 항상 빈 값 유지
 
-            // 3. React 상태 및 DOM 인풋 필드 동기화
-
+            // React 상태 동기화: 상세주소는 빈 문자열로 초기화하여 사용자가 직접 입력하도록 보장
             setProfileForm(prev => ({
-
               ...prev,
-
-              zonecode: data.zonecode,
-
-              address: fullAddr
-
+              address: fullAddr,
+              addressDetail: '',
+              zonecode: data.zonecode
             }));
 
+            closeJusoModal();
 
-
-            var zipEl = document.getElementById('farmerZipcode') || document.getElementById('orderZipcode');
-
-            var addrEl = document.getElementById('farmerAddress') || document.getElementById('orderAddress');
-
-            var detailEl = document.getElementById('farmerDetailAddress') || document.getElementById('orderDetailAddress');
-
-
-
-            if (zipEl) zipEl.value = data.zonecode;
-
-            if (addrEl) addrEl.value = fullAddr;
-
-
-
-            // 4. 상세주소로 커서 포커스 이동
-
-            if (detailEl) {
-
-              detailEl.focus();
-
+            if (detailInput) {
+              detailInput.value = '';
+              detailInput.focus();
             }
-
-          }
-
-        }).open();
-
+          },
+          width: '100%',
+          height: '100%'
+        }).embed(layer);
       };
 
-
-
-      const openJusoPopup = openAddressSearch;
-
+      const openFarmAddressSearch = openAddressSearch;
+      window.openFarmAddressSearch = openFarmAddressSearch;
       window.openAddressSearch = openAddressSearch;
-
       window.openJusoPopup = openAddressSearch;
 
 
@@ -4239,16 +4258,18 @@
         const repName = rawRepName.trim();
 
         if (currentSignupMode === 'STANDARD') {
-          const inputLoginId = (profileForm.loginId || '').trim();
+          const phoneInput = document.getElementById('signupPhoneId');
+          const inputLoginId = (profileForm.loginId || (phoneInput ? phoneInput.value : '')).trim();
           const inputPassword = (profileForm.password || '').trim();
           const inputPasswordConfirm = (profileForm.passwordConfirm || '').trim();
 
+          const cleanPhoneId = inputLoginId.replace(/[^0-9]/g, '');
           if (!inputLoginId) {
-            alert('로그인 아이디를 입력해주세요.');
+            alert('휴대폰 번호를 입력해주세요.');
             return;
           }
-          if (inputLoginId.length < 4) {
-            alert('로그인 아이디는 4자 이상 입력해주세요.');
+          if (cleanPhoneId.length < 10) {
+            alert('올바른 휴대폰 번호(010-0000-0000)를 입력해주세요.');
             return;
           }
           if (!inputPassword) {
@@ -4408,12 +4429,14 @@
         // farmAddress가 finalAddress를 바탕으로 완전 바인딩됨
         const newFarmCode = farmCode;
 
-        // 원격 DB farms 테이블에 실제로 존재하는 컬럼 기준 기본 페이로드
+        // 원격 DB farms 테이블에 실제로 존재하는 컬럼 기준 기본 페이로드 (신규 농가 기본 상태: pending / 심사대기 강제)
         const baseInsertRow = {
           farm_code: newFarmCode,
           farm_name: farmName,
           owner_name: farmerName,
           phone: formattedPhone || cleanPhone,
+          login_id: isKakao ? ('kakao_' + (profileForm.kakaoId || newFarmCode)) : (formattedPhone || cleanPhone),
+          username: isKakao ? ('kakao_' + (profileForm.kakaoId || newFarmCode)) : (formattedPhone || cleanPhone),
           status: 'pending',
           created_at: new Date().toISOString()
         };
@@ -4435,12 +4458,24 @@
           }])
           .select();
 
-        // Supabase DB 스키마에 farmer_name/address/join_type 컬럼이 미존재할 경우(PGRST204) 기본 스키마 컬럼으로 즉시 보정
+        // Supabase DB 스키마에 특정 확장 컬럼(login_id/username/farmer_name/join_type 등)이 미존재할 경우(PGRST204) 기본 필수 컬럼으로 재시도
         if (error && error.code === 'PGRST204') {
           console.warn('[Supabase Schema Adapt] 기본 스키마 컬럼으로 재시도:', error.message);
+          const fallbackRow = {
+            farm_code: newFarmCode,
+            farm_name: farmName,
+            owner_name: farmerName,
+            phone: formattedPhone || cleanPhone,
+            address: farmAddress,
+            status: 'pending',
+            created_at: new Date().toISOString()
+          };
+          if (isKakao) {
+            fallbackRow.kakao_id = String(profileForm.kakaoId || window.currentKakaoUser?.id || ('kakao_' + newFarmCode));
+          }
           const retry = await supabase
             .from('farms')
-            .insert([baseInsertRow])
+            .insert([fallbackRow])
             .select();
           data = retry.data;
           error = retry.error;
@@ -5120,16 +5155,29 @@
                   </div>
 
                   <p className="text-xs text-slate-400 leading-relaxed break-keep">
-
-                    빠르고 간편한 1초 <b className="text-emerald-400">카카오 간편가입</b>과<br />
-
-                    아이디/비밀번호로 등록하는 <b className="text-slate-300">일반 가입</b> 중 선택하세요.
-
+                    휴대폰/비밀번호로 등록하는 <b className="text-slate-300">일반 가입</b>과<br />
+                    빠르고 간편한 <b className="text-emerald-400">카카오 간편가입</b> 중 선택하세요.
                   </p>
 
 
 
                   <div className="space-y-3 pt-2">
+
+                    <button
+
+                      type="button"
+
+                      id="btnStandardSignupStart"
+
+                      onClick={handleSelectStandardSignup}
+
+                      className="w-full bg-farm-600 hover:bg-farm-700 text-white font-black py-3.5 rounded-xl text-xs flex items-center justify-center gap-2 shadow-md shadow-farm-600/20 transition-all cursor-pointer"
+
+                    >
+
+                      <span>📝 휴대폰 / 비밀번호 가입</span>
+
+                    </button>
 
                     <button
 
@@ -5153,23 +5201,7 @@
 
                     >
 
-                      <span>💬 카카오 1초 간편가입으로 시작</span>
-
-                    </button>
-
-                    <button
-
-                      type="button"
-
-                      id="btnStandardSignupStart"
-
-                      onClick={handleSelectStandardSignup}
-
-                      className="w-full bg-farm-600 hover:bg-farm-700 text-white font-black py-3.5 rounded-xl text-xs flex items-center justify-center gap-2 shadow-md shadow-farm-600/20 transition-all cursor-pointer"
-
-                    >
-
-                      <span>📝 일반 아이디/비밀번호로 가입하기 ➔</span>
+                      <span>💬 카카오 간편가입</span>
 
                     </button>
 
@@ -5195,7 +5227,7 @@
                   ) : (
                     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex items-center justify-between">
                       <span className="text-xs text-slate-300 font-bold flex items-center gap-2">
-                        <span>📝</span> 일반 아이디/비밀번호 가입 모드
+                        <span>📝</span> 휴대폰 / 아이디 가입
                       </span>
                       <button
                         type="button"
@@ -5207,36 +5239,49 @@
                     </div>
                   )}
 
-                  <form onSubmit={handleSaveFarmProfile} className="space-y-4 sm:space-y-5">
+                  <form onSubmit={handleSaveFarmProfile} autoComplete="off" data-form-type="other" className="space-y-4 sm:space-y-5">
                     {/* 일반 모드일 때만 표시되는 로그인 ID/PW 설정창 */}
                     {currentSignupMode === 'STANDARD' && (
                       <div className="bg-slate-900/90 border border-farm-500/30 rounded-2xl p-4 space-y-3">
                         <div className="flex items-center justify-between pb-2 border-b border-slate-800">
                           <span className="text-xs font-black text-emerald-400 flex items-center gap-1.5">
-                            <span>🔐</span> 로그인 계정 설정
+                            <span>🔐</span> 계정 정보 설정
                           </span>
-                          <span className="text-[10px] text-slate-400">가입 후 포털 로그인 시 사용됩니다</span>
+                          <span className="text-[10px] text-slate-400">휴대폰 번호가 로그인 아이디로 사용됩니다</span>
                         </div>
 
                         <div>
                           <div className="flex items-center justify-between mb-1">
                             <label className="block text-xs font-bold text-slate-300">
-                              로그인 아이디 <span className="text-rose-400">*</span>
+                              휴대폰 번호 <span className="text-rose-400">*</span>
                             </label>
-                            <button
-                              type="button"
-                              onClick={() => setProfileForm(prev => ({ ...prev, loginId: farmCode }))}
-                              className="text-[10px] text-emerald-400 hover:text-emerald-300 underline font-semibold cursor-pointer"
-                            >
-                              발급코드({farmCode})로 지정
-                            </button>
                           </div>
                           <input
-                            type="text"
+                            type="tel"
+                            id="signupPhoneId"
+                            name="signupPhoneId"
+                            maxLength="13"
                             required={currentSignupMode === 'STANDARD'}
                             value={profileForm.loginId || ''}
-                            onChange={(e) => setProfileForm({ ...profileForm, loginId: e.target.value.trim() })}
-                            placeholder={`영문 또는 영문+숫자 4자 이상 입력 (예: ${farmCode.toLowerCase()})`}
+                            onChange={(e) => {
+                              let val = e.target.value.replace(/[^0-9]/g, '');
+                              if (val.length > 11) val = val.substring(0, 11);
+                              let formatted = val;
+                              if (val.length >= 11) {
+                                formatted = val.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
+                              } else if (val.length >= 7) {
+                                formatted = val.replace(/(\d{3})(\d{3,4})(\d+)/, '$1-$2-$3');
+                              } else if (val.length >= 4) {
+                                formatted = val.replace(/(\d{3})(\d+)/, '$1-$2');
+                              }
+                              setProfileForm(prev => ({
+                                ...prev,
+                                loginId: formatted,
+                                phone: formatted,
+                                contact: val
+                              }));
+                            }}
+                            placeholder="010-0000-0000"
                             className="w-full p-2.5 text-xs bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-farm-500 focus:outline-none font-mono"
                           />
                         </div>
@@ -5294,7 +5339,7 @@
 
                     {/* [핵심 강조 1] 농장명 입력 필드 */}
                     <div>
-                      <label className="block text-xs sm:text-sm font-extrabold text-white mb-1.5 flex items-center gap-1.5">
+                      <label className="block text-xs font-semibold text-gray-300 mb-1.5 flex items-center gap-1.5">
                         <span>🏡</span> 농장명 <span className="text-emerald-400 font-bold">*</span>
                       </label>
                       <input
@@ -5302,15 +5347,15 @@
                         required
                         value={profileForm.farmName}
                         onChange={(e) => setProfileForm({ ...profileForm, farmName: e.target.value })}
-                        placeholder="예: 청송 꿀사과 농원"
-                        className="w-full p-3 sm:p-3.5 text-xs sm:text-sm bg-slate-900 border-2 border-emerald-500/70 hover:border-emerald-400 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/20 rounded-2xl text-white placeholder-slate-500 font-bold transition-all shadow-inner"
+                        placeholder="예: (시/군) 농장명"
+                        className="w-full py-2.5 px-3 text-xs bg-slate-900 border border-slate-700 hover:border-emerald-500/70 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20 rounded-xl text-white placeholder-slate-500 font-medium transition-all shadow-inner"
                       />
                     </div>
 
                     {/* 대표자 성명 & 연락처 (카카오 연동 시 readonly 회색 배경 표시) */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       <div>
-                        <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                        <label className="block text-xs font-semibold text-gray-300 mb-1.5">
                           대표자 성명 {currentSignupMode === 'STANDARD' && <span className="text-rose-400">*</span>}
                         </label>
                         <input
@@ -5321,15 +5366,15 @@
                           value={profileForm.repName || (currentSignupMode === 'KAKAO' ? '조국래' : '')}
                           onChange={(e) => setProfileForm({ ...profileForm, repName: e.target.value })}
                           placeholder="대표자 성명"
-                          className={`w-full p-3 text-xs sm:text-sm rounded-xl transition-all ${
+                          className={`w-full py-2.5 px-3 text-xs rounded-xl transition-all ${
                             currentSignupMode === 'KAKAO'
-                              ? 'bg-slate-900/60 border border-slate-800 text-slate-400 font-bold cursor-not-allowed select-none'
+                              ? 'bg-slate-900/60 border border-slate-800 text-slate-400 font-medium cursor-not-allowed select-none'
                               : 'bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:ring-2 focus:ring-farm-500 focus:outline-none'
                           }`}
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                        <label className="block text-xs font-semibold text-gray-300 mb-1.5">
                           연락처(휴대전화) {currentSignupMode === 'STANDARD' && <span className="text-rose-400">*</span>}
                         </label>
                         <input
@@ -5349,87 +5394,92 @@
                             if (val.length >= 11) formatted = val.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
                             else if (val.length >= 7) formatted = val.replace(/(\d{3})(\d{3,4})(\d+)/, '$1-$2-$3');
                             else if (val.length >= 4) formatted = val.replace(/(\d{3})(\d+)/, '$1-$2');
-                            setProfileForm({ ...profileForm, phone: formatted });
+                            setProfileForm(prev => ({
+                              ...prev,
+                              phone: formatted,
+                              loginId: prev.loginId || formatted
+                            }));
                           }}
                           placeholder="010-0000-0000"
-                          className={`w-full p-3 text-xs sm:text-sm rounded-xl font-mono transition-all ${
+                          className={`w-full py-2.5 px-3 text-xs rounded-xl font-mono transition-all ${
                             currentSignupMode === 'KAKAO'
-                              ? 'bg-slate-900/60 border border-slate-800 text-slate-400 font-bold cursor-not-allowed select-none'
+                              ? 'bg-slate-900/60 border border-slate-800 text-slate-400 font-medium cursor-not-allowed select-none'
                               : 'bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:ring-2 focus:ring-farm-500 focus:outline-none'
                           }`}
                         />
                       </div>
                     </div>
 
-                    {/* [핵심 강조 2] 농장/과수원 주소 입력 영역 */}
+                    {/* [핵심 강조 2] 농장 주소 입력 영역 (flex gap-2 배치 및 readonly 고정) */}
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between mb-0.5">
-                        <label className="block text-xs sm:text-sm font-extrabold text-white flex items-center gap-1.5">
-                          <span>📍</span> 농장/과수원 주소 <span className="text-emerald-400 font-bold">*</span>
-                        </label>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-semibold text-gray-300 flex items-center gap-1.5">
+                          <span>📍</span> 주소 입력 <span className="text-emerald-400 font-bold">*</span>
+                        </span>
                         {profileForm.address ? (
-                          <span className="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-500/40 font-bold px-2 py-0.5 rounded-full">
-                            ✓ 주소 선택됨
+                          <span className="text-[10px] text-emerald-400 font-medium">
+                            ✓ 선택완료
                           </span>
                         ) : null}
                       </div>
 
-                      <div className="flex gap-2">
+                      {/* 주소 입력 및 검색 버튼 묶음 */}
+                      <div className="flex items-center gap-2 w-full">
                         <input
-                          id="farmerZipcode"
-                          name="farmerZipcode"
                           type="text"
+                          id="farmAddress"
+                          name="address"
+                          required
                           readOnly={true}
-                          value={profileForm.zonecode || ''}
-                          placeholder="우편번호"
-                          className="w-28 sm:w-32 p-3 text-xs sm:text-sm bg-slate-900 border border-slate-700 rounded-xl text-white font-mono font-bold cursor-not-allowed opacity-90"
+                          autoComplete="off"
+                          value={profileForm.address || ''}
+                          onClick={openAddressSearch}
+                          placeholder="주소 검색으로 선택해주세요."
+                          className="flex-1 min-w-0 py-2 px-3 rounded-xl border border-gray-700 bg-gray-900/80 text-white text-xs focus:outline-none focus:border-emerald-500 truncate cursor-pointer shadow-inner font-medium"
                         />
                         <button
                           type="button"
                           onClick={openAddressSearch}
-                          className="flex-1 bg-gradient-to-r from-emerald-600 to-farm-600 hover:from-emerald-500 hover:to-farm-500 active:scale-98 text-white font-black text-xs sm:text-sm px-4 py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                          className="shrink-0 px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold whitespace-nowrap transition-colors shadow-sm flex items-center justify-center gap-1 cursor-pointer"
                         >
                           <span>🔍</span> 주소 검색
                         </button>
                       </div>
 
                       <input
-                        id="farmAddress"
-                        name="address"
-                        type="text"
-                        required
-                        readOnly={true}
-                        onClick={openAddressSearch}
-                        value={profileForm.address || ''}
-                        placeholder="주소 검색 버튼을 눌러 표준 주소를 선택하세요"
-                        className="w-full p-3 sm:p-3.5 text-xs sm:text-sm bg-slate-900 border-2 border-emerald-500/70 hover:border-emerald-400 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/20 rounded-2xl text-white placeholder-slate-400 font-bold transition-all cursor-pointer shadow-inner"
+                        id="farmerZipcode"
+                        name="farmerZipcode"
+                        type="hidden"
+                        value={profileForm.zonecode || ''}
                       />
 
                       <input
                         id="farmerDetailAddress"
                         name="farmerDetailAddress"
                         type="text"
+                        autoComplete="off"
+                        data-form-type="other"
                         value={profileForm.addressDetail || ''}
                         onChange={(e) => setProfileForm({ ...profileForm, addressDetail: e.target.value })}
-                        placeholder="상세주소 (예: 관리동, 선별장 등 선택사항)"
-                        className="w-full p-3 text-xs sm:text-sm bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-farm-500 focus:outline-none"
+                        placeholder="상세주소 (예: 동/호수, 선별장 등 선택사항)"
+                        className="w-full py-2.5 px-3 text-xs bg-gray-900/80 border border-gray-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                       />
                     </div>
 
                     {/* 하단 액션 버튼 */}
-                    <div className="flex gap-2.5 pt-3">
+                    <div className="flex gap-2 pt-3">
                       <button
                         type="button"
                         onClick={() => goToStep(1)}
-                        className="px-4 sm:px-5 py-3.5 rounded-xl text-xs sm:text-sm font-bold text-slate-400 bg-slate-900 hover:bg-slate-800 transition-all cursor-pointer"
+                        className="px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-400 bg-slate-900 hover:bg-slate-800 transition-all cursor-pointer h-[38px] sm:h-[40px] flex items-center justify-center"
                       >
                         ← 이전
                       </button>
                       <button
                         type="submit"
-                        className="flex-1 bg-gradient-to-r from-emerald-600 via-farm-600 to-teal-600 hover:from-emerald-500 hover:via-farm-500 hover:to-teal-500 active:scale-98 text-white font-black py-3.5 rounded-xl text-xs sm:text-sm transition-all shadow-lg shadow-emerald-900/30 flex items-center justify-center gap-2 cursor-pointer"
+                        className="flex-1 bg-gradient-to-r from-emerald-600 via-farm-600 to-teal-600 hover:from-emerald-500 hover:via-farm-500 hover:to-teal-500 active:scale-98 text-white text-xs font-semibold py-2.5 px-3 rounded-xl transition-all shadow-md shadow-emerald-900/20 flex items-center justify-center gap-1.5 cursor-pointer h-[38px] sm:h-[40px]"
                       >
-                        <span>인적 사항 저장 및 상품 등록(3단계)으로 ➔</span>
+                        <span>인적사항 저장 및 상품 등록(3단계)</span>
                       </button>
                     </div>
                   </form>
@@ -5747,87 +5797,38 @@
 
 
               {/* STEP 4: 등록 완료 모달/안내 */}
-
               {step === 'SUCCESS' && (
-
                 <div className="max-w-md mx-auto text-center space-y-4 py-6 bg-slate-950/80 p-8 rounded-3xl border border-farm-500/50">
-
                   <div className="w-16 h-16 bg-farm-900/80 text-emerald-400 border border-farm-500/40 rounded-full flex items-center justify-center mx-auto text-3xl font-black">
-
                     ✓
-
                   </div>
-
                   <h3 className="text-xl font-black text-white">농가 등록이 완료되었습니다!</h3>
-
                   <p className="text-xs text-slate-400 leading-relaxed">
-
-                    발급된 농가코드 <b className="text-emerald-400">[{farmCode}]</b>로 플랫폼에 등록되었습니다.<br />
-
-                    {currentSignupMode === 'KAKAO' ? (
-
-                      <span className="text-emerald-300 font-bold block mt-1">💬 카카오 간편로그인 연동이 완료되어 1클릭으로 바로 접속할 수 있습니다.</span>
-
-                    ) : (
-
-                      <span className="block mt-1">등록하신 아이디 <b className="text-white">[{profileForm.loginId || farmCode}]</b>로 로그인하실 수 있습니다.</span>
-
-                    )}
-
+                    발급된 농가코드 <b className="text-emerald-400">[{farmCode}]</b>로 플랫폼에 등록되었습니다.
                   </p>
 
-
-
-                  <div className="pt-2">
-
+                  <div className="mt-6 flex flex-col items-center">
+                    {/* 방금 가입한 농가 포털(farm.html)로 직행하는 단일 메인 버튼 */}
                     <button
-
                       type="button"
-
-                      id="btnKakaoDirectLogin"
-
-                      onClick={async () => {
-
-                        const targetMerchant = merchants.find(m => (m.merchantCode === farmCode || m.farmCode === farmCode)) || { merchantCode: farmCode, farmCode: farmCode, farmName: profileForm.farmName, repName: profileForm.repName, ownerName: profileForm.repName };
-
-                        await OOMS_AUTH.signInFarmer({
-
-                          query: farmCode,
-
-                          password: '1234',
-
-                          merchant: targetMerchant
-
-                        });
-
+                      onClick={() => {
+                        const targetMerchant = merchants.find(m => (m.merchantCode === farmCode || m.farmCode === farmCode)) || { merchantCode: farmCode, farmCode: farmCode, farmName: profileForm.farmName, repName: profileForm.repName, ownerName: profileForm.repName, status: 'PENDING', approvalStatus: 'PENDING', is_approved: false };
                         try {
-
                           localStorage.setItem('current_user_farm', JSON.stringify(targetMerchant));
-
                           sessionStorage.setItem('current_user_farm', JSON.stringify(targetMerchant));
-
                           localStorage.setItem('ooms_farm_code', farmCode);
-
                           sessionStorage.setItem('ooms_farm_code', farmCode);
-
                         } catch (e) {}
-
                         window.location.href = `farm.html?farm=${encodeURIComponent(farmCode)}&role=user`;
-
                       }}
-
-                      className="w-full bg-[#FEE500] hover:bg-[#FADA0A] text-[#191919] font-black py-3.5 rounded-xl text-xs shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-
+                      className="w-full py-4 px-6 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold rounded-2xl shadow-[0_10px_25px_rgba(16,185,129,0.35)] transition-all flex items-center justify-center gap-2 text-base cursor-pointer"
                     >
-
-                      <span>💬 카카오 간편로그인</span>
-
+                      <span>🚜</span>
+                      <span>내 농가 포털 열기</span>
+                      <span>↗</span>
                     </button>
-
                   </div>
-
                 </div>
-
               )}
 
 
@@ -6345,32 +6346,25 @@
   <script>
 
     function formatPhoneNumber(input) {
-
       if (!input) return;
-
       let val = input.value.replace(/[^0-9]/g, '');
-
       if (val.length > 11) val = val.slice(0, 11);
-
       if (val.length >= 11) {
-
         input.value = val.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
-
       } else if (val.length >= 7) {
-
         input.value = val.replace(/(\d{3})(\d{3,4})(\d+)/, '$1-$2-$3');
-
       } else if (val.length >= 4) {
-
         input.value = val.replace(/(\d{3})(\d+)/, '$1-$2');
-
       } else {
-
         input.value = val;
-
       }
-
     }
+
+    document.addEventListener('input', function(e) {
+      if (e.target && (e.target.id === 'signupPhoneId' || e.target.id === 'farmerContact' || e.target.classList.contains('auto-phone-format'))) {
+        formatPhoneNumber(e.target);
+      }
+    });
 
 
 
@@ -6634,6 +6628,53 @@
 
     });
 
+  </script>
+
+  <script>
+    async function checkSupabaseConnection() {
+      const badge = document.getElementById('supabaseStatusBadge');
+      const dot = document.getElementById('supabaseStatusDot');
+      const text = document.getElementById('supabaseStatusText');
+
+      if (!badge || !dot || !text) {
+        setTimeout(checkSupabaseConnection, 80);
+        return;
+      }
+
+      const supabase = window.supabaseClient || (window.supabase && typeof window.supabase.from === 'function' ? window.supabase : null);
+
+      if (!supabase) {
+        setOfflineStatus("클라이언트 미설정");
+        return;
+      }
+
+      try {
+        // 가벼운 SELECT 쿼리로 연결성 체크
+        const { error } = await supabase.from('farms').select('id', { count: 'exact', head: true });
+        
+        if (error) throw error;
+
+        // 연결 성공 시
+        dot.className = "w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]";
+        text.className = "text-emerald-400 font-bold";
+        text.textContent = "Supabase LIVE";
+        badge.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-emerald-950/60 border border-emerald-500/40";
+      } catch (err) {
+        console.error("Supabase 연결 실패:", err);
+        setOfflineStatus("DB 오프라인");
+      }
+
+      function setOfflineStatus(msg) {
+        if (!dot || !text || !badge) return;
+        dot.className = "w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]";
+        text.className = "text-rose-400 font-bold";
+        text.textContent = msg;
+        badge.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-rose-950/60 border border-rose-500/40";
+      }
+    }
+
+    window.checkSupabaseConnection = checkSupabaseConnection;
+    window.addEventListener('DOMContentLoaded', checkSupabaseConnection);
   </script>
 
 </body>
