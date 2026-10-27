@@ -8511,68 +8511,41 @@
       };
 
       // 카톡 공식 SDK 공유 헬퍼 (Kakao.Share.sendDefault 전용 - Web Share API 완전 배제)
-      const shareKakaoLink = () => {
-        // 카카오톡 공식 주문서 공유 풀 URL (Vercel 배포 주소 기준)
-        const currentFarmCode = new URLSearchParams(window.location.search).get('farm') || 
-                                currentMerchant?.merchantCode || 
-                                currentMerchant?.farmCode || 
-                                currentMerchant?.code || 
-                                'FARM-2026-224';
-
-        const fullOrderUrl = 'https://ooms-project-app.vercel.app/order.html?farm=' + encodeURIComponent(currentFarmCode);
-
-        const cardTitle = document.title.split('-')[0].trim() || 
-                          (currentMerchant?.farmName ? `[${currentMerchant.farmName}] 산지직송 간편 주문서` : '농가 산지직송 간편 주문서');
-
-        const fallbackCopy = () => {
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(fullOrderUrl).then(() => {
-              showToast('주문서 링크가 복사되었습니다! 카카오톡 대화창에 붙여넣기(Ctrl+V) 하세요.');
-            }).catch(() => {
-              prompt('아래 주문서 링크를 복사하여 카카오톡 대화창에 붙여넣기(Ctrl+V) 하세요:', fullOrderUrl);
-            });
-          } else {
-            prompt('아래 주문서 링크를 복사하여 카카오톡에 붙여넣기(Ctrl+V) 하세요:', fullOrderUrl);
-          }
-        };
-
-        try {
-          if (window.Kakao) {
-            if (!window.Kakao.isInitialized()) {
-              window.Kakao.init('dc866b784e9d7a179baebfe4c322c4cd');
-            }
-            if (window.Kakao.isInitialized() && window.Kakao.Share && typeof window.Kakao.Share.sendDefault === 'function') {
-              window.Kakao.Share.sendDefault({
-                objectType: 'feed',
-                content: {
-                  title: cardTitle,
-                  description: '신선한 농산물을 산지에서 직접 받아보세요. 아래 버튼을 눌러 바로 주문하실 수 있습니다.',
-                  imageUrl: 'https://images.unsplash.com/photo-1546548970-71785318a17b?w=600',
-                  link: {
-                    mobileWebUrl: fullOrderUrl,
-                    webUrl: fullOrderUrl
-                  }
-                },
-                buttons: [
-                  {
-                    title: '주문서 작성하기',
-                    link: {
-                      mobileWebUrl: fullOrderUrl,
-                      webUrl: fullOrderUrl
-                    }
-                  }
-                ]
-              });
-              return;
-            }
-          }
-          // Kakao SDK 미초기화 또는 함수 미지원 시 fallback 클립보드 복사
-          fallbackCopy();
-        } catch (err) {
-          console.warn('[Kakao.Share error, fallback to clipboard]:', err);
-          fallbackCopy();
+      function shareKakaoLink() {
+        if (!window.Kakao || !Kakao.isInitialized()) {
+          alert('카카오 SDK 초기화 오류');
+          return;
         }
-      };
+
+        // 1. 현재 농가 코드 파싱 (없으면 기본 태안 사과농장)
+        const urlParams = new URLSearchParams(window.location.search);
+        const farmCode = urlParams.get('farm') || 'FARM-2026-224';
+
+        // 2. 모바일 카카오톡 앱이 인식하는 순수 절대 URL 문자열 고정
+        const targetUrl = 'https://ooms-project-app.vercel.app/order.html?farm=' + encodeURIComponent(farmCode);
+
+        Kakao.Share.sendDefault({
+          objectType: 'feed',
+          content: {
+            title: '🍎 태안 사과농장 산지직송 주문서',
+            description: '농가에서 갓 수확한 신선한 농산물을 산지직송으로 주문하세요.',
+            imageUrl: 'https://images.unsplash.com/photo-1546548970-71785318a17b?w=600',
+            link: {
+              mobileWebUrl: targetUrl,
+              webUrl: targetUrl
+            }
+          },
+          buttons: [
+            {
+              title: '주문서 작성하기',
+              link: {
+                mobileWebUrl: targetUrl,
+                webUrl: targetUrl
+              }
+            }
+          ]
+        });
+      }
 
       try {
         window.copyOrderLink = copyOrderLink;
