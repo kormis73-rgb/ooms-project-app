@@ -8333,36 +8333,23 @@
 
 
 
-      const getFarmOrderUrl = (refCode = currentRefCode) => {
-        const curCode = currentMerchant?.merchantCode || currentMerchant?.code || currentMerchant?.farmCode || 'FARM-2026-224';
+      const getFarmOrderUrl = () => {
+        const curCode = new URLSearchParams(window.location.search).get('farm') || 
+                        currentMerchant?.merchantCode || 
+                        currentMerchant?.code || 
+                        currentMerchant?.farmCode || 
+                        'FARM-2026-224';
 
-        // 1. localhost 또는 127.0.0.1, file 프로토콜 환경인 경우 스마트폰 카카오톡 접속용 Vercel 도메인 자동 전환
-        const isLocalhost = window.location.hostname === 'localhost' || 
-                            window.location.hostname === '127.0.0.1' || 
-                            window.location.hostname === '' || 
-                            window.location.protocol === 'file:';
+        const isLocal = window.location.hostname === 'localhost' || 
+                        window.location.hostname === '127.0.0.1' || 
+                        !window.location.origin || 
+                        !window.location.origin.startsWith('http');
 
-        // 실제 배포된 Vercel 도메인 주소 (window.OOMS_PRODUCTION_BASE_URL 또는 localStorage override 가능)
-        const PRODUCTION_BASE_URL = window.OOMS_PRODUCTION_BASE_URL || 
-                                    localStorage.getItem('ooms_production_url') || 
-                                    'https://ooms-project-app.vercel.app';
+        const currentOrigin = isLocal 
+          ? 'https://ooms-project-app.vercel.app' 
+          : window.location.origin.replace(/\/+$/, '');
 
-        const baseUrl = isLocalhost ? PRODUCTION_BASE_URL : window.location.origin;
-        const cleanBase = baseUrl.replace(/\/+$/, '');
-
-        let basePath = window.location.pathname || '';
-        if (isLocalhost) {
-          basePath = '/order.html';
-        } else {
-          if (basePath.endsWith('farm.html')) {
-            basePath = basePath.replace('farm.html', 'order.html');
-          } else if (!basePath.endsWith('order.html')) {
-            basePath = basePath.replace(/\/+$/, '') + '/order.html';
-          }
-        }
-        if (!basePath.startsWith('/')) basePath = '/' + basePath;
-
-        return `${cleanBase}${basePath}?farm=${encodeURIComponent(curCode)}${refCode ? `&ref=${encodeURIComponent(refCode)}` : ''}`;
+        return `${currentOrigin}/order.html?farm=${encodeURIComponent(curCode)}`;
       };
 
       // 원터치 링크 복사 헬퍼 (복사 후 다음 고객을 위해 새 ref 자동 발급)
@@ -8525,37 +8512,37 @@
 
       // 카톡 공식 SDK 공유 헬퍼 (Kakao.Share.sendDefault 전용 - Web Share API 완전 배제)
       const shareKakaoLink = () => {
-        const curCode = currentMerchant?.merchantCode || currentMerchant?.code || currentMerchant?.farmCode || 'FARM-2026-224';
-        const farmName = currentMerchant?.farmName || '산지직송 농장';
-        const nextRef = generateNewRefCode();
+        // 현재 도메인 기준 풀 URL 생성 (모바일 인앱 브라우저 호환 절대 경로)
+        const isLocal = window.location.hostname === 'localhost' || 
+                        window.location.hostname === '127.0.0.1' || 
+                        !window.location.origin || 
+                        !window.location.origin.startsWith('http');
 
-        // 1. 도메인 분기: localhost 또는 file 프로토콜 환경인 경우 실제 배포된 Vercel 프로덕션 URL을 우선 적용
-        const isLocalhost = window.location.hostname === 'localhost' || 
-                            window.location.hostname === '127.0.0.1' || 
-                            window.location.hostname === '' || 
-                            window.location.protocol === 'file:';
+        const currentOrigin = isLocal 
+          ? 'https://ooms-project-app.vercel.app' 
+          : window.location.origin.replace(/\/+$/, '');
 
-        // 실제 배포된 Vercel 도메인 주소를 기본 Base URL로 지정 (또는 window.location.origin 활용)
-        const PRODUCTION_BASE_URL = window.OOMS_PRODUCTION_BASE_URL || 
-                                    localStorage.getItem('ooms_production_url') || 
-                                    'https://ooms-project-app.vercel.app';
+        const currentFarmCode = new URLSearchParams(window.location.search).get('farm') || 
+                                currentMerchant?.merchantCode || 
+                                currentMerchant?.farmCode || 
+                                currentMerchant?.code || 
+                                'FARM-2026-224';
 
-        const baseUrl = isLocalhost ? PRODUCTION_BASE_URL : window.location.origin;
-        const cleanBase = baseUrl.replace(/\/+$/, '');
-        const orderUrl = `${cleanBase}/order.html?farm=${encodeURIComponent(curCode)}${currentRefCode ? `&ref=${encodeURIComponent(currentRefCode)}` : ''}`;
+        // 반드시 https:// 를 포함한 절대 경로여야 카카오 인앱 브라우저가 정상 오픈됨
+        const fullOrderUrl = `${currentOrigin}/order.html?farm=${encodeURIComponent(currentFarmCode)}`;
+
+        const cardTitle = document.title.split('-')[0].trim() || 
+                          (currentMerchant?.farmName ? `[${currentMerchant.farmName}] 산지직송 간편 주문서` : '농가 산지직송 간편 주문서');
 
         const fallbackCopy = () => {
           if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(orderUrl).then(() => {
+            navigator.clipboard.writeText(fullOrderUrl).then(() => {
               showToast('주문서 링크가 복사되었습니다! 카카오톡 대화창에 붙여넣기(Ctrl+V) 하세요.');
-              setCurrentRefCode(nextRef);
             }).catch(() => {
-              prompt('아래 주문서 링크를 복사하여 카카오톡 대화창에 붙여넣기(Ctrl+V) 하세요:', orderUrl);
-              setCurrentRefCode(nextRef);
+              prompt('아래 주문서 링크를 복사하여 카카오톡 대화창에 붙여넣기(Ctrl+V) 하세요:', fullOrderUrl);
             });
           } else {
-            prompt('아래 주문서 링크를 복사하여 카카오톡에 붙여넣기(Ctrl+V) 하세요:', orderUrl);
-            setCurrentRefCode(nextRef);
+            prompt('아래 주문서 링크를 복사하여 카카오톡에 붙여넣기(Ctrl+V) 하세요:', fullOrderUrl);
           }
         };
 
@@ -8568,25 +8555,24 @@
               window.Kakao.Share.sendDefault({
                 objectType: 'feed',
                 content: {
-                  title: `[${farmName}] 햇과일 산지직송 간편 주문서`,
-                  description: '신선한 농산물을 산지에서 직접 받아보세요. 링크를 눌러 비회원으로 간편하게 주문하실 수 있습니다.',
-                  imageUrl: 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?auto=format&fit=crop&w=800&q=80',
+                  title: cardTitle,
+                  description: '신선한 농산물을 산지에서 직접 받아보세요. 아래 버튼을 눌러 바로 주문하실 수 있습니다.',
+                  imageUrl: 'https://images.unsplash.com/photo-1546548970-71785318a17b?w=600',
                   link: {
-                    mobileWebUrl: orderUrl,
-                    webUrl: orderUrl
+                    mobileWebUrl: fullOrderUrl,
+                    webUrl: fullOrderUrl
                   }
                 },
                 buttons: [
                   {
                     title: '주문서 작성하기',
                     link: {
-                      mobileWebUrl: orderUrl,
-                      webUrl: orderUrl
+                      mobileWebUrl: fullOrderUrl,
+                      webUrl: fullOrderUrl
                     }
                   }
                 ]
               });
-              setCurrentRefCode(nextRef);
               return;
             }
           }
