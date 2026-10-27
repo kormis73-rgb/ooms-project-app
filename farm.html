@@ -8664,18 +8664,14 @@
       // 카톡 공식 SDK 공유 헬퍼 (Kakao.Share.sendDefault 전용 - Web Share API 완전 배제)
       function shareKakaoLink() {
         if (!window.Kakao || !Kakao.isInitialized()) {
-          alert('카카오 SDK가 초기화되지 않았습니다.');
+          alert('카카오 SDK가 준비되지 않았습니다.');
           return;
         }
 
-        // 1. 현재 농가 코드 파싱
         const urlParams = new URLSearchParams(window.location.search);
         const farmCode = urlParams.get('farm') || 'FARM-2026-224';
-        
-        // 2. 주문서 배포 절대 경로 고정
         const targetUrl = 'https://ooms-project-app.vercel.app/order.html?farm=' + encodeURIComponent(farmCode);
 
-        // 3. 카카오 공유 실행
         Kakao.Share.sendDefault({
           objectType: 'feed',
           content: {
