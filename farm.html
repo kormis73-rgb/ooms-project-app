@@ -8659,10 +8659,7 @@
 
       // 카카오톡 공식 SDK 공유 (Kakao.Share.sendDefault)
       function shareKakaoLink() {
-        if (!window.Kakao) {
-          alert('카카오 SDK 로드 중입니다. 잠시 후 다시 시도해 주세요.');
-          return;
-        }
+        if (!window.Kakao) return;
         if (!Kakao.isInitialized()) {
           Kakao.init('dc866b784e9d7a179baebfe4c322c4cd');
         }
@@ -8671,12 +8668,25 @@
         const farmCode = urlParams.get('farm') || 'FARM-2026-400';
         const targetUrl = 'https://ooms-project-app.vercel.app/order.html?farm=' + encodeURIComponent(farmCode);
 
+        // 농장명 가져오기
+        let farmName = '산지직송 농가';
+        const farmTitleEl = document.querySelector('h2, .farm-title, title');
+        if (farmTitleEl && farmTitleEl.innerText) {
+          farmName = farmTitleEl.innerText.replace(/농가 모바일|\(OOMS\)|-|← 홈으로 이동/g, '').trim() || '산지직송 농가';
+        }
+
+        // 고급 과일 선물박스 감성의 단정한 일러스트 배너 (800x520 카카오 최적 비율)
+        const giftIllustrationUrl = 'https://images.unsplash.com/photo-1543083477-4f785aeafaa9?w=800&h=520&fit=crop&q=85';
+
         Kakao.Share.sendDefault({
           objectType: 'feed',
           content: {
-            title: '🍎 태안 사과농장 산지직송 주문서',
-            description: '농가에서 갓 수확한 신선한 사과를 산지직송으로 주문하세요.',
-            imageUrl: 'https://images.unsplash.com/photo-1546548970-71785318a17b?w=600',
+            title: '🎁 [' + farmName + '] 산지직송 직거래 주문서',
+            // PC/모바일에서 말줄임표 없이 100% 온전히 출력되는 28자 규격
+            description: '농가에서 정성껏 포장해 직배송합니다.\n터치 후 주문서를 작성해 주세요.',
+            imageUrl: giftIllustrationUrl,
+            imageWidth: 800,
+            imageHeight: 520,
             link: {
               mobileWebUrl: targetUrl,
               webUrl: targetUrl
@@ -8684,7 +8694,7 @@
           },
           buttons: [
             {
-              title: '주문서 작성하기',
+              title: '✏️ 주문서 작성하기 (터치)',
               link: {
                 mobileWebUrl: targetUrl,
                 webUrl: targetUrl
