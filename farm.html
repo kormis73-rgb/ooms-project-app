@@ -8657,10 +8657,10 @@
         }
       };
 
-      // 카톡 공식 SDK 공유 헬퍼 (Kakao.Share.sendDefault 전용 - Web Share API 완전 배제)
+      // 카카오톡 공식 SDK 공유 (Kakao.Share.sendDefault)
       function shareKakaoLink() {
         if (!window.Kakao) {
-          alert('카카오 SDK를 불러오지 못했습니다.');
+          alert('카카오 SDK 로드 중입니다. 잠시 후 다시 시도해 주세요.');
           return;
         }
         if (!Kakao.isInitialized()) {
@@ -8668,7 +8668,7 @@
         }
 
         const urlParams = new URLSearchParams(window.location.search);
-        const farmCode = urlParams.get('farm') || 'FARM-2026-224';
+        const farmCode = urlParams.get('farm') || 'FARM-2026-400';
         const targetUrl = 'https://ooms-project-app.vercel.app/order.html?farm=' + encodeURIComponent(farmCode);
 
         Kakao.Share.sendDefault({
@@ -8684,7 +8684,7 @@
           },
           buttons: [
             {
-              title: '👉 주문서 바로 열기',
+              title: '주문서 작성하기',
               link: {
                 mobileWebUrl: targetUrl,
                 webUrl: targetUrl
@@ -8693,8 +8693,6 @@
           ]
         });
       }
-
-
 
       try {
         window.copyOrderLink = copyOrderLink;
